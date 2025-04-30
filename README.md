@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Stallion
 
 A Web3 platform for connecting talent with Stellar blockchain projects, powered by Soroban smart contracts.
@@ -162,3 +163,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Next.js](https://nextjs.org)
 - [TailwindCSS](https://tailwindcss.com)
 - [Freighter Wallet](https://www.freighter.app) 
+=======
+# stalliona
+>>>>>>> f58443301d57b923f145f3e3944289cd9593aaab
