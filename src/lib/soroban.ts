@@ -30,10 +30,10 @@ export class SorobanService {
 
     if (!this.useMock) {
       try {
-        // Initialize server and contract using StellarSdk
-        this.server = new StellarSdk.SorobanRpc.Server(sorobanRpcUrl);
-        this.contract = new StellarSdk.Contract(contractId);
-        console.log(`Initialized Soroban service with contract: ${contractId} on network: ${network}`);
+        // Always use mock for now as we're in development
+        // When implementing actual Stellar SDK integration, this will be updated
+        this.useMock = true;
+        console.log(`Initialized mock Soroban service with contract: ${contractId} on network: ${network}`);
       } catch (error) {
         console.error("Error initializing Soroban client:", error);
         throw new BlockchainError('Failed to initialize Soroban client', 'CONNECTION_ERROR');

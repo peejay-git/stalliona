@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import Layout from '@/components/Layout';
+import StellarSdk from 'stellar-sdk';
 
 export default function Home() {
   return (
