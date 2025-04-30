@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900 antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-stellar-blue to-stellar-purple text-white font-medium py-2 px-4 rounded-lg hover:opacity-90 transition-opacity;
+  }
+  
+  .btn-secondary {
+    @apply bg-white border border-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-50 transition-colors;
+  }
+  
+  .card {
+    @apply bg-white border border-gray-200 rounded-xl shadow-sm p-6;
+  }
+
+  .input {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-stellar-blue;
+  }
+}
+
+.gradient-text {
+  @apply text-transparent bg-clip-text bg-gradient-to-r from-stellar-blue to-stellar-purple;
+}
