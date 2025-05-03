@@ -2,15 +2,22 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useWallet } from '@/hooks/useWallet';
+import { IoWalletOutline } from "react-icons/io5";
+import RegisterModal from './RegisterModal';
+import LoginModal from './LoginModal';
+import ChooseRoleModal from './ChooseRoleModal';
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
   const { isConnected, publicKey, connect, disconnect } = useWallet();
-  
+  const [showRegister, setShowRegister] = useState(false);
+  const [isChooseRoleOpen, setChooseRoleOpen] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
+  const router = useRouter();
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
@@ -23,36 +30,59 @@ const Header = () => {
   ];
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <header className=" relative bg-gradient-to-r from-stellar-blue to-stellar-navy  sticky top-0 z-50">
+      <LoginModal
+        isOpen={showLogin}
+        onClose={() => setShowLogin(false)}
+        onSwitchToRegister={() => {
+          setShowLogin(false);
+          setChooseRoleOpen(true);
+        }}
+      />
+      <RegisterModal
+        isOpen={showRegister}
+        onClose={() => setShowRegister(false)}
+      />
+      <ChooseRoleModal
+        isOpen={isChooseRoleOpen}
+        onClose={() => setChooseRoleOpen(false)}
+        onChooseRole={(role) => {
+          setChooseRoleOpen(false);
+          if (role === 'talent') {
+            setShowRegister(true); // Open RegisterModal
+          } else {
+            router.push('/register/sponsor'); // Redirect
+          }
+        }}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex justify-between items-center py-4 md:py-6">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
               <div className="flex items-center space-x-2">
-                <Image 
-                  src="/images/unicorn-logo.svg" 
-                  alt="Stallion Logo" 
-                  width={32} 
+                <Image
+                  src="/images/unicorn-logo.svg"
+                  alt="Stallion Logo"
+                  width={32}
                   height={32}
                   className="rounded-full"
                 />
-                <span className="text-xl font-bold gradient-text">Stallion</span>
+                <span className="text-xl font-bold text-white">Stallion</span>
               </div>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-8 backdrop-blur-xl shadow-md p-4 rounded-2xl transition-all duration-300">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
-                className={`font-medium transition-colors ${
-                  pathname === link.href
-                    ? 'text-stellar-blue'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`font-medium transition-colors p-3 rounded-[10px] ${pathname === link.href
+                  ? 'text-white backdrop-blur-xl bg-white/10'
+                  : 'text-white hover:bg-white/10 hover:backdrop-blur-xl hover:text-white '
+                  }`}
               >
                 {link.name}
               </Link>
@@ -61,6 +91,15 @@ const Header = () => {
 
           {/* Wallet Connect Button (Desktop) */}
           <div className="hidden md:flex items-center space-x-4">
+            {/* <Link
+              href="/register"> */}
+            <button
+              onClick={() => setShowLogin(true)}
+              className="btn-primary py-1.5 px-4 flex items-center gap-2"
+            >
+              Login
+            </button>
+            {/* </Link> */}
             {isConnected ? (
               <div className="flex items-center space-x-3">
                 <span className="text-sm text-gray-600 truncate max-w-[120px]">
@@ -76,11 +115,13 @@ const Header = () => {
             ) : (
               <button
                 onClick={connect}
-                className="btn-primary py-1.5 px-4"
+                className="btn-primary py-1.5 px-4 flex items-center gap-2"
               >
+                <IoWalletOutline className='text-[20px]' />
                 Connect Wallet
               </button>
             )}
+
           </div>
 
           {/* Mobile menu button */}
@@ -139,17 +180,23 @@ const Header = () => {
               <Link
                 key={link.name}
                 href={link.href}
-                className={`block py-2 font-medium ${
-                  pathname === link.href
-                    ? 'text-stellar-blue'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`block py-2 font-medium ${pathname === link.href
+                  ? 'text-stellar-blue'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
                 onClick={() => setIsMenuOpen(false)}
               >
                 {link.name}
               </Link>
             ))}
             <div className="pt-4 pb-3 border-t border-gray-200">
+
+              <button
+                onClick={() => setShowLogin(true)}
+                className="btn-primary py-1.5 px-4 w-full mb-2"
+              >
+                Login
+              </button>
               {isConnected ? (
                 <div className="flex flex-col space-y-3">
                   <span className="text-sm text-gray-600">
@@ -171,8 +218,9 @@ const Header = () => {
                     connect();
                     setIsMenuOpen(false);
                   }}
-                  className="btn-primary py-1.5 w-full"
+                  className="btn-primary py-1.5 w-full flex items-center justify-center gap-2"
                 >
+                  <IoWalletOutline className='text-[20px]' />
                   Connect Wallet
                 </button>
               )}
