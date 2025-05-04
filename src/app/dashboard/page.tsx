@@ -1,18 +1,37 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@/hooks/useWallet';
 import { mockBounties } from '@/utils/mock-data';
 import { BountyStatus } from '@/types/bounty';
+import { useUserStore } from '@/lib/stores/useUserStore';
+import { useProtectedRoute } from '@/hooks/useProtectedRoute';
+import { getAllBounties } from '@/lib/bounties';
 
 export default function DashboardPage() {
+  useProtectedRoute();
   const { isConnected, publicKey } = useWallet();
   const [activeTab, setActiveTab] = useState<'created' | 'submissions'>('created');
 
+  const user = useUserStore((state) => state.user);
+  const fetchUser = useUserStore((state) => state.fetchUserFromFirestore);
+
+  const [bounties, setBounties] = useState<any[]>([]);
+
+  useEffect(() => {
+    getAllBounties().then(setBounties);
+  }, []);
+
+  console.log('Bounties:', bounties);
+  useEffect(() => {
+    if (!user) {
+      fetchUser();
+    }
+  }, [user, fetchUser]);
   // Filter bounties to simulate user's created bounties (in a real app, this would fetch from contract)
   const userCreatedBounties = mockBounties.filter((_, index) => index % 2 === 0);
-  
+
   // Mock user submissions (in a real app, this would come from the contract)
   const userSubmissions = [
     {
@@ -52,7 +71,8 @@ export default function DashboardPage() {
       <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
           <h1 className="text-3xl font-bold mb-8">Dashboard</h1>
-          
+          <h1 className="text-2xl font-semibold">Welcome {user?.username || '...'}</h1>
+
           <div className="bg-white border border-gray-200 rounded-xl p-8 text-center">
             <p className="text-gray-600 mb-6">
               Connect your Stellar wallet to view your dashboard.
@@ -67,7 +87,8 @@ export default function DashboardPage() {
   return (
     <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Your Dashboard</h1>
+        {/* <h1 className="text-3xl font-bold mb-8">Your Dashboard</h1> */}
+        <h1 className="text-2xl font-semibold">Welcome {user?.firstName || '...'}</h1>
 
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-8">
           <div className="p-6 border-b border-gray-200">
@@ -108,21 +129,19 @@ export default function DashboardPage() {
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="flex border-b border-gray-200">
             <button
-              className={`px-6 py-4 font-medium text-sm focus:outline-none ${
-                activeTab === 'created'
-                  ? 'text-stellar-blue border-b-2 border-stellar-blue'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`px-6 py-4 font-medium text-sm focus:outline-none ${activeTab === 'created'
+                ? 'text-stellar-blue border-b-2 border-stellar-blue'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
               onClick={() => setActiveTab('created')}
             >
               Your Bounties
             </button>
             <button
-              className={`px-6 py-4 font-medium text-sm focus:outline-none ${
-                activeTab === 'submissions'
-                  ? 'text-stellar-blue border-b-2 border-stellar-blue'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+              className={`px-6 py-4 font-medium text-sm focus:outline-none ${activeTab === 'submissions'
+                ? 'text-stellar-blue border-b-2 border-stellar-blue'
+                : 'text-gray-500 hover:text-gray-700'
+                }`}
               onClick={() => setActiveTab('submissions')}
             >
               Your Submissions
@@ -133,7 +152,7 @@ export default function DashboardPage() {
             {activeTab === 'created' && (
               <div>
                 <h3 className="text-lg font-semibold mb-4">Bounties You've Created</h3>
-                
+
                 {userCreatedBounties.length === 0 ? (
                   <p className="text-gray-500">You haven't created any bounties yet.</p>
                 ) : (
@@ -164,15 +183,14 @@ export default function DashboardPage() {
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  bounty.status === BountyStatus.OPEN
-                                    ? 'bg-green-100 text-green-800'
-                                    : bounty.status === BountyStatus.IN_PROGRESS
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bounty.status === BountyStatus.OPEN
+                                  ? 'bg-green-100 text-green-800'
+                                  : bounty.status === BountyStatus.IN_PROGRESS
                                     ? 'bg-blue-100 text-blue-800'
                                     : bounty.status === BountyStatus.COMPLETED
-                                    ? 'bg-gray-100 text-gray-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}
+                                      ? 'bg-gray-100 text-gray-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}
                               >
                                 {bounty.status}
                               </span>
@@ -203,7 +221,7 @@ export default function DashboardPage() {
             {activeTab === 'submissions' && (
               <div>
                 <h3 className="text-lg font-semibold mb-4">Your Submissions</h3>
-                
+
                 {userSubmissions.length === 0 ? (
                   <p className="text-gray-500">You haven't submitted any work yet.</p>
                 ) : (
@@ -231,13 +249,12 @@ export default function DashboardPage() {
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                  submission.status === 'PENDING'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : submission.status === 'ACCEPTED'
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${submission.status === 'PENDING'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : submission.status === 'ACCEPTED'
                                     ? 'bg-green-100 text-green-800'
                                     : 'bg-red-100 text-red-800'
-                                }`}
+                                  }`}
                               >
                                 {submission.status}
                               </span>

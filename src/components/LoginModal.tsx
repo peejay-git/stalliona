@@ -7,6 +7,8 @@ import { IoClose } from 'react-icons/io5';
 import { loginUser } from '@/lib/authService';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { useUserStore } from '@/lib/stores/useUserStore';
+import toast from 'react-hot-toast';
 
 type Props = {
     isOpen: boolean;
@@ -50,7 +52,6 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
         const passwordError = validateField('password', formData.password);
 
         setFieldErrors({ email: emailError, password: passwordError });
-
         if (emailError || passwordError) return;
 
         setIsSubmitting(true);
@@ -61,26 +62,47 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
 
             const docRef = doc(db, 'users', uid);
             const userSnap = await getDoc(docRef);
-            const userData = userSnap.data();
 
-            if (!userSnap.exists() || !userData?.role) {
-                throw new Error('No role found for this user.');
+            if (!userSnap.exists()) {
+                throw new Error('User profile not found.');
             }
 
-            const role = userData.role;
+            const userData = userSnap.data();
+
+            if (!userData?.role || !userData?.profileData) {
+                throw new Error('Incomplete user profile.');
+            }
+
+            const userProfile = {
+                uid,
+                role: userData.role,
+                ...userData.profileData,
+            };
+
+            // 1. Store in Zustand
+            useUserStore.getState().setUser(userProfile);
+
+            // 2. Store in localStorage
+            localStorage.setItem('user', JSON.stringify(userProfile));
+
+            toast.success('Login successful!');
             onClose();
 
-            if (role === 'sponsor') router.push('/dashboard/sponsor');
-            else if (role === 'talent') router.push('/dashboard/talent');
-            else router.push('/dashboard');
-        } catch (err) {
+            // 3. Redirect by role
+            if (userData.role === 'sponsor') {
+                router.push('/dashboard/sponsor');
+            } else if (userData.role === 'talent') {
+                router.push('/dashboard');
+            } else {
+                router.push('/dashboard');
+            }
+        } catch (err: any) {
             console.error(err);
-            setFormError('Login failed. Please check your credentials.');
+            toast.error(err.message || 'Login failed. Please check your credentials.');
         } finally {
             setIsSubmitting(false);
         }
     };
-
     return (
         <div
             className={clsx(

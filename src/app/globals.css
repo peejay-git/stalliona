@@ -25,8 +25,8 @@
     @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-stellar-blue focus:border-stellar-blue;
   }
 
-  .btn-ordnary {
-    @apply bg-gradient-to-r from-stellar-blue to-stellar-navy text-white font-medium py-2 px-4 rounded-lg hover:opacity-90 transition-opacity;
+  .btn-ordinary {
+    @apply backdrop-blur-xl bg-white/10 text-white font-medium py-2 px-4 rounded-lg hover:opacity-90 transition-opacity;
   }
 }
 
