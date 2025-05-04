@@ -30,7 +30,7 @@ const Header = () => {
   ];
 
   return (
-    <header className=" relative bg-gradient-to-r from-stellar-blue to-stellar-navy  sticky top-0 z-50">
+    <header className=" relative bg-gradient-to-r from-[#070708] to-[#070708]  sticky top-0 z-50">
       <LoginModal
         isOpen={showLogin}
         onClose={() => setShowLogin(false)}
@@ -68,7 +68,7 @@ const Header = () => {
                   height={32}
                   className="rounded-full"
                 />
-                <span className="text-xl font-bold text-white">Stallion</span>
+                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Stallion</span>
               </div>
             </Link>
           </div>
@@ -95,7 +95,7 @@ const Header = () => {
               href="/register"> */}
             <button
               onClick={() => setShowLogin(true)}
-              className="btn-primary py-1.5 px-4 flex items-center gap-2"
+              className="btn-secondary  py-1.5 px-4 flex items-center gap-2"
             >
               Login
             </button>
@@ -115,7 +115,7 @@ const Header = () => {
             ) : (
               <button
                 onClick={connect}
-                className="btn-primary py-1.5 px-4 flex items-center gap-2"
+                className="btn-ordinary py-1.5 px-4 flex items-center gap-2"
               >
                 <IoWalletOutline className='text-[20px]' />
                 Connect Wallet

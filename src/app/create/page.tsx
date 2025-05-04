@@ -4,11 +4,14 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BountyCategory } from '@/types/bounty';
 import { useWallet } from '@/hooks/useWallet';
+import toast from 'react-hot-toast';
+import { useUserStore } from '@/lib/stores/useUserStore';
+import { saveBounty } from '@/lib/bounties';
 
 export default function CreateBountyPage() {
   const router = useRouter();
   const { isConnected, publicKey } = useWallet();
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -60,33 +63,33 @@ export default function CreateBountyPage() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate form data
     if (!formData.title.trim()) {
       setError('Title is required');
       return;
     }
-    
+
     if (!formData.description.trim()) {
       setError('Description is required');
       return;
     }
-    
+
     if (!formData.rewardAmount || parseFloat(formData.rewardAmount) <= 0) {
       setError('Reward amount must be greater than zero');
       return;
     }
-    
+
     if (!formData.deadline) {
       setError('Deadline is required');
       return;
     }
-    
+
     if (!formData.category) {
       setError('Category is required');
       return;
     }
-    
+
     if (formData.skills.length === 0) {
       setError('At least one skill is required');
       return;
@@ -94,19 +97,46 @@ export default function CreateBountyPage() {
 
     setError(null);
     setIsSubmitting(true);
+    const sponsor = useUserStore.getState().user;
+
+    if (!sponsor || sponsor.role !== 'sponsor') {
+      toast.error('Only sponsors can create bounties.');
+      setIsSubmitting(false);
+      return;
+    }
 
     try {
-      // In a real app, this would interact with the smart contract
-      console.log('Creating bounty with data:', formData);
-      
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
-      // Redirect to bounties page on success
+      const bountyData = {
+        ...formData,
+        reward: {
+          amount: formData.rewardAmount,
+          asset: formData.rewardAsset,
+        },
+        status: 'open',
+        owner: sponsor.uid,
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+      };
+
+      await saveBounty(bountyData);
+      toast.success('Bounty created successfully!');
       router.push('/bounties');
-    } catch (err) {
-      console.error('Error creating bounty:', err);
-      setError('Failed to create bounty. Please try again.');
+    } catch (err: any) {
+      console.error('Failed to create bounty:', err);
+      let message = 'Failed to create bounty.';
+
+      if (err.code && err.message) {
+        // Firebase error
+        message = err.message;
+      } else if (err?.response?.data?.message) {
+        // Backend error (in case you expand later)
+        message = err.response.data.message;
+      } else if (err.message) {
+        // Generic JS error
+        message = err.message;
+      }
+
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

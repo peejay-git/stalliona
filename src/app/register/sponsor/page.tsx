@@ -6,6 +6,11 @@ import { FaTelegram, FaXTwitter } from 'react-icons/fa6';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FiUpload } from 'react-icons/fi';
+import { auth } from '@/lib/firebase';
+import { registerSponsor } from '@/lib/authService';
+import { useUserStore } from '@/lib/stores/useUserStore';
+import { FirebaseError } from 'firebase/app';
+import toast from 'react-hot-toast';
 
 export default function SponsorRegisterPage() {
   const router = useRouter();
@@ -15,6 +20,9 @@ export default function SponsorRegisterPage() {
     firstName: '',
     lastName: '',
     username: '',
+    email: '',
+    password: '',
+    confirmPassword: '',
     telegram: '',
     profileImage: null as File | null,
     companyName: '',
@@ -27,9 +35,20 @@ export default function SponsorRegisterPage() {
     shortBio: '',
   });
 
+
   type FieldErrors = Partial<Record<keyof typeof formData, string>>;
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
+  const requiredFields = [
+    'firstName',
+    'lastName',
+    'username',
+    'email',
+    'password',
+    'confirmPassword',
+    'telegram',
+    'companyName',
+    'companyUsername',
+  ];
   const formatField = (field: string) =>
     field.replace(/([A-Z])/g, ' $1').replace(/^./, (str) => str.toUpperCase());
 
@@ -39,20 +58,26 @@ export default function SponsorRegisterPage() {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    if (value.trim() === '') {
+    // Validate only if it's a required field
+    if (requiredFields.includes(name) && value.trim() === '') {
       setFieldErrors((prev) => ({ ...prev, [name]: `${formatField(name)} is required.` }));
     } else {
       setFieldErrors((prev) => ({ ...prev, [name]: '' }));
     }
 
-    if (name === 'companyUrl' && !value.startsWith('https://')) {
-      setFieldErrors((prev) => ({ ...prev, companyUrl: 'Company URL must start with https://.' }));
+    // Custom validation for companyUrl (only if user entered a value)
+    if (name === 'companyUrl') {
+      if (value.trim() && !value.startsWith('https://')) {
+        setFieldErrors((prev) => ({ ...prev, companyUrl: 'Company URL must start with https://.' }));
+      } else {
+        setFieldErrors((prev) => ({ ...prev, companyUrl: '' }));
+      }
     }
-  };
+  }
 
   const handleFileChange = (name: string, file: File | null) => {
     setFormData((prev) => ({ ...prev, [name]: file }));
-    setFieldErrors((prev) => ({ ...prev, [name]: file ? '' : `${formatField(name)} is required.` }));
+    // setFieldErrors((prev) => ({ ...prev, [name]: file ? '' : `${formatField(name)} is required.` }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,14 +85,19 @@ export default function SponsorRegisterPage() {
     setIsSubmitting(true);
 
     const newErrors: FieldErrors = {};
-    ['firstName', 'lastName', 'username', 'telegram', 'companyName', 'companyUsername', 'companyUrl'].forEach((field) => {
+    ['firstName', 'lastName', 'username', 'email', 'password', 'confirmPassword', 'companyName'].forEach((field) => {
       if (!formData[field as keyof typeof formData]) {
         newErrors[field as keyof typeof formData] = `${formatField(field)} is required.`;
       }
     });
 
-    if (!formData.profileImage) newErrors.profileImage = 'Profile Picture is required.';
-    if (!formData.companyLogo) newErrors.companyLogo = 'Company Logo is required.';
+    if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match.';
+    }
+
+
+    // if (!formData.profileImage) newErrors.profileImage = 'Profile Picture is required.';
+    // if (!formData.companyLogo) newErrors.companyLogo = 'Company Logo is required.';
     if (!formData.industry) newErrors.industry = 'Please select an industry.';
 
     setFieldErrors(newErrors);
@@ -77,8 +107,61 @@ export default function SponsorRegisterPage() {
       return;
     }
 
-    console.log(formData);
-    router.push('/dashboard/sponsor');
+    setFieldErrors({});
+    setIsSubmitting(true);
+    try {
+      await registerSponsor({
+        email: formData.email,
+        password: formData.password,
+        profileImageFile: formData.profileImage,
+        companyLogoFile: formData.companyLogo,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        username: formData.username,
+        telegram: formData.telegram,
+        companyName: formData.companyName,
+        companyUsername: formData.companyUsername,
+        companyUrl: formData.companyUrl,
+        companyTwitter: formData.companyTwitter,
+        entityName: formData.entityName,
+        industry: formData.industry,
+        shortBio: formData.shortBio,
+      });
+
+      const userProfile = {
+        uid: auth.currentUser?.uid || '',
+        username: formData.username,
+        firstName: formData.firstName,
+        role: 'sponsor',
+      };
+
+      useUserStore.getState().setUser(userProfile);
+      localStorage.setItem('user', JSON.stringify(userProfile));
+
+      toast.success('Sponsor profile created successfully!');
+      router.push('/dashboard');
+    } catch (error: any) {
+      if (error instanceof FirebaseError) {
+        switch (error.code) {
+          case 'auth/email-already-in-use':
+            toast.error('Email already in use.');
+            break;
+          case 'auth/invalid-email':
+            toast.error('Invalid email address.');
+            break;
+          case 'auth/weak-password':
+            toast.error('Password must be at least 6 characters.');
+            break;
+          default:
+            toast.error(error.message || 'Something went wrong.');
+        }
+      } else {
+        toast.error('An unexpected error occurred.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+
   };
 
   return (
@@ -142,10 +225,50 @@ export default function SponsorRegisterPage() {
 
                 {fieldErrors.telegram && <p className="text-sm text-red-500 mt-1 col-span-2">{fieldErrors.telegram}</p>}
               </div>
+
+
+
+            </div>
+            <div className="my-4">
+              <div>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="Email"
+                  className="input"
+                />
+                {fieldErrors.email && <p className="text-sm text-red-500 mt-1">{fieldErrors.email}</p>}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Password"
+                  className="input"
+                />
+                {fieldErrors.password && <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>}
+              </div>
+              <div>
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirm Password"
+                  className="input"
+                />
+                {fieldErrors.confirmPassword && <p className="text-sm text-red-500 mt-1">{fieldErrors.confirmPassword}</p>}
+              </div>
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Profile Picture</label>
               <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer bg-gray-50">
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange('profileImage', e.target.files?.[0] || null)} className="hidden" id="profileImage" />
                 <label htmlFor="profileImage" className="cursor-pointer space-y-2 flex flex-col items-center">
@@ -160,7 +283,7 @@ export default function SponsorRegisterPage() {
                   )}
                   <div className="text-xs text-gray-400">Maximum size 5 MB</div>
                 </label>
-                {fieldErrors.profileImage && <p className="text-sm text-red-500 mt-2">{fieldErrors.profileImage}</p>}
+                {/* {fieldErrors.profileImage && <p className="text-sm text-red-500 mt-2">{fieldErrors.profileImage}</p>} */}
               </div>
             </div>
           </section>
@@ -207,7 +330,7 @@ export default function SponsorRegisterPage() {
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Company Logo *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Company Logo</label>
               <div className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer bg-gray-50">
                 <input type="file" accept="image/*" onChange={(e) => handleFileChange('companyLogo', e.target.files?.[0] || null)} className="hidden" id="companyLogo" />
                 <label htmlFor="companyLogo" className="cursor-pointer space-y-2 flex flex-col items-center">
@@ -222,7 +345,7 @@ export default function SponsorRegisterPage() {
                   )}
                   <div className="text-xs text-gray-400">Maximum size 5 MB</div>
                 </label>
-                {fieldErrors.companyLogo && <p className="text-sm text-red-500 mt-2">{fieldErrors.companyLogo}</p>}
+                {/* {fieldErrors.companyLogo && <p className="text-sm text-red-500 mt-2">{fieldErrors.companyLogo}</p>} */}
               </div>
             </div>
 
