@@ -9,6 +9,9 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Stallion',
   description: 'A Web3 platform powered by Stellar and Soroban',
+  icons: {
+    icon: '/logonew.svg',
+  },
 };
 
 export default function RootLayout({

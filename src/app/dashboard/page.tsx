@@ -7,23 +7,20 @@ import { mockBounties } from '@/utils/mock-data';
 import { BountyStatus } from '@/types/bounty';
 import { useUserStore } from '@/lib/stores/useUserStore';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
-import { getAllBounties } from '@/lib/bounties';
+import { getBountiesByOwner } from '@/lib/bounties';
+import { assetSymbols } from '@/components/BountyCard';
 
 export default function DashboardPage() {
   useProtectedRoute();
   const { isConnected, publicKey } = useWallet();
   const [activeTab, setActiveTab] = useState<'created' | 'submissions'>('created');
-
+  const [bounty, setBounty] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const user = useUserStore((state) => state.user);
   const fetchUser = useUserStore((state) => state.fetchUserFromFirestore);
 
-  const [bounties, setBounties] = useState<any[]>([]);
 
-  useEffect(() => {
-    getAllBounties().then(setBounties);
-  }, []);
-
-  console.log('Bounties:', bounties);
   useEffect(() => {
     if (!user) {
       fetchUser();
@@ -56,6 +53,28 @@ export default function DashboardPage() {
       submitted: '2023-04-15T09:00:00Z',
     },
   ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        if (!user?.uid) return;
+
+        console.log('Fetching bounties for:', user.uid);
+        const data = await getBountiesByOwner(user.uid);
+        setBounty(data);
+        console.log('Bounties fetched:', data);
+      } catch (err: any) {
+        setError(err.message || 'Error fetching bounty');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.uid) {
+      fetchData();
+    }
+  }, [user?.uid]);
+
+
 
   // Format date to be more readable
   const formatDate = (dateString: string) => {
@@ -66,7 +85,7 @@ export default function DashboardPage() {
     });
   };
 
-  if (!isConnected) {
+  if (isConnected) {
     return (
       <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto">
@@ -113,7 +132,7 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
             <div className="p-6 text-center">
               <p className="text-gray-500 text-sm mb-1">Bounties Created</p>
-              <p className="text-2xl font-semibold">{userCreatedBounties.length}</p>
+              <p className="text-2xl font-semibold">{bounty.length}</p>
             </div>
             <div className="p-6 text-center">
               <p className="text-gray-500 text-sm mb-1">Submissions Made</p>
@@ -152,8 +171,20 @@ export default function DashboardPage() {
             {activeTab === 'created' && (
               <div>
                 <h3 className="text-lg font-semibold mb-4">Bounties You've Created</h3>
-
-                {userCreatedBounties.length === 0 ? (
+                {loading ? (
+                  // Skeleton loader (repeat 3 rows for visual feedback)
+                  <div className="space-y-4">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="animate-pulse flex space-x-4">
+                        <div className="w-1/5 h-5 bg-gray-200 rounded" />
+                        <div className="w-1/5 h-5 bg-gray-200 rounded" />
+                        <div className="w-1/5 h-5 bg-gray-200 rounded" />
+                        <div className="w-1/5 h-5 bg-gray-200 rounded" />
+                        <div className="w-1/5 h-5 bg-gray-200 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : bounty.length === 0 ? (
                   <p className="text-gray-500">You haven't created any bounties yet.</p>
                 ) : (
                   <div className="overflow-x-auto">
@@ -176,27 +207,27 @@ export default function DashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {userCreatedBounties.map((bounty) => (
+                        {bounty.map((bounty) => (
                           <tr key={bounty.id}>
                             <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {bounty.title}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bounty.status === BountyStatus.OPEN
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${bounty.status.toUpperCase() === BountyStatus.OPEN
                                   ? 'bg-green-100 text-green-800'
-                                  : bounty.status === BountyStatus.IN_PROGRESS
+                                  : bounty.status.toUpperCase() === BountyStatus.IN_PROGRESS
                                     ? 'bg-blue-100 text-blue-800'
-                                    : bounty.status === BountyStatus.COMPLETED
+                                    : bounty.status.toUpperCase() === BountyStatus.COMPLETED
                                       ? 'bg-gray-100 text-gray-800'
                                       : 'bg-red-100 text-red-800'
                                   }`}
                               >
-                                {bounty.status}
+                                {bounty.status.toUpperCase()}
                               </span>
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                              ${bounty.reward.amount} {bounty.reward.asset}
+                              {assetSymbols[bounty.reward.asset] || ''}{bounty.reward.amount} {bounty.reward.asset}
                             </td>
                             <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                               {formatDate(bounty.deadline)}

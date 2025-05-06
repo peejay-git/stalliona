@@ -3,18 +3,32 @@
 import { useState } from 'react';
 import { BountyCategory, BountyStatus } from '@/types/bounty';
 
-export function BountyFilter() {
-  const [statusFilters, setStatusFilters] = useState<BountyStatus[]>([
-    BountyStatus.OPEN,
-    BountyStatus.IN_PROGRESS,
-  ]);
-  
-  const [categoryFilters, setCategoryFilters] = useState<BountyCategory[]>([]);
-  
-  const [rewardRange, setRewardRange] = useState<{ min: number; max: number | null }>({
-    min: 0,
-    max: null,
-  });
+type Props = {
+  statusFilters: BountyStatus[];
+  categoryFilters: BountyCategory[];
+  rewardRange: { min: number; max: number | null };
+  skills: string[];
+  setStatusFilters: React.Dispatch<React.SetStateAction<BountyStatus[]>>;
+  setCategoryFilters: React.Dispatch<React.SetStateAction<BountyCategory[]>>;
+  setRewardRange: React.Dispatch<React.SetStateAction<{ min: number; max: number | null }>>;
+  setSkills: React.Dispatch<React.SetStateAction<string[]>>;
+  onApply: () => void;
+  onReset: () => void;
+};
+
+
+export function BountyFilter({
+  statusFilters,
+  categoryFilters,
+  rewardRange,
+  skills,
+  setStatusFilters,
+  setCategoryFilters,
+  setRewardRange,
+  setSkills,
+  onApply,
+  onReset,
+}: Props) {
 
   // Toggle status filter
   const toggleStatus = (status: BountyStatus) => {
@@ -39,6 +53,7 @@ export function BountyFilter() {
     setStatusFilters([BountyStatus.OPEN, BountyStatus.IN_PROGRESS]);
     setCategoryFilters([]);
     setRewardRange({ min: 0, max: null });
+    onReset();
   };
 
   return (
@@ -140,19 +155,32 @@ export function BountyFilter() {
           className="input py-1.5 text-sm mb-3"
         />
         <div className="flex flex-wrap gap-2">
-          {['Rust', 'JavaScript', 'React', 'Soroban', 'Smart Contracts'].map((skill) => (
-            <span
-              key={skill}
-              className="bg-gray-100 hover:bg-gray-200 cursor-pointer text-gray-600 px-2 py-1 rounded text-xs"
-            >
-              {skill}
-            </span>
-          ))}
+          {['Rust', 'JavaScript', 'React', 'Soroban', 'Smart Contracts'].map((skill) => {
+            const isSelected = skills.includes(skill);
+            return (
+              <span
+                key={skill}
+                onClick={() =>
+                  setSkills(
+                    isSelected
+                      ? skills.filter((s) => s !== skill)
+                      : [...skills, skill]
+                  )
+                }
+                className={`cursor-pointer px-2 py-1 rounded text-xs ${isSelected
+                  ? 'bg-stellar-blue text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+              >
+                {skill}
+              </span>
+            );
+          })}
         </div>
       </div>
 
       {/* Apply filters button */}
-      <button className="btn-primary w-full mt-8">Apply Filters</button>
+      <button className="btn-primary w-full mt-8" onClick={onApply}>Apply Filters</button>
     </div>
   );
 } 

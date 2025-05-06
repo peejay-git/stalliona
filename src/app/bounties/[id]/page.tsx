@@ -1,15 +1,39 @@
+'use client';
+
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { mockBounties } from '@/utils/mock-data';
 import { BountyStatus } from '@/types/bounty';
+import { useEffect, useState } from 'react';
+import { getBountyById } from '@/lib/bounties';
+import { assetSymbols } from '@/components/BountyCard';
+import BountyDetailSkeleton from '@/components/BountyDetailSkeleton';
 
 export default function BountyDetailPage({ params }: { params: { id: string } }) {
   // In a real app, this would fetch from the API/contract
-  const bounty = mockBounties.find((b) => b.id === params.id);
+  // const bounty = mockBounties.find((b) => b.id === params.id);
+  const [bounty, setBounty] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const data = await getBountyById(params.id);
+        setBounty(data);
+        console.log('Bounty:', data);
+      } catch (err: any) {
+        setError(err.message || 'Error fetching bounty');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (!bounty) {
-    notFound();
-  }
+    fetchData();
+  }, [params.id]);
+
+  // if (!bounty) {
+  //   notFound();
+  // }
 
   // Format date to be more readable
   const formatDate = (dateString: string) => {
@@ -57,7 +81,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
         return null;
     }
   };
-
+  if (loading) return <BountyDetailSkeleton />;
   return (
     <div className="bg-gray-50 min-h-screen py-12 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
@@ -86,7 +110,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
             <div className="bg-gradient-to-r from-stellar-blue to-stellar-purple text-white py-3 px-6 rounded-lg text-center">
               <div className="text-sm opacity-90">Reward</div>
               <div className="text-xl font-bold">
-                ${bounty.reward.amount} {bounty.reward.asset}
+                {assetSymbols[bounty.reward.asset] || ''}{bounty.reward.amount} {bounty.reward.asset}
               </div>
             </div>
           </div>
@@ -112,7 +136,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
             <div className="mb-6">
               <h3 className="text-sm text-gray-500 mb-1">Skills</h3>
               <div className="flex flex-wrap gap-2">
-                {bounty.skills.map((skill) => (
+                {bounty.skills.map((skill: string) => (
                   <span
                     key={skill}
                     className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm"
@@ -136,7 +160,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
         {/* Apply section */}
         <div className="bg-white border border-gray-200 rounded-xl p-8">
           <h2 className="text-xl font-semibold mb-4">Submit Work</h2>
-          {bounty.status === BountyStatus.OPEN || bounty.status === BountyStatus.IN_PROGRESS ? (
+          {bounty.status.toUpperCase() === BountyStatus.OPEN ? (
             <div>
               <p className="text-gray-600 mb-6">
                 To apply for this bounty, you'll need to connect your Stellar wallet and provide details about your submission.

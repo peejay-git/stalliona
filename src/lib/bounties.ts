@@ -1,5 +1,19 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc, where, QueryConstraint } from 'firebase/firestore';
+interface SubmitBountyInput {
+    bountyId: string;
+    userId: string;
+    submissionData: any; // Define the structure of submissionData based on your requirements
+}
+interface FilterOptions {
+    statusFilters?: ('OPEN' | 'CLOSE')[];
+    categoryFilters?: string[];
+    rewardRange?: {
+        min?: number;
+        max?: number;
+    };
+    skills?: string[]; // User must match at least one
+}
 
 export async function saveBounty(bounty: any) {
     const bountyRef = collection(db, 'bounties');
@@ -31,4 +45,111 @@ export async function getBountyById(id: string) {
         id: docSnap.id,
         ...docSnap.data(),
     };
+}
+
+export async function getBountiesByOwner(ownerId: string) {
+    const q = query(
+        collection(db, 'bounties'),
+        where('owner', '==', ownerId)
+    );
+
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    }));
+}
+
+export async function getFilteredBounties(filters: FilterOptions) {
+    const bountyRef = collection(db, 'bounties');
+    const constraints: QueryConstraint[] = [];
+
+    if (filters.statusFilters && filters.statusFilters.length > 0) {
+        const normalizedStatus = filters.statusFilters
+            .slice(0, 10)
+            .map((status) => status.toLowerCase());
+        constraints.push(where('status', 'in', normalizedStatus));
+    }
+
+    if (filters.categoryFilters && filters.categoryFilters.length > 0) {
+        constraints.push(where('category', 'in', filters.categoryFilters.slice(0, 10)));
+    }
+
+    if (filters.rewardRange?.min !== undefined && filters.rewardRange.min !== null) {
+        constraints.push(where('reward.amount', '>=', filters.rewardRange.min.toString()));
+
+    }
+
+    if (filters.rewardRange?.max !== undefined && filters.rewardRange.max !== null) {
+        constraints.push(where('reward.amount', '<=', filters.rewardRange.max.toString()));
+    }
+    if (filters.skills && filters.skills.length > 0) {
+        constraints.push(where('skills', 'array-contains-any', filters.skills.slice(0, 10)));
+    }
+
+    // Firestore only allows **one** of in/array-contains-any per query
+    // If you use both 'status in' and 'category in' or 'skills array-contains-any' → you'll hit an error.
+    if (
+        [
+            filters.statusFilters,
+            filters.categoryFilters,
+            filters.skills,
+        ].filter((f) => Array.isArray(f) && f.length > 0).length > 1
+    ) {
+        throw new Error(
+            'Firestore only allows one `in` or `array-contains-any` filter per query. Please narrow your filters.'
+        );
+    }
+
+    constraints.push(orderBy('createdAt', 'desc'));
+
+    const q = query(bountyRef, ...constraints);
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+    }));
+}
+
+export async function submitBounty({ bountyId, userId, submissionData }: SubmitBountyInput) {
+    // 1. Fetch bounty to check rules
+    const bountyRef = doc(db, 'bounties', bountyId);
+    const bountySnap = await getDoc(bountyRef);
+
+    if (!bountySnap.exists()) throw new Error('Bounty not found');
+
+    const bounty = bountySnap.data();
+
+    // 2. Check if user is the bounty owner
+    if (bounty.owner === userId) {
+        throw new Error("You cannot submit work to your own bounty.");
+    }
+
+    // 3. Check if deadline has passed
+    const deadlineDate = new Date(bounty.deadline);
+    const now = new Date();
+    if (now > deadlineDate) {
+        throw new Error("The submission deadline for this bounty has passed.");
+    }
+
+    // 4. Check if user already submitted
+    const submissionsRef = collection(db, 'submissions');
+    const q = query(submissionsRef, where('bountyId', '==', bountyId), where('userId', '==', userId));
+    const existing = await getDocs(q);
+
+    if (!existing.empty) {
+        throw new Error("You have already submitted work for this bounty.");
+    }
+
+    // 5. Save submission
+    const docRef = await addDoc(submissionsRef, {
+        bountyId,
+        userId,
+        ...submissionData,
+        submittedAt: serverTimestamp(),
+        status: 'PENDING',
+    });
+
+    return docRef.id;
 }
