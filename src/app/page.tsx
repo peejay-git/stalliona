@@ -4,6 +4,7 @@ import Layout from '@/components/Layout';
 import StellarSdk from 'stellar-sdk';
 import ParticleBackground from '@/components/ParticlesBackground';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 
 
 export default function Home() {
@@ -15,14 +16,98 @@ export default function Home() {
   ];
 
   return (
-    <Layout><div className="relative bg-gradient-to-r from-[#070708] to-[#070708]">
+    <Layout><div className="relative overflow-hidden bg-gradient-to-r from-[#070708] to-[#070708]">
       <ParticleBackground />
+
+      {/* <motion.div
+        className="absolute left-[5%] top-[3%] z-0 pointer-events-none sm:left-[10%] sm:top-[5%]"
+        animate={{ y: [0, -10, 0] }}
+        transition={{
+          duration: 3,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+      >
+        <Image
+          src="/images/heroetm.svg"
+          alt="etm Logo"
+          width={40}
+          height={40}
+          className="rounded-full"
+        />
+      </motion.div> */}
+
+      {/* <motion.div
+        className="absolute right-[10%] top-[7%] z-0 pointer-events-none sm:right-[30%] sm:top-[17%]"
+        animate={{ x: [0, 10, 0] }}
+        transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <Image src="/images/heroetm.svg" alt="etm Logo" width={40} height={40} className="rounded-full" />
+      </motion.div> */}
+      {/* <motion.div
+        className="absolute left-[25%] top-[10%] opacity-[0.4]  z-0 pointer-events-none"
+        animate={{ rotate: [0, 360] }}
+        transition={{ duration: 12, repeat: Infinity, ease: 'linear' }}
+      >
+        <Image src="/images/abstract.svg" alt="etm Logo" width={40} height={40} className="rounded-full" />
+      </motion.div> */}
+
+      <motion.div
+        className="absolute right-[8%] top-[1%] z-0 pointer-events-none sm:right-[20%] sm:top-[3%]"
+        animate={{ scale: [1, 1.15, 1] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <Image src="/images/moon.svg" alt="etm Logo" width={60} height={60} className="rounded-full" />
+      </motion.div>
+      <motion.div
+        className="absolute left-[10%] top-[15%] z-0 pointer-events-none sm:left-[20%] sm:top-[17%]"
+        animate={{ x: [0, 5, 0], y: [0, -8, 0] }}
+        transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <Image src="/images/moon.svg" alt="etm Logo" width={60} height={60} className="rounded-full" />
+      </motion.div>
+      {/* <motion.div
+        className="absolute left-[50%] top-[14%] z-0 pointer-events-none sm:left-[24%] sm:top-[20%]"
+        animate={{ rotate: [0, 360], scale: [1, 1.1, 1] }}
+        transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <Image src="/images/crypto.svg" alt="etm Logo" width={30} height={30} className="rounded-full" />
+      </motion.div> */}
+      {/* <motion.div
+        className="absolute right-[5%] top-[12%] z-0 pointer-events-none sm:right-[24%] sm:top-[10%]"
+        animate={{ x: [0, -6, 6, 0], y: [0, 5, 0] }}
+        transition={{ duration: 7, repeat: Infinity, ease: 'easeInOut' }}
+      >
+        <Image src="/images/crypto.svg" alt="etm Logo" width={50} height={50} className="rounded-full" />
+      </motion.div> */}
+
+      <motion.div
+        className="absolute top-[16%] z-0 pointer-events-none flex justify-center md:top-[22%]   sm:top-[18%]  w-full"
+        animate={{
+          y: [0, 15, 0],
+          opacity: [0.7, 1, 0.7],
+          scale: [1, 1.02, 1],
+        }}
+        transition={{
+          duration: 12,
+          repeat: Infinity,
+          ease: 'easeInOut',
+        }}
+      >
+        <Image
+          src="/images/Subtract.svg"
+          alt="etm Logo"
+          width={1100}
+          height={100}
+          className="rounded-full "
+        />
+      </motion.div>
       {/* Hero Section */}
       <section className="pt-20 pb-32 px-4 md:px-6 max-w-7xl mx-auto">
         {/* <div className="backdrop-blur-xl bg-white/60 border border-white/20 shadow-xl rounded-3xl p-10 text-center"> */}
 
         <motion.div
-          className="p-10 text-center"
+          className="p-10 text-center mb-24 relative z-10"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
@@ -43,8 +128,10 @@ export default function Home() {
           </div>
         </motion.div>
 
+
+
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
+        {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
           {stats.map((stat, index) => (
             <motion.div
               key={index}
@@ -64,11 +151,15 @@ export default function Home() {
               <p className="text-gray-700 text-lg font-medium">{stat.label}</p>
             </motion.div>
           ))}
-        </div>
+        </div> */}
       </section>
-
+      <div className="">
+        <div className="text-[180px] whitespace-nowrap animate-scroll w-full absolute">
+          STALLIONS ASSEMBLE
+        </div>
+      </div>
       {/* How It Works */}
-      <section className="py-20 px-4 md:px-6">
+      <section className="py-20 px-4 md:px-6 mt-[140px]">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-white">How It Works</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -242,6 +333,6 @@ export default function Home() {
         </div>
       </footer>
     </div>
-    </Layout>
+    </Layout >
   );
 } 

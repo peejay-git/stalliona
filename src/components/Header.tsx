@@ -24,9 +24,12 @@ const Header = () => {
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'Bounties', href: '/bounties' },
-    { name: 'Create', href: '/create' },
-    { name: 'Dashboard', href: '/dashboard' },
+    { name: 'About Us', href: '/about' },
+    { name: 'Our Services', href: '/services' },
+    { name: 'Contact', href: '/contact' },
+    // { name: 'Bounties', href: '/bounties' },
+    // { name: 'Create', href: '/create' },
+    // { name: 'Dashboard', href: '/dashboard' },
   ];
 
   return (
@@ -62,13 +65,14 @@ const Header = () => {
             <Link href="/" className="flex items-center">
               <div className="flex items-center space-x-2">
                 <Image
-                  src="/images/unicorn-logo.svg"
+                  src="/images/logonew.svg"
                   alt="Stallion Logo"
                   width={32}
                   height={32}
                   className="rounded-full"
                 />
-                <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Stallion</span>
+                {/* <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Stallion</span> */}
+                <span className="text-xl font-bold bg-clip-text text-white">Stallion</span>
               </div>
             </Link>
           </div>
@@ -79,7 +83,7 @@ const Header = () => {
               <Link
                 key={link.name}
                 href={link.href}
-                className={`font-medium transition-colors p-3 rounded-[10px] ${pathname === link.href
+                className={`font-medium whitespace-nowrap transition-colors p-3 rounded-[10px] ${pathname === link.href
                   ? 'text-white backdrop-blur-xl bg-white/10'
                   : 'text-white hover:bg-white/10 hover:backdrop-blur-xl hover:text-white '
                   }`}
@@ -90,7 +94,7 @@ const Header = () => {
           </nav>
 
           {/* Wallet Connect Button (Desktop) */}
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-4" style={{ visibility: 'hidden' }}>
             {/* <Link
               href="/register"> */}
             <button
@@ -189,7 +193,7 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
-            <div className="pt-4 pb-3 border-t border-gray-200">
+            <div className="pt-4 pb-3 border-t border-gray-200" style={{ display: 'none' }}>
 
               <button
                 onClick={() => setShowLogin(true)}
