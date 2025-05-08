@@ -24,16 +24,18 @@ const Header = () => {
 
   const navLinks = [
     { name: 'Home', href: '/' },
-    { name: 'About Us', href: '/about' },
-    { name: 'Our Services', href: '/services' },
-    { name: 'Contact', href: '/contact' },
-    // { name: 'Bounties', href: '/bounties' },
-    // { name: 'Create', href: '/create' },
-    // { name: 'Dashboard', href: '/dashboard' },
+    // { name: 'About Us', href: '/about' },
+    // { name: 'Our Services', href: '/services' },
+    // { name: 'Contact', href: '/contact' },
+    { name: 'Bounties', href: '/bounties' },
+    { name: 'Create', href: '/create' },
+    { name: 'Dashboard', href: '/dashboard' },
   ];
+  const colorClass = "bg-transparent"
 
+  const isBountiesPage = pathname === '/bounties';
   return (
-    <header className=" relative bg-gradient-to-r from-[#070708] to-[#070708]  sticky top-0 z-50">
+    <header className={`relative sticky top-0 z-50 ${isBountiesPage ? "bg-white" : "bg-gradient-to-r from-[#070708] to-[#070708]"}`}>
       <LoginModal
         isOpen={showLogin}
         onClose={() => setShowLogin(false)}
@@ -65,25 +67,28 @@ const Header = () => {
             <Link href="/" className="flex items-center">
               <div className="flex items-center space-x-2">
                 <Image
-                  src="/images/logonew.svg"
+                  src="/images/unicorn-logo.svg"
                   alt="Stallion Logo"
                   width={32}
                   height={32}
                   className="rounded-full"
                 />
                 {/* <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Stallion</span> */}
-                <span className="text-xl font-bold bg-clip-text text-white">Stallion</span>
+                <span className={`text-xl font-bold bg-clip-text ${isBountiesPage ? "text-transparent bg-gradient-to-r from-blue-600 to-purple-600" : "text-white"}`}>
+                  Stallion
+                </span>
+
               </div>
             </Link>
           </div>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8 backdrop-blur-xl shadow-md p-4 rounded-2xl transition-all duration-300">
+          <nav className="hidden md:flex items-center space-x-2 backdrop-blur-xl shadow-md p-3 rounded-2xl transition-all duration-300">
             {navLinks.map((link) => (
               <Link
                 key={link.name}
                 href={link.href}
-                className={`font-medium whitespace-nowrap transition-colors p-3 rounded-[10px] ${pathname === link.href
+                className={`font-medium whitespace-nowrap transition-colors nav-txt p-3 rounded-[10px] ${pathname === link.href
                   ? 'text-[#9EA2FA] backdrop-blur-xl bg-white/10'
                   : 'text-[#797C86] hover:bg-white/10 hover:backdrop-blur-xl hover:text-[#9EA2FA] '
                   }`}
@@ -94,7 +99,7 @@ const Header = () => {
           </nav>
 
           {/* Wallet Connect Button (Desktop) */}
-          <div className="hidden md:flex items-center space-x-4" style={{ visibility: 'hidden' }}>
+          <div className="hidden md:flex items-center space-x-4">
             {/* <Link
               href="/register"> */}
             <button
@@ -119,7 +124,7 @@ const Header = () => {
             ) : (
               <button
                 onClick={connect}
-                className="btn-ordinary py-1.5 px-4 flex items-center gap-2"
+                className={`btn-ordinary py-1.5 px-4 flex items-center gap-2 ${isBountiesPage ? "btn-primary" : "btn-ordinary"}`}
               >
                 <IoWalletOutline className='text-[20px]' />
                 Connect Wallet
@@ -193,7 +198,7 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
-            <div className="pt-4 pb-3 border-t border-gray-200" style={{ display: 'none' }}>
+            <div className="pt-4 pb-3 border-t border-gray-200">
 
               <button
                 onClick={() => setShowLogin(true)}
