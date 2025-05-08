@@ -84,8 +84,8 @@ const Header = () => {
                 key={link.name}
                 href={link.href}
                 className={`font-medium whitespace-nowrap transition-colors p-3 rounded-[10px] ${pathname === link.href
-                  ? 'text-white backdrop-blur-xl bg-white/10'
-                  : 'text-white hover:bg-white/10 hover:backdrop-blur-xl hover:text-white '
+                  ? 'text-[#9EA2FA] backdrop-blur-xl bg-white/10'
+                  : 'text-[#797C86] hover:bg-white/10 hover:backdrop-blur-xl hover:text-[#9EA2FA] '
                   }`}
               >
                 {link.name}
