@@ -5,6 +5,8 @@ import StellarSdk from 'stellar-sdk';
 import ParticleBackground from '@/components/ParticlesBackground';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
+import { FaAngleRight } from "react-icons/fa6";
+
 
 
 export default function Home() {
@@ -52,19 +54,19 @@ export default function Home() {
         <Image src="/images/abstract.svg" alt="etm Logo" width={40} height={40} className="rounded-full" />
       </motion.div> */}
 
-      <motion.div
+      {/* <motion.div
         className="absolute right-[8%] top-[1%] z-0 pointer-events-none sm:right-[20%] sm:top-[3%]"
         animate={{ scale: [1, 1.15, 1] }}
         transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
       >
         <Image src="/images/moon.svg" alt="etm Logo" width={60} height={60} className="rounded-full" />
-      </motion.div>
+      </motion.div> */}
       <motion.div
-        className="absolute left-[10%] top-[15%] z-0 pointer-events-none sm:left-[20%] sm:top-[17%]"
+        className="absolute left-[0%] top-[15%] z-0 pointer-events-none sm:left-[24%] sm:top-[10%]"
         animate={{ x: [0, 5, 0], y: [0, -8, 0] }}
         transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
       >
-        <Image src="/images/moon.svg" alt="etm Logo" width={60} height={60} className="rounded-full" />
+        <Image src="/images/moon.svg" alt="etm Logo" width={100} height={100} className="rounded-full" />
       </motion.div>
       {/* <motion.div
         className="absolute left-[50%] top-[14%] z-0 pointer-events-none sm:left-[24%] sm:top-[20%]"
@@ -99,7 +101,7 @@ export default function Home() {
           alt="etm Logo"
           width={1100}
           height={100}
-          className="rounded-full "
+          className="rounded-full transform rotate-180"
         />
       </motion.div>
       {/* Hero Section */}
@@ -112,18 +114,29 @@ export default function Home() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         >
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Stallion</span>
+          <h1 className="relative text-4xl md:text-6xl font-bold mb-6">
+            <span className="text-white hero-text">
+              Where Talent Shape the Future of Web3</span>
+            <Image
+              src="/images/stellar.svg"
+              alt="stellar-logo"
+              width={40}
+              height={40}
+              className="rounded-full absolute top-20 left-[58%] mt-[50px] stellar-logo"
+            />
           </h1>
-          <p className="text-xl md:text-2xl text-gray-700 max-w-3xl mx-auto mb-8">
+          <p className="text-xl md:text-2xl text-white max-w-3xl mx-auto mb-8">
             Connect, contribute, and earn rewards on the Stellar blockchain
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/bounties" className="btn-primary">
-              Browse Bounties
-            </Link>
-            <Link href="/create" className="btn-secondary">
+
+            <Link href="/create" className="btn-secondary rounded-[40px] flex items-center justify-between">
               Create Bounty
+              <FaAngleRight className='text-[10px] mt-1' />
+            </Link>
+            <Link href="/bounties" className="text-white font-medium py-2 px-4 bg-black rounded-[40px] flex items-center justify-between" style={{ boxShadow: '0px 4px 4px 0px #FFFFFF40' }}>
+              Browse Bounties
+              <FaAngleRight className='text-[10px] mt-1' />
             </Link>
           </div>
         </motion.div>
@@ -154,14 +167,22 @@ export default function Home() {
         </div> */}
       </section>
       <div className="">
-        <div className="text-[180px] whitespace-nowrap animate-scroll w-full absolute">
-          STALLIONS ASSEMBLE
+        <div className="text-[180px] whitespace-nowrap animate-scroll w-full absolute flex gap-[40px]">
+          STALLIONS  <Image
+            src="/logonew.svg"
+            alt="mad Logo"
+            width={60}
+            height={60}
+            className="opacity-10"
+          /> ASSEMBLE
         </div>
       </div>
+
       {/* How It Works */}
       <section className="py-20 px-4 md:px-6 mt-[140px]">
         <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-white">How It Works</h2>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               {
