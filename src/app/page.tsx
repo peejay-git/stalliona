@@ -84,7 +84,7 @@ export default function Home() {
       </motion.div> */}
 
       <motion.div
-        className="absolute top-[16%] z-0 pointer-events-none flex justify-center md:top-[22%]   sm:top-[18%]  w-full"
+        className="absolute top-[16%] z-0 pointer-events-none flex justify-center md:top-[20%]   sm:top-[18%]  w-full"
         animate={{
           y: [0, 15, 0],
           opacity: [0.7, 1, 0.7],
@@ -109,34 +109,34 @@ export default function Home() {
         {/* <div className="backdrop-blur-xl bg-white/60 border border-white/20 shadow-xl rounded-3xl p-10 text-center"> */}
 
         <motion.div
-          className="p-10 text-center mb-24 relative z-10"
+          className="p-10 text-center mb-2 relative z-10"
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: 'easeOut' }}
         >
           <h1 className="relative text-4xl md:text-6xl font-bold mb-6">
             <span className="text-white hero-text">
-              Where Talent Shape the Future of Web3</span>
+              Where Talent Shape the <br />Future of Web3</span>
             <Image
-              src="/images/stellar.svg"
-              alt="stellar-logo"
-              width={40}
-              height={40}
-              className="rounded-full absolute top-20 left-[58%] mt-[50px] stellar-logo"
+              src="/images/circle.svg"
+              alt="circle-logo"
+              width={70}
+              height={70}
+              className="rounded-full absolute top-20 left-[71%] mt-[45px] stellar-logo"
             />
           </h1>
-          <p className="text-xl md:text-2xl text-white max-w-3xl mx-auto mb-8">
+          <p className="text-xl md:text-2xl text-white max-w-3xl mx-auto mb-8 small-hero-text">
             Connect, contribute, and earn rewards on the Stellar blockchain
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
 
-            <Link href="/create" className="btn-secondary rounded-[40px] flex items-center justify-between">
+            <Link href="/create" className="btn-secondary rounded-[40px] flex items-center justify-between text-[15px] font-bold">
               Create Bounty
-              <FaAngleRight className='text-[10px] mt-1' />
+              <FaAngleRight className='' />
             </Link>
-            <Link href="/bounties" className="text-white font-medium py-2 px-4 bg-black rounded-[40px] flex items-center justify-between" style={{ boxShadow: '0px 4px 4px 0px #FFFFFF40' }}>
+            <Link href="/bounties" className="text-white font-medium py-2 px-4 bg-black rounded-[40px] flex items-center justify-between text-[15px] font-bold" style={{ boxShadow: '0px 4px 4px 0px #FFFFFF40' }}>
               Browse Bounties
-              <FaAngleRight className='text-[10px] mt-1' />
+              <FaAngleRight className='' />
             </Link>
           </div>
         </motion.div>

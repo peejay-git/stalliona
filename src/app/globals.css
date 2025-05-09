@@ -58,10 +58,12 @@
   line-height: 100px;
   font-weight: 400px;
 }
-
-@media (max-width: 1200px) {
+.small-hero-text{
+  font-family: "Itim", cursive;
+}
+@media (max-width: 1250px) {
   .stellar-logo{
-    left: 64%;
+    left: 74%;
   }
 }
 @media (max-width: 1080px) {
@@ -77,5 +79,25 @@
 @media (max-width: 940px) {
   .stellar-logo{
    display: none;
+   top: 32% !important;
+   left: 82% !important;
   }
+  .hero-text{
+    line-height: 80px;
+  }
+}
+@media (max-width: 855px) {
+  .nav-txt{
+    /* font-size: 12px; */
+  }
+  .hero-text{
+    font-size: 40px;
+    line-height: 30px;
+  }
+  /* .stellar-logo{
+    width: 40px !important;
+    top: 30% !important;
+    left: 69% !important;
+    position: fixed;
+   } */
 }
