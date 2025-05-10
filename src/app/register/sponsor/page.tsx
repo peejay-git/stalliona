@@ -33,6 +33,7 @@ export default function SponsorRegisterPage() {
     companyLogo: null as File | null,
     industry: '',
     shortBio: '',
+    walletAddress: '',
   });
 
 
@@ -126,6 +127,7 @@ export default function SponsorRegisterPage() {
         entityName: formData.entityName,
         industry: formData.industry,
         shortBio: formData.shortBio,
+        walletAddress: '0x1234567890abcdef1234567890abcdef12345678', // Placeholder, replace with actual wallet address
       });
 
       const userProfile = {

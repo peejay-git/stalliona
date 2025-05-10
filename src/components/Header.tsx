@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -13,14 +13,20 @@ import ChooseRoleModal from './ChooseRoleModal';
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const { isConnected, publicKey, connect, disconnect } = useWallet();
+  const {
+    // isConnected, publicKey,
+    connect, disconnect } = useWallet();
   const [showRegister, setShowRegister] = useState(false);
   const [isChooseRoleOpen, setChooseRoleOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
   const router = useRouter();
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+
+  let isConnected = true; // Placeholder for isConnected state
+  let publicKey = "0x1234567890abcdef"; // Placeholder for publicKey state
 
   const navLinks = [
     { name: 'Home', href: '/' },
@@ -31,9 +37,20 @@ const Header = () => {
     { name: 'Create', href: '/create' },
     { name: 'Dashboard', href: '/dashboard' },
   ];
-  const colorClass = "bg-transparent"
 
   const isBountiesPage = pathname === '/bounties';
+  useEffect(() => {
+    // Check if the user has a profile completed flag in localStorage
+    const userProfileCompleted = localStorage.getItem('userProfileCompleted');
+
+    if (userProfileCompleted === null) {
+      // If the key doesn't exist, it's a new user
+      setIsNewUser(true);
+    } else {
+      // If the key exists, they are a returning user
+      setIsNewUser(false);
+    }
+  }, []);
   return (
     <header className={`relative sticky top-0 z-50 ${isBountiesPage ? "bg-white" : "bg-gradient-to-r from-[#070708] to-[#070708]"}`}>
       <LoginModal
@@ -102,12 +119,20 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-4">
             {/* <Link
               href="/register"> */}
-            <button
-              onClick={() => setShowLogin(true)}
-              className="btn-secondary  py-1.5 px-4 flex items-center gap-2"
+            {isConnected && !isNewUser ? (<button
+              onClick={() => setChooseRoleOpen(true)}
+              className="btn-secondary  py-1.5 px-4 flex items-center gap-2 complete-profile"
             >
-              Login
-            </button>
+              Complete Profile
+            </button>) :
+              isConnected && isNewUser ? (
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="btn-secondary  py-1.5 px-4 flex items-center gap-2 complete-profile"
+                >
+                  Login
+                </button>
+              ) : null}
             {/* </Link> */}
             {isConnected ? (
               <div className="flex items-center space-x-3">

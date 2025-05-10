@@ -22,6 +22,7 @@ export type FormDataType = {
     firstName: string;
     lastName: string;
     username: string;
+    walletAddress: string;
     location: string;
     skills: string[];
     socials: SocialLink[];
@@ -47,6 +48,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
         firstName: '',
         lastName: '',
         username: '',
+        walletAddress: '',
         location: '',
         skills: [],
         socials: [{ platform: 'twitter', username: '' }],
@@ -173,6 +175,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                 firstName: formData.firstName,
                 lastName: formData.lastName,
                 username: formData.username,
+                walletAddress: '0x1234567890abcdeftal1234567890abcdef12345678', // Replace with actual wallet address
                 location: formData.location,
                 skills: formData.skills,
                 socials: formData.socials.filter(s => s.username.trim() !== ''),
