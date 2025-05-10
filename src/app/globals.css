@@ -48,13 +48,13 @@
 .animate-scroll {
   animation: scrollText 10s linear infinite;
   font-family: 'Druk Wide Trial', sans-serif;
-  font-weight: 700;
+  font-weight: 900;
   color: #FFFFFF4D;     
   opacity: 20%;            
 }
 
 .hero-text{
-  font-family: "Itim", cursive;
+  font-family: "Itim", cursive !important;
   line-height: 100px;
   font-weight: 400px;
 }
@@ -85,10 +85,13 @@
   .hero-text{
     line-height: 80px;
   }
+  .complete-profile{
+    font-size: 12px;
+  }
 }
 @media (max-width: 855px) {
   .nav-txt{
-    /* font-size: 12px; */
+    font-size: 12px;
   }
   .hero-text{
     font-size: 40px;

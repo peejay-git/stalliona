@@ -98,7 +98,32 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
             }
         } catch (err: any) {
             console.error(err);
-            toast.error(err.message || 'Login failed. Please check your credentials.');
+
+            // Handle Firebase-specific errors
+            if (err.code) {
+                switch (err.code) {
+                    case 'auth/user-not-found':
+                        toast.error('No user found with this email. Please check your email address.');
+                        break;
+                    case 'auth/wrong-password':
+                        toast.error('Incorrect password. Please try again.');
+                        break;
+                    case 'auth/too-many-requests':
+                        toast.error('Too many attempts. Please try again later.');
+                        break;
+                    case 'auth/network-request-failed':
+                        toast.error('Network error. Please check your internet connection.');
+                        break;
+                    case 'auth/invalid-email':
+                        toast.error('Invalid email format. Please provide a valid email address.');
+                        break;
+                    default:
+                        toast.error('Login failed. Please check your credentials.');
+                        break;
+                }
+            } else {
+                toast.error(err.message || 'Login failed. Please try again later.');
+            }
         } finally {
             setIsSubmitting(false);
         }

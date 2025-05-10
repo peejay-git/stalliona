@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { getBountyById } from '@/lib/bounties';
 import { assetSymbols } from '@/components/BountyCard';
 import BountyDetailSkeleton from '@/components/BountyDetailSkeleton';
+import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
 export default function BountyDetailPage({ params }: { params: { id: string } }) {
   // In a real app, this would fetch from the API/contract
@@ -15,6 +16,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   const [bounty, setBounty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -36,6 +38,24 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   // }
 
   // Format date to be more readable
+
+  // Detect logged-in user and get their ID
+  useEffect(() => {
+    const auth = getAuth(); // Initialize Firebase auth
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // If user is logged in, set the user ID (uid)
+        setUserId(user.uid);
+      } else {
+        // User is not logged in
+        setUserId(null);
+      }
+    });
+
+    return () => unsubscribe(); // Clean up on unmount
+  }, []);
+
+  console.log('User ID:', userId); // Log the user ID to the console
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -160,7 +180,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
         {/* Apply section */}
         <div className="bg-white border border-gray-200 rounded-xl p-8">
           <h2 className="text-xl font-semibold mb-4">Submit Work</h2>
-          {bounty.status.toUpperCase() === BountyStatus.OPEN ? (
+          {bounty.status.toUpperCase() === BountyStatus.OPEN && userId !== bounty.owner ? (
             <div>
               <p className="text-gray-600 mb-6">
                 To apply for this bounty, you'll need to connect your Stellar wallet and provide details about your submission.
