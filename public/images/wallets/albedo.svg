@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="albedoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1c252c" />
+      <stop offset="100%" stop-color="#2c3540" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="16" fill="#1c252c" />
+  <path d="M30,54 L64,20 L98,54 L64,88 Z" fill="#d6e5ff" />
+  <circle cx="64" cy="54" r="12" fill="#1c252c" />
+  <text x="64" y="108" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="14" fill="white">ALBEDO</text>
+</svg>

@@ -39,17 +39,17 @@ export function BountyCard({ bounty }: BountyCardProps) {
   const getStatusColor = (status: BountyStatus) => {
     switch (status) {
       case BountyStatus.OPEN:
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-900/40 text-green-300 border border-green-700/30';
       case BountyStatus.IN_PROGRESS:
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-900/40 text-blue-300 border border-blue-700/30';
       case BountyStatus.REVIEW:
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/30';
       case BountyStatus.COMPLETED:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-700/40 text-gray-300 border border-gray-600/30';
       case BountyStatus.CANCELLED:
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-900/40 text-red-300 border border-red-700/30';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-700/40 text-gray-300 border border-gray-600/30';
     }
   };
 
@@ -60,31 +60,31 @@ export function BountyCard({ bounty }: BountyCardProps) {
         <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(bounty.status as BountyStatus)}`}>
           {bounty.status.toUpperCase()}
         </span>
-        <span className="font-semibold text-green-600">{assetSymbols[bounty.reward.asset] || ''}{bounty.reward.amount} {bounty.reward.asset}</span>
+        <span className="font-semibold text-green-300">{assetSymbols[bounty.reward.asset] || ''}{bounty.reward.amount} {bounty.reward.asset}</span>
       </div>
 
-      <h3 className="text-xl font-semibold mb-2">{bounty.title}</h3>
+      <h3 className="text-xl font-semibold mb-2 text-white">{bounty.title}</h3>
 
-      <p className="text-gray-600 mb-4 line-clamp-2">{bounty.description}</p>
+      <p className="text-gray-300 mb-4 line-clamp-2">{bounty.description}</p>
 
       <div className="flex flex-wrap gap-2 mb-4">
         {bounty.skills.slice(0, 3).map((skill, index) => (
-          <span key={index} className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+          <span key={index} className="bg-white/10 text-gray-200 px-2 py-1 rounded text-xs border border-white/10">
             {skill}
           </span>
         ))}
         {bounty.skills.length > 3 && (
-          <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs">
+          <span className="bg-white/10 text-gray-200 px-2 py-1 rounded text-xs border border-white/10">
             +{bounty.skills.length - 3} more
           </span>
         )}
       </div>
 
-      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-200">
-        <span className="text-sm text-gray-500">
-          Deadline: <span className="font-medium">{formatDeadline(bounty.deadline)}</span>
+      <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-600">
+        <span className="text-sm text-gray-300">
+          Deadline: <span className="font-medium text-white">{formatDeadline(bounty.deadline)}</span>
         </span>
-        <Link href={`/bounties/${bounty.id}`} className="text-stellar-blue hover:underline font-medium">
+        <Link href={`/bounties/${bounty.id}`} className="text-white hover:text-gray-300 font-medium transition-colors">
           View Details →
         </Link>
       </div>

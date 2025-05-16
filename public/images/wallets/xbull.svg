@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="xbullGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4b6add" />
+      <stop offset="100%" stop-color="#6979e8" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="16" fill="#4b6add" />
+  <path d="M34,29 L55,50 L76,29 L86,39 L65,60 L86,81 L76,91 L55,70 L34,91 L24,81 L45,60 L24,39 Z" fill="white" />
+  <text x="64" y="108" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="14" fill="white">XBULL</text>
+</svg>

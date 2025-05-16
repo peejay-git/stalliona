@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, memo, useEffect, useState } from 'react';
 import Header from './Header';
 
 interface LayoutProps {
@@ -8,14 +8,24 @@ interface LayoutProps {
 }
 
 const Layout = ({ children }: LayoutProps) => {
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Ensure content transition is smooth
+  useEffect(() => {
+    setIsLoaded(true);
+    // Cleanup function
+    return () => setIsLoaded(false);
+  }, []);
+
   return (
-    <>
+    <div className={`layout-container ${isLoaded ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}>
       <Header />
-      <main className="min-h-screen bg-gray-50">
+      <main className="min-h-screen bg-[#070708] text-white">
         {children}
       </main>
-    </>
+    </div>
   );
 };
 
-export default Layout; 
+// Memoize to prevent unnecessary re-renders
+export default memo(Layout); 

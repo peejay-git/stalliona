@@ -80,12 +80,12 @@ export default function BountiesPage() {
 
   return (
     <Layout>
-      <div className="bg-gray-50 min-h-screen pb-16">
+      <div className="min-h-screen pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-16">
           {/* Header section */}
           <div className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4">Explore Bounties</h1>
-            <p className="text-gray-600 max-w-3xl">
+            <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white">Explore Bounties</h1>
+            <p className="text-gray-300 max-w-3xl">
               Find and apply for bounties that match your skills. Projects are looking for developers, designers, and content creators to help build on the Stellar ecosystem.
             </p>
           </div>
@@ -113,7 +113,7 @@ export default function BountiesPage() {
                   <input
                     type="text"
                     placeholder="Search bounties..."
-                    className="input pl-10 w-full"
+                    className="input pl-10 w-full bg-white/10 border-white/20 text-white"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -134,11 +134,11 @@ export default function BountiesPage() {
                   </svg>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600 whitespace-nowrap">Sort by:</span>
+                  <span className="text-sm text-gray-300 whitespace-nowrap">Sort by:</span>
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="border border-gray-300 rounded-lg text-gray-600 text-sm px-2 py-1.5"
+                    className="bg-white/10 border-white/20 text-white rounded-lg text-sm px-2 py-1.5"
                   >
                     <option value="newest">Newest</option>
                     <option value="reward-high">Highest Reward</option>
@@ -150,8 +150,8 @@ export default function BountiesPage() {
 
               {/* Bounty count */}
               <div className="mb-6">
-                <p className="text-gray-600">
-                  Showing <span className="font-medium text-gray-900">{bounties.length}</span> bounties
+                <p className="text-gray-300">
+                  Showing <span className="font-medium text-white">{bounties.length}</span> bounties
                 </p>
               </div>
 
@@ -160,7 +160,7 @@ export default function BountiesPage() {
                 {loading
                   ? Array.from({ length: 3 }).map((_, i) => <BountyCardSkeleton key={i} />)
                   : bounties.length === 0 ? (
-                    <p className="text-center">No bounties found</p>
+                    <p className="text-center text-white">No bounties found</p>
                   ) : filteredAndSorted
                     .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                     .map((bounty) => <BountyCard key={bounty.id} bounty={bounty} />)
@@ -172,8 +172,8 @@ export default function BountiesPage() {
                     <button
                       key={i + 1}
                       className={`px-3 py-1 rounded-lg text-sm ${currentPage === i + 1
-                        ? 'bg-stellar-blue text-white'
-                        : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                        ? 'bg-white text-black'
+                        : 'bg-white/10 text-white hover:bg-white/20'
                         }`}
                       onClick={() => setCurrentPage(i + 1)}
                     >
@@ -185,13 +185,13 @@ export default function BountiesPage() {
               )}
 
               {/* Create bounty CTA */}
-              <div className="mt-12 pt-8 border-t border-gray-200">
-                <div className="bg-gradient-to-r from-stellar-blue to-stellar-purple rounded-xl p-8 text-center text-white">
+              <div className="mt-12 pt-8 border-t border-gray-600">
+                <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 text-center text-white">
                   <h3 className="text-xl font-bold mb-3">Have a project that needs talent?</h3>
                   <p className="mb-6 opacity-90">
                     Create a bounty to find the perfect contributor for your Stellar project.
                   </p>
-                  <Link href="/create" className="bg-white text-stellar-blue font-medium py-2 px-6 rounded-lg hover:bg-opacity-90 transition-opacity">
+                  <Link href="/create" className="bg-white text-black font-medium py-2 px-6 rounded-lg hover:bg-white/90 transition-colors">
                     Create a Bounty
                   </Link>
                 </div>

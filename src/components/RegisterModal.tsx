@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { IoClose } from 'react-icons/io5';
 import { FaGithub, FaLinkedin, FaXTwitter } from 'react-icons/fa6';
-import { registerTalent } from '@/lib/authService';
+import { FcGoogle } from 'react-icons/fc';
+import { registerTalent, signInWithGoogle } from '@/lib/authService';
 import toast from 'react-hot-toast';
 import { FirebaseError } from 'firebase/app';
 import { useUserStore } from '@/lib/stores/useUserStore';
 import { auth } from '@/lib/firebase';
+import { useWallet } from '@/hooks/useWallet';
+import { motion } from 'framer-motion';
 
 const defaultSkills = ['Frontend', 'Backend', 'UI/UX Design', 'Writing', 'Digital Marketing'];
 
@@ -43,7 +46,9 @@ type FieldErrors = Partial<Record<keyof FormDataType, string>>;
 export default function RegisterModal({ isOpen, onClose }: Props) {
     const router = useRouter();
     const [hasEditedUsername, setHasEditedUsername] = useState(false);
-
+    const [isGoogleSubmitting, setIsGoogleSubmitting] = useState(false);
+    const { connect: connectWallet, isConnected, publicKey } = useWallet();
+    
     const [formData, setFormData] = useState<FormDataType>({
         firstName: '',
         lastName: '',
@@ -60,6 +65,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
 
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [step, setStep] = useState<'form' | 'wallet'>('form');
 
     const validateField = (name: keyof FormDataType, value: any) => {
         let error = '';
@@ -147,6 +153,50 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
         }
     };
 
+    const handleGoogleSignIn = async () => {
+        try {
+            setIsGoogleSubmitting(true);
+            const { user, isNewUser } = await signInWithGoogle();
+            
+            toast.success('Account created successfully!');
+            onClose();
+            
+            if (isNewUser) {
+                // If it's a new user, prompt them to connect their wallet
+                router.push('/connect-wallet');
+            } else {
+                router.push('/dashboard');
+            }
+        } catch (err: any) {
+            console.error(err);
+            toast.error('Google sign-in failed. Please try again.');
+        } finally {
+            setIsGoogleSubmitting(false);
+        }
+    };
+
+    const connectUserWallet = async () => {
+        if (!isConnected) {
+            try {
+                await connectWallet();
+                // Update the wallet address in the form data
+                if (publicKey) {
+                    setFormData(prev => ({
+                        ...prev,
+                        walletAddress: publicKey
+                    }));
+                    toast.success('Wallet connected successfully!');
+                    
+                    // Continue with form submission
+                    setStep('form');
+                }
+            } catch (error) {
+                console.error('Error connecting wallet:', error);
+                toast.error('Failed to connect wallet. Please try again.');
+            }
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const errors: FieldErrors = {};
@@ -166,6 +216,21 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
         }
 
         setFieldErrors({});
+        
+        // If wallet isn't connected, prompt to connect first
+        if (!formData.walletAddress && !isConnected) {
+            setStep('wallet');
+            return;
+        }
+        
+        // If wallet is connected but form data doesn't have the address
+        if (isConnected && publicKey && !formData.walletAddress) {
+            setFormData(prev => ({
+                ...prev,
+                walletAddress: publicKey
+            }));
+        }
+        
         setIsSubmitting(true);
         try {
             await registerTalent({
@@ -175,7 +240,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                 firstName: formData.firstName,
                 lastName: formData.lastName,
                 username: formData.username,
-                walletAddress: '0x1234567890abcdeftal1234567890abcdef12345678', // Replace with actual wallet address
+                walletAddress: formData.walletAddress || (publicKey || ''), 
                 location: formData.location,
                 skills: formData.skills,
                 socials: formData.socials.filter(s => s.username.trim() !== ''),
@@ -185,16 +250,13 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                 username: formData.username,
                 firstName: formData.firstName,
                 role: 'talent',
-                // Add any other field you want to store
+                walletConnected: !!formData.walletAddress || isConnected
             }
             useUserStore.getState().setUser(userProfile);
             localStorage.setItem('user', JSON.stringify(userProfile));
             toast.success('Profile created successfully!');
             onClose();
             router.push('/dashboard');
-
-            // onClose();
-            // router.push('/dashboard/talent');
         } catch (error: any) {
             if (error instanceof FirebaseError) {
                 switch (error.code) {
@@ -218,50 +280,98 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
         }
     };
 
+    // Wallet Connection Screen
+    if (step === 'wallet') {
+        return (
+            <div className={clsx(
+                'fixed inset-0 z-[9999] flex items-center justify-center transition-all duration-300',
+                isOpen ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'
+            )}>
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setStep('form')} />
+                <div className="relative w-full max-w-md shadow-2xl z-[9999] bg-transparent">
+                    <button 
+                        type="button" 
+                        onClick={() => setStep('form')} 
+                        className="absolute top-4 right-4 text-gray-300 hover:text-white transition z-20" 
+                        aria-label="Back"
+                    >
+                        <IoClose className="w-6 h-6" />
+                    </button>
+                    <div className="rounded-2xl overflow-hidden">
+                        <div className="backdrop-blur-xl bg-white/10 border border-white/20 p-8">
+                            <h2 className="text-2xl font-bold mb-2 text-center text-white">Connect Your Wallet</h2>
+                            <p className="text-sm text-gray-300 text-center mb-8">
+                                Connect your Stellar wallet to complete your registration
+                            </p>
+                            
+                            <div className="flex flex-col items-center justify-center space-y-4">
+                                <motion.button
+                                    onClick={connectUserWallet}
+                                    className="bg-white text-black font-medium py-3 px-6 rounded-lg hover:bg-white/90 transition-colors w-full flex items-center justify-center"
+                                    whileHover={{ scale: 1.03 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    Connect Wallet
+                                </motion.button>
+                                
+                                <button
+                                    onClick={() => setStep('form')}
+                                    className="text-gray-300 hover:text-white transition-colors text-sm"
+                                >
+                                    Skip for now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className={clsx(
-            'fixed inset-0 z-50 flex items-center justify-center transition-all duration-300',
+            'fixed inset-0 z-[9999] flex items-center justify-center transition-all duration-300',
             isOpen ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'
         )}>
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-xl shadow-2xl z-10 bg-transparent">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="relative w-full max-w-xl shadow-2xl z-[9999] bg-transparent">
 
-                <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-700 transition outline-none" aria-label="Close">
+                <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-300 hover:text-white transition z-20" aria-label="Close">
                     <IoClose className="w-6 h-6" />
                 </button>
-                <div className="rounded-2xl overflow-hidden ">
-                    <div className="max-h-[90vh] overflow-y-auto bg-white p-8 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                <div className="rounded-2xl overflow-hidden">
+                    <div className="max-h-[90vh] overflow-y-auto backdrop-blur-xl bg-white/10 border border-white/20 p-8 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
 
-                        <h2 className="text-2xl font-bold mb-2 text-center">Complete your Profile</h2>
-                        <p className="text-sm text-gray-500 text-center mb-6">
-                            We’ll tailor your Earn experience based on your profile
+                        <h2 className="text-2xl font-bold mb-2 text-center text-white">Complete your Profile</h2>
+                        <p className="text-sm text-gray-300 text-center mb-6">
+                            We'll tailor your Earn experience based on your profile
                         </p>
-
+                        
                         <form onSubmit={handleSubmit}>
                             <div className="flex items-center justify-center mb-6">
                                 <label htmlFor="profile-upload" className="cursor-pointer group">
-                                    <div className="w-20 h-20 rounded-full border-2 border-dashed border-indigo-400 bg-indigo-50 hover:bg-indigo-100 flex items-center justify-center">
+                                    <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/40 bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors">
                                         {formData.profileImage ? (
                                             <img src={URL.createObjectURL(formData.profileImage)} alt="Preview" className="w-full h-full object-cover rounded-full" />
                                         ) : (
-                                            <svg className="w-6 h-6 text-indigo-500 group-hover:text-indigo-700" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                            <svg className="w-6 h-6 text-white/70 group-hover:text-white transition-colors" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1M12 12V4m0 0L8 8m4-4l4 4" />
                                             </svg>
                                         )}
                                     </div>
                                     <input id="profile-upload" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
-                                    <p className="text-xs text-gray-500 mt-1 text-center">Upload Photo</p>
+                                    <p className="text-xs text-gray-300 mt-1 text-center">Upload Photo</p>
                                 </label>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                 <div>
                                     <input name="firstName" placeholder="First Name" className="input" value={formData.firstName} onChange={handleChange} />
-                                    {fieldErrors.firstName && <p className="text-red-500 text-sm mt-1">{fieldErrors.firstName}</p>}
+                                    {fieldErrors.firstName && <p className="text-red-300 text-sm mt-1">{fieldErrors.firstName}</p>}
                                 </div>
                                 <div>
                                     <input name="lastName" placeholder="Last Name" className="input" value={formData.lastName} onChange={handleChange} />
-                                    {fieldErrors.lastName && <p className="text-red-500 text-sm mt-1">{fieldErrors.lastName}</p>}
+                                    {fieldErrors.lastName && <p className="text-red-300 text-sm mt-1">{fieldErrors.lastName}</p>}
                                 </div>
                             </div>
 
@@ -269,7 +379,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                 {/* Username Field */}
                                 <div>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">@</span>
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300">@</span>
                                         <input
                                             name="username"
                                             className="input pl-8"
@@ -279,7 +389,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                         />
                                     </div>
                                     {fieldErrors.username && (
-                                        <p className="text-red-500 text-sm mt-1">{fieldErrors.username}</p>
+                                        <p className="text-red-300 text-sm mt-1">{fieldErrors.username}</p>
                                     )}
                                 </div>
 
@@ -294,6 +404,41 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                     />
                                 </div>
                             </div>
+                            
+                            {/* Wallet Status */}
+                            <div className="mb-4">
+                                <div className={clsx(
+                                    "p-3 rounded-lg flex items-center",
+                                    isConnected || formData.walletAddress 
+                                        ? "bg-green-900/20 border border-green-700/30"
+                                        : "bg-white/10 border border-white/20"
+                                )}>
+                                    <div className="flex-1">
+                                        <p className="text-white font-medium">
+                                            {isConnected || formData.walletAddress 
+                                                ? "Wallet Connected" 
+                                                : "Connect Your Wallet"}
+                                        </p>
+                                        <p className="text-xs text-gray-300">
+                                            {isConnected || formData.walletAddress
+                                                ? publicKey || formData.walletAddress
+                                                : "You can connect now or after registration"}
+                                        </p>
+                                    </div>
+                                    {!(isConnected || formData.walletAddress) && (
+                                        <motion.button
+                                            type="button"
+                                            onClick={connectUserWallet}
+                                            className="bg-white text-black text-sm font-medium py-1.5 px-3 rounded-lg hover:bg-white/90 transition-colors"
+                                            whileHover={{ scale: 1.03 }}
+                                            whileTap={{ scale: 0.98 }}
+                                        >
+                                            Connect
+                                        </motion.button>
+                                    )}
+                                </div>
+                            </div>
+                            
                             <div className="mb-4">
                                 <div>
                                     <input
@@ -304,7 +449,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                         value={formData.email}
                                         onChange={handleChange}
                                     />
-                                    {fieldErrors.email && <p className="text-red-500 text-sm mt-1">{fieldErrors.email}</p>}
+                                    {fieldErrors.email && <p className="text-red-300 text-sm mt-1">{fieldErrors.email}</p>}
                                 </div>
 
                             </div>
@@ -318,9 +463,9 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                         value={formData.password}
                                         onChange={handleChange}
                                     />
-                                    {fieldErrors.password && <p className="text-red-500 text-sm mt-1">{fieldErrors.password}</p>}
+                                    {fieldErrors.password && <p className="text-red-300 text-sm mt-1">{fieldErrors.password}</p>}
                                 </div>
-                                <div >
+                                <div>
                                     <input
                                         type="password"
                                         name="confirmPassword"
@@ -329,15 +474,12 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                         value={formData.confirmPassword}
                                         onChange={handleChange}
                                     />
-                                    {fieldErrors.confirmPassword && <p className="text-red-500 text-sm mt-1">{fieldErrors.confirmPassword}</p>}
+                                    {fieldErrors.confirmPassword && <p className="text-red-300 text-sm mt-1">{fieldErrors.confirmPassword}</p>}
                                 </div>
-
                             </div>
 
-
-
                             <div className="mb-4">
-                                <label className="block mb-2 text-sm font-medium text-gray-700">Your Skills *</label>
+                                <label className="block mb-2 text-sm font-medium text-white">Your Skills *</label>
                                 <div className="flex flex-wrap gap-2">
                                     {defaultSkills.map((skill) => (
                                         <button
@@ -345,20 +487,20 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                             type="button"
                                             onClick={() => handleSkillToggle(skill)}
                                             className={clsx(
-                                                'text-sm px-3 py-1 rounded-full border transition',
+                                                'text-sm px-3 py-1 rounded-full border transition-all',
                                                 formData.skills.includes(skill)
-                                                    ? 'bg-blue-100 text-blue-600 border-blue-300'
-                                                    : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-100'
+                                                    ? 'bg-blue-500/30 text-blue-200 border-blue-500/50'
+                                                    : 'bg-white/10 text-gray-300 border-white/20 hover:bg-white/20'
                                             )}
                                         >
-                                            {skill} +
+                                            {skill} {formData.skills.includes(skill) ? '✓' : '+'}
                                         </button>
                                     ))}
                                 </div>
-                                {fieldErrors.skills && <p className="text-red-500 text-sm mt-1">{fieldErrors.skills}</p>}
+                                {fieldErrors.skills && <p className="text-red-300 text-sm mt-1">{fieldErrors.skills}</p>}
                             </div>
                             <div className="mb-4">
-                                <label className="block mb-2 text-sm font-medium text-gray-700">Socials</label>
+                                <label className="block mb-2 text-sm font-medium text-white">Socials</label>
 
                                 {formData.socials.map((link, idx) => (
                                     <div key={idx} className="flex items-center gap-2 mb-2">
@@ -376,25 +518,57 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                                     <button
                                         type="button"
                                         onClick={handleAddSocial}
-                                        className="text-sm text-blue-600 mt-2 font-medium hover:underline"
+                                        className="text-sm text-white mt-2 font-medium hover:underline"
                                     >
                                         + ADD MORE
                                     </button>
                                 )}
-
                             </div>
 
-                            <button type="submit" className="btn-primary w-full py-2 flex items-center justify-center" disabled={isSubmitting}>
+                            <motion.button 
+                                type="submit" 
+                                className="bg-white text-black font-medium py-3 px-4 rounded-lg hover:bg-white/90 transition-colors w-full flex items-center justify-center" 
+                                disabled={isSubmitting}
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
                                 {isSubmitting ? (
-                                    <span className="flex gap-1 h-[30px] items-center justify-center">
-                                        <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.3s]" />
-                                        <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.15s]" />
-                                        <span className="w-2 h-2 rounded-full bg-white animate-bounce" />
+                                    <span className="flex gap-2 items-center justify-center">
+                                        <span className="w-2 h-2 rounded-full bg-black animate-bounce [animation-delay:-0.3s]" />
+                                        <span className="w-2 h-2 rounded-full bg-black animate-bounce [animation-delay:-0.15s]" />
+                                        <span className="w-2 h-2 rounded-full bg-black animate-bounce" />
                                     </span>
                                 ) : (
                                     'Create Profile'
                                 )}
-                            </button>
+                            </motion.button>
+                            
+                            <div className="mt-6 relative flex items-center justify-center">
+                                <div className="absolute left-0 w-full border-t border-white/10"></div>
+                                <div className="relative bg-[#070708] px-4 text-sm text-gray-300">or register with</div>
+                            </div>
+                            
+                            <motion.button
+                                type="button"
+                                onClick={handleGoogleSignIn}
+                                disabled={isGoogleSubmitting}
+                                className="mt-6 w-full flex items-center justify-center gap-2 border border-white/20 bg-white/10 hover:bg-white/15 text-white py-3 px-4 rounded-lg transition-colors"
+                                whileHover={{ scale: 1.03 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                {isGoogleSubmitting ? (
+                                    <span className="flex gap-2 items-center justify-center">
+                                        <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.3s]"></span>
+                                        <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.15s]"></span>
+                                        <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
+                                    </span>
+                                ) : (
+                                    <>
+                                        <FcGoogle className="w-5 h-5" />
+                                        <span>Google</span>
+                                    </>
+                                )}
+                            </motion.button>
                         </form>
                     </div>
                 </div>

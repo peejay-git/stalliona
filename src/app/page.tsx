@@ -117,24 +117,30 @@ export default function Home() {
           <h1 className="relative text-4xl md:text-6xl font-bold mb-6">
             <span className="text-white hero-text">
               Where Talent Shape the <br />Future of Web3</span>
-            <Image
-              src="/images/circle.svg"
-              alt="circle-logo"
-              width={70}
-              height={70}
-              className="rounded-full absolute top-20 left-[71%] mt-[45px] stellar-logo"
-            />
+            <motion.div
+              className="absolute top-16 right-[-5%] md:right-[5%] lg:right-[15%] mt-[35px] sm:block"
+              animate={{ rotate: [0, 10, 0, -10, 0], scale: [1, 1.05, 1] }}
+              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Image
+                src="/images/circle.svg"
+                alt="circle-logo"
+                width={100}
+                height={100}
+                className="stellar-logo"
+              />
+            </motion.div>
           </h1>
           <p className="text-xl md:text-2xl text-white max-w-3xl mx-auto mb-8 small-hero-text">
             Connect, contribute, and earn rewards on the Stellar blockchain
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
 
-            <Link href="/create" className="btn-secondary rounded-[40px] flex items-center justify-between text-[15px] font-bold">
+            <Link href="/create" className="bg-white text-black font-medium py-2 px-4 rounded-[40px] flex items-center justify-between text-[15px] font-bold hover:bg-white/90 transition-colors">
               Create Bounty
               <FaAngleRight className='' />
             </Link>
-            <Link href="/bounties" className="text-white font-medium py-2 px-4 bg-black rounded-[40px] flex items-center justify-between text-[15px] font-bold" style={{ boxShadow: '0px 4px 4px 0px #FFFFFF40' }}>
+            <Link href="/bounties" className="backdrop-blur-xl bg-white/10 text-white font-medium py-2 px-4 rounded-[40px] flex items-center justify-between text-[15px] font-bold border border-white/20 hover:bg-white/20 transition-colors">
               Browse Bounties
               <FaAngleRight className='' />
             </Link>
@@ -166,15 +172,23 @@ export default function Home() {
           ))}
         </div> */}
       </section>
-      <div className="">
-        <div className="text-[180px] whitespace-nowrap animate-scroll w-full absolute flex gap-[40px]">
-          STALLIONS  <Image
-            src="/logonew.svg"
-            alt="mad Logo"
-            width={60}
-            height={60}
-            className="opacity-10"
-          /> ASSEMBLE
+      <div className="relative overflow-hidden py-8">
+        <div className="flex whitespace-nowrap animate-scroll w-full">
+          {Array(3).fill(null).map((_, i) => (
+            <div key={i} className="flex items-center gap-6 mr-10">
+              <span className="text-[180px] font-[900] opacity-30 text-white/30 font-['Druk_Wide_Trial']">STALLIONS</span>
+              <div className="mx-4 opacity-30">
+                <Image
+                  src="/images/mad.png"
+                  alt="Stallion Logo"
+                  width={200}
+                  height={200}
+                  className="min-w-[180px]"
+                />
+              </div>
+              <span className="text-[180px] font-[900] opacity-30 text-white/30 font-['Druk_Wide_Trial']">ASSEMBLE</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -289,10 +303,10 @@ export default function Home() {
             cutting-edge Web3 projects on the Stellar blockchain.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/register" className="bg-white text-stellar-blue font-medium py-2 px-6 rounded-lg hover:bg-opacity-90 transition-opacity">
+            <Link href="/register" className="bg-white text-black font-medium py-2 px-6 rounded-lg hover:bg-white/90 transition-colors">
               Create Account
             </Link>
-            <Link href="/bounties" className="bg-transparent border border-white text-white font-medium py-2 px-6 rounded-lg hover:bg-white hover:bg-opacity-10 transition-colors">
+            <Link href="/bounties" className="backdrop-blur-xl bg-white/10 text-white font-medium py-2 px-6 rounded-lg border border-white/20 hover:bg-white/20 transition-colors">
               Browse Bounties
             </Link>
           </div>

@@ -10,7 +10,7 @@ A Web3 platform for connecting talent with Stellar blockchain projects, powered 
 - Create and manage bounties with rewards in Stellar-based tokens (USDC, XLM, etc.)
 - Browse available bounties by category, rewards, and skills
 - Submit work for review and receive payments directly through smart contracts
-- User authentication via Stellar wallet (Freighter)
+- User authentication via Email, Google Auth, and Stellar wallet (Freighter)
 - Smart contract-based escrow and payment system
 - Dashboard for tracking created bounties and submissions
 
@@ -18,6 +18,8 @@ A Web3 platform for connecting talent with Stellar blockchain projects, powered 
 
 - **Frontend**: Next.js, React, TailwindCSS
 - **Blockchain**: Stellar, Soroban (smart contracts)
+- **Authentication**: Firebase Authentication
+- **Database**: Firebase Firestore
 - **Wallet Integration**: Freighter API
 - **Smart Contracts**: Rust/Soroban
 
@@ -30,11 +32,16 @@ stallion/
 │   │   ├── bounties/           # Bounty listing and detail pages
 │   │   ├── create/             # Bounty creation page
 │   │   ├── dashboard/          # User dashboard page
+│   │   ├── connect-wallet/     # Wallet connection page
+│   │   ├── wallet-signup/      # Wallet-first signup page
 │   │   └── page.tsx            # Homepage
 │   ├── components/             # React components
 │   ├── contracts/              # Soroban smart contracts
 │   ├── hooks/                  # Custom React hooks
 │   ├── lib/                    # Library functions
+│   │   ├── firebase.ts         # Firebase configuration
+│   │   ├── authService.ts      # Authentication services
+│   │   └── stores/             # State management
 │   ├── types/                  # TypeScript type definitions
 │   └── utils/                  # Utility functions
 ├── public/                     # Static assets
@@ -44,6 +51,7 @@ stallion/
 ## Prerequisites
 
 - Node.js 18+
+- Firebase project
 - Stellar account with Freighter wallet
 - Soroban CLI (for contract deployment)
 
@@ -65,18 +73,46 @@ npm install
 3. Create a `.env.local` file with your configuration:
 
 ```
+# Stellar/Soroban Configuration
 NEXT_PUBLIC_STELLAR_NETWORK=TESTNET
 NEXT_PUBLIC_SOROBAN_RPC_URL=https://soroban-testnet.stellar.org
 NEXT_PUBLIC_BOUNTY_CONTRACT_ID=your_deployed_contract_id
+
+# Firebase Configuration
+NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_firebase_auth_domain
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_firebase_project_id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_firebase_messaging_sender_id
+NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
 ```
 
-4. Run the development server:
+4. Firebase Setup:
+   - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
+   - Enable Authentication with Email/Password and Google Sign-in methods
+   - Create a Firestore database
+   - Get your Firebase configuration from Project Settings > General > Your Apps
+   - Add the configuration values to your `.env.local` file
+
+5. Run the development server:
 
 ```bash
 npm run dev
 ```
 
 Visit `http://localhost:3000` to view the application.
+
+## Authentication Flow
+
+The application supports multiple authentication methods:
+
+1. **Email/Password Registration**: Traditional signup with email verification
+2. **Google Authentication**: One-click login with Google
+3. **Wallet-based Authentication**: Connect Stellar wallet via Freighter
+
+The authentication flow is designed to ensure users connect their wallets:
+- After email/Google registration, users are prompted to connect their wallet
+- Users who connect their wallet first are prompted to either link to an existing account or create a new one
 
 ## Smart Contract Deployment
 
@@ -107,6 +143,10 @@ soroban contract deploy \
 4. Update your `.env.local` file with the deployed contract ID.
 
 ## Key Components
+
+### Authentication Service
+
+The authentication system provides email registration, Google sign-in, and wallet-based authentication. See `src/lib/authService.ts` for implementation.
 
 ### Bounty Contract
 
@@ -163,6 +203,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Next.js](https://nextjs.org)
 - [TailwindCSS](https://tailwindcss.com)
 - [Freighter Wallet](https://www.freighter.app) 
+- [Firebase](https://firebase.google.com)
 =======
 # stalliona
 >>>>>>> f58443301d57b923f145f3e3944289cd9593aaab
