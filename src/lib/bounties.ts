@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc, where, QueryConstraint } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc, where, QueryConstraint, updateDoc } from 'firebase/firestore';
 interface SubmitBountyInput {
     bountyId: string;
     userId: string;
@@ -152,4 +152,31 @@ export async function submitBounty({ bountyId, userId, submissionData }: SubmitB
     });
 
     return docRef.id;
+}
+
+export async function bountyHasSubmissions(bountyId: string): Promise<boolean> {
+    const submissionsRef = collection(db, 'submissions');
+    const q = query(submissionsRef, where('bountyId', '==', bountyId));
+    const snapshot = await getDocs(q);
+    
+    return !snapshot.empty;
+}
+
+export async function updateBounty(bountyId: string, updatedData: any) {
+    // First check if the bounty has submissions
+    const hasSubmissions = await bountyHasSubmissions(bountyId);
+    
+    if (hasSubmissions) {
+        throw new Error("Cannot edit a bounty that already has submissions.");
+    }
+    
+    const bountyRef = doc(db, 'bounties', bountyId);
+    
+    // Update the bounty with the new data
+    await updateDoc(bountyRef, {
+        ...updatedData,
+        updatedAt: serverTimestamp()
+    });
+    
+    return true;
 }

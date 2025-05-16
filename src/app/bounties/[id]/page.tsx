@@ -1,22 +1,25 @@
 'use client';
 
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, useRouter } from 'next/navigation';
 import { mockBounties } from '@/utils/mock-data';
 import { BountyStatus } from '@/types/bounty';
 import { useEffect, useState } from 'react';
-import { getBountyById } from '@/lib/bounties';
+import { getBountyById, bountyHasSubmissions } from '@/lib/bounties';
 import { assetSymbols } from '@/components/BountyCard';
 import BountyDetailSkeleton from '@/components/BountyDetailSkeleton';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import toast from 'react-hot-toast';
 
 export default function BountyDetailPage({ params }: { params: { id: string } }) {
-  // In a real app, this would fetch from the API/contract
-  // const bounty = mockBounties.find((b) => b.id === params.id);
+  const router = useRouter();
   const [bounty, setBounty] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [canEdit, setCanEdit] = useState(false);
+  const [checkingEditStatus, setCheckingEditStatus] = useState(true);
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -54,6 +57,38 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
 
     return () => unsubscribe(); // Clean up on unmount
   }, []);
+
+  // Check if user can edit this bounty (is owner and no submissions)
+  useEffect(() => {
+    const checkEditPermission = async () => {
+      if (!bounty || !userId) {
+        setCanEdit(false);
+        setCheckingEditStatus(false);
+        return;
+      }
+
+      if (bounty.owner !== userId) {
+        setCanEdit(false);
+        setCheckingEditStatus(false);
+        return;
+      }
+
+      try {
+        // Check if bounty has submissions
+        const hasSubmissions = await bountyHasSubmissions(params.id);
+        setCanEdit(!hasSubmissions);
+      } catch (err) {
+        console.error("Error checking bounty submissions:", err);
+        setCanEdit(false);
+      } finally {
+        setCheckingEditStatus(false);
+      }
+    };
+
+    if (bounty && userId) {
+      checkEditPermission();
+    }
+  }, [bounty, userId, params.id]);
 
   console.log('User ID:', userId); // Log the user ID to the console
   const formatDate = (dateString: string) => {
@@ -101,6 +136,11 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
         return null;
     }
   };
+
+  const handleEditBounty = () => {
+    router.push(`/bounties/${params.id}/edit`);
+  };
+
   if (loading) return <BountyDetailSkeleton />;
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6">
@@ -127,11 +167,22 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                 </span>
               </div>
             </div>
-            <div className="bg-white text-black py-3 px-6 rounded-lg text-center">
-              <div className="text-sm opacity-90">Reward</div>
-              <div className="text-xl font-bold">
-                {assetSymbols[bounty.reward.asset] || ''}{bounty.reward.amount} {bounty.reward.asset}
+            <div className="flex gap-2 items-center">
+              <div className="bg-white text-black py-3 px-6 rounded-lg text-center">
+                <div className="text-sm opacity-90">Reward</div>
+                <div className="text-xl font-bold">
+                  {assetSymbols[bounty.reward.asset] || ''}{bounty.reward.amount} {bounty.reward.asset}
+                </div>
               </div>
+              
+              {canEdit && (
+                <button 
+                  onClick={handleEditBounty}
+                  className="bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-3 px-4 rounded-lg hover:bg-white/20 transition-colors"
+                >
+                  Edit Bounty
+                </button>
+              )}
             </div>
           </div>
 
