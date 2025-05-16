@@ -23,7 +23,22 @@ export default function BountiesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
   const itemsPerPage = 2; // you can adjust this number
+
+  // Handle window resize and initial client-side mounted state
+  useEffect(() => {
+    setIsMounted(true);
+    setWindowWidth(window.innerWidth);
+    
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const applyFilters = async () => {
     setLoading(true);
@@ -129,7 +144,7 @@ export default function BountiesPage() {
           {/* Search and filter section */}
           <div className="flex flex-col lg:flex-row gap-8 mb-8">
             {/* Filter sidebar */}
-            <div className={`lg:w-1/4 ${showFilters || window.innerWidth >= 1024 ? 'block' : 'hidden'}`}>
+            <div className={`lg:w-1/4 ${showFilters || (isMounted && windowWidth >= 1024) ? 'block' : 'hidden'}`}>
               <BountyFilter statusFilters={statusFilters}
                 categoryFilters={categoryFilters}
                 rewardRange={rewardRange}
@@ -140,7 +155,7 @@ export default function BountiesPage() {
                 setSkills={setSkills}
                 onApply={() => {
                   applyFilters();
-                  if (window.innerWidth < 1024) setShowFilters(false);
+                  if (isMounted && windowWidth < 1024) setShowFilters(false);
                 }} 
                 onReset={onReset} />
             </div>
