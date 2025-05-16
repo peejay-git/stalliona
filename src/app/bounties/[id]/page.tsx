@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { notFound, useRouter } from 'next/navigation';
 import { mockBounties } from '@/utils/mock-data';
-import { BountyStatus } from '@/types/bounty';
+import { BountyStatus, Bounty } from '@/types/bounty';
 import { useEffect, useState } from 'react';
 import { getBountyById, bountyHasSubmissions } from '@/lib/bounties';
 import { assetSymbols } from '@/components/BountyCard';
@@ -13,7 +13,7 @@ import toast from 'react-hot-toast';
 
 export default function BountyDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const [bounty, setBounty] = useState<any>(null);
+  const [bounty, setBounty] = useState<Bounty | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -142,6 +142,8 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   };
 
   if (loading) return <BountyDetailSkeleton />;
+  if (!bounty) return <div className="text-center py-12">Bounty not found</div>;
+  
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
@@ -161,7 +163,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
             <div>
               <h1 className="text-2xl md:text-3xl font-bold mb-2">{bounty.title}</h1>
               <div className="flex items-center gap-3">
-                {getStatusBadge(bounty.status)}
+                {getStatusBadge(bounty.status as BountyStatus)}
                 <span className="text-gray-300 text-sm">
                   Posted on {formatDate(bounty.created)}
                 </span>

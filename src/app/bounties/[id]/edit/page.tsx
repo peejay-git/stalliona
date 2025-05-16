@@ -8,6 +8,7 @@ import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import Layout from '@/components/Layout';
 import toast from 'react-hot-toast';
+import { Bounty } from '@/types/bounty';
 
 const categoriesOptions = [
     'Development',
@@ -41,7 +42,7 @@ export default function EditBountyPage({ params }: { params: { id: string } }) {
     useProtectedRoute();
     const router = useRouter();
     const [userId, setUserId] = useState<string | null>(null);
-    const [bounty, setBounty] = useState<any>(null);
+    const [bounty, setBounty] = useState<Bounty | null>(null);
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);

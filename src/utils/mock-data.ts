@@ -41,7 +41,7 @@ export const mockBounties: Bounty[] = [
     category: BountyCategory.DEVELOPMENT,
     skills: ['React', 'TypeScript', 'Stellar SDK', 'Web3'],
     created: generatePastDate(5),
-    updated: generatePastDate(5),
+    updatedAt: generatePastDate(5),
   },
   {
     id: '2',
@@ -58,7 +58,7 @@ export const mockBounties: Bounty[] = [
     category: BountyCategory.DESIGN,
     skills: ['UI/UX', 'Figma', 'Web Design', 'DeFi'],
     created: generatePastDate(3),
-    updated: generatePastDate(3),
+    updatedAt: generatePastDate(3),
   },
   {
     id: '3',
@@ -75,7 +75,7 @@ export const mockBounties: Bounty[] = [
     category: BountyCategory.DEVELOPMENT,
     skills: ['Rust', 'Soroban', 'Smart Contracts', 'Stellar'],
     created: generatePastDate(7),
-    updated: generatePastDate(7),
+    updatedAt: generatePastDate(7),
   },
   {
     id: '4',
@@ -92,7 +92,7 @@ export const mockBounties: Bounty[] = [
     category: BountyCategory.CONTENT,
     skills: ['Technical Writing', 'Education', 'Blockchain Knowledge'],
     created: generatePastDate(10),
-    updated: generatePastDate(10),
+    updatedAt: generatePastDate(10),
   },
   {
     id: '5',
@@ -109,7 +109,7 @@ export const mockBounties: Bounty[] = [
     category: BountyCategory.DEVELOPMENT,
     skills: ['PHP', 'WordPress', 'WooCommerce', 'Stellar SDK'],
     created: generatePastDate(15),
-    updated: generatePastDate(2),
+    updatedAt: generatePastDate(2),
   },
   {
     id: '6',
@@ -126,6 +126,6 @@ export const mockBounties: Bounty[] = [
     category: BountyCategory.RESEARCH,
     skills: ['Market Research', 'Data Analysis', 'Financial Knowledge'],
     created: generatePastDate(6),
-    updated: generatePastDate(6),
+    updatedAt: generatePastDate(6),
   },
 ]; 

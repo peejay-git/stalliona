@@ -19,17 +19,18 @@ export interface Bounty {
   id: string;
   title: string;
   description: string;
+  category: string;
+  owner: string;
+  status: BountyStatus | string;
+  created: string;
+  deadline: string;
+  skills: string[];
   reward: {
     amount: string;
-    asset: string; // Asset code, e.g., "USDC"
+    asset: string;
   };
-  owner: string; // Stellar address of the bounty creator
-  deadline: string; // ISO date string
-  status: BountyStatus;
-  category: BountyCategory;
-  skills: string[];
-  created: string; // ISO date string
-  updated: string; // ISO date string
+  createdAt?: any; // Firestore timestamp
+  updatedAt?: any; // Firestore timestamp
 }
 
 export interface Submission {

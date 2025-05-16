@@ -298,7 +298,7 @@ export class SorobanService {
       category: BountyCategory.DEVELOPMENT,
       skills: ['Rust', 'Soroban', 'Smart Contracts'],
       created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      updated: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
     };
   }
 
@@ -318,7 +318,7 @@ export class SorobanService {
         category: BountyCategory.DEVELOPMENT,
         skills: ['React', 'TypeScript', 'Stellar SDK'],
         created: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        updated: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
       },
       {
         id: '2',
@@ -331,7 +331,7 @@ export class SorobanService {
         category: BountyCategory.DESIGN,
         skills: ['UI/UX', 'Figma', 'Dashboard Design'],
         created: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        updated: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
       },
       {
         id: '3',
@@ -344,7 +344,7 @@ export class SorobanService {
         category: BountyCategory.DEVELOPMENT,
         skills: ['Rust', 'Soroban', 'Smart Contracts'],
         created: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        updated: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
       },
     ];
   }

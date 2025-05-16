@@ -1,5 +1,7 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc, where, QueryConstraint, updateDoc } from 'firebase/firestore';
+import { Bounty } from '@/types/bounty';
+
 interface SubmitBountyInput {
     bountyId: string;
     userId: string;
@@ -36,7 +38,7 @@ export async function getAllBounties() {
 }
 
 
-export async function getBountyById(id: string) {
+export async function getBountyById(id: string): Promise<Bounty | null> {
     const docRef = doc(db, 'bounties', id);
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) return null;
@@ -44,10 +46,10 @@ export async function getBountyById(id: string) {
     return {
         id: docSnap.id,
         ...docSnap.data(),
-    };
+    } as Bounty;
 }
 
-export async function getBountiesByOwner(ownerId: string) {
+export async function getBountiesByOwner(ownerId: string): Promise<Bounty[]> {
     const q = query(
         collection(db, 'bounties'),
         where('owner', '==', ownerId)
@@ -57,7 +59,7 @@ export async function getBountiesByOwner(ownerId: string) {
     return snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
-    }));
+    })) as Bounty[];
 }
 
 export async function getFilteredBounties(filters: FilterOptions) {
