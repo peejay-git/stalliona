@@ -288,7 +288,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                 isOpen ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'
             )}>
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setStep('form')} />
-                <div className="relative w-full max-w-md shadow-2xl z-[9999] bg-transparent">
+                <div className="relative w-full max-w-md shadow-2xl z-[9999] bg-transparent max-h-[90vh]">
                     <button 
                         type="button" 
                         onClick={() => setStep('form')} 
@@ -334,14 +334,12 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
             isOpen ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'
         )}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-            <div className="relative w-full max-w-xl shadow-2xl z-[9999] bg-transparent">
-
+            <div className="relative w-full max-w-xl shadow-2xl z-[9999] bg-transparent max-h-[90vh]">
                 <button type="button" onClick={onClose} className="absolute top-4 right-4 text-gray-300 hover:text-white transition z-20" aria-label="Close">
                     <IoClose className="w-6 h-6" />
                 </button>
                 <div className="rounded-2xl overflow-hidden">
-                    <div className="max-h-[90vh] overflow-y-auto backdrop-blur-xl bg-white/10 border border-white/20 p-8 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
-
+                    <div className="max-h-[80vh] overflow-y-auto backdrop-blur-xl bg-white/10 border border-white/20 p-8 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
                         <h2 className="text-2xl font-bold mb-2 text-center text-white">Complete your Profile</h2>
                         <p className="text-sm text-gray-300 text-center mb-6">
                             We'll tailor your Earn experience based on your profile

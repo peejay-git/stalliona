@@ -14,7 +14,7 @@ export default function ChooseRoleModal({ isOpen, onClose, onChooseRole }: Props
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -29,10 +29,10 @@ export default function ChooseRoleModal({ isOpen, onClose, onChooseRole }: Props
                         animate={{ scale: 1, opacity: 1, y: 0 }}
                         exit={{ scale: 0.9, opacity: 0, y: 20 }}
                         transition={{ type: "spring", duration: 0.5 }}
-                        className="relative w-full max-w-lg mx-auto z-[9999]"
+                        className="relative w-full max-w-lg mx-auto z-[9999] max-h-[90vh]"
                     >
                         <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl overflow-hidden shadow-2xl">
-                            <div className="relative p-8">
+                            <div className="relative p-8 overflow-y-auto max-h-[80vh]">
                                 <motion.button
                                     whileHover={{ rotate: 90 }}
                                     transition={{ duration: 0.2 }}
