@@ -1,4 +1,4 @@
-import { Auth } from "firebase/auth";
+import { Auth, AuthProvider } from "firebase/auth";
 import { Firestore } from "firebase/firestore";
 import { FirebaseStorage } from "firebase/storage";
 
@@ -13,7 +13,10 @@ const mockAuth = {
 
 const mockDb = {} as Firestore;
 const mockStorage = {} as FirebaseStorage;
-const mockGoogleProvider = {};
+const mockGoogleProvider = {
+  providerId: 'google.com',
+  addScope: () => {}
+} as unknown as AuthProvider;
 
 // Export the mock objects
 export const auth = mockAuth;
