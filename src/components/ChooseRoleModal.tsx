@@ -14,7 +14,7 @@ export default function ChooseRoleModal({ isOpen, onClose, onChooseRole }: Props
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
+                <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20">
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}

@@ -284,11 +284,11 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
     if (step === 'wallet') {
         return (
             <div className={clsx(
-                'fixed inset-0 z-[9999] flex items-center justify-center transition-all duration-300',
+                'fixed inset-0 z-[9999] flex items-start justify-center pt-20 transition-all duration-300',
                 isOpen ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'
             )}>
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setStep('form')} />
-                <div className="relative w-full max-w-md shadow-2xl z-[9999] bg-transparent max-h-[90vh]">
+                <div className="relative w-full max-w-xl shadow-2xl z-[9999] bg-transparent max-h-[90vh]">
                     <button 
                         type="button" 
                         onClick={() => setStep('form')} 
@@ -330,7 +330,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
 
     return (
         <div className={clsx(
-            'fixed inset-0 z-[9999] flex items-center justify-center transition-all duration-300',
+            'fixed inset-0 z-[9999] flex items-start justify-center pt-20 transition-all duration-300',
             isOpen ? 'visible opacity-100' : 'invisible opacity-0 pointer-events-none'
         )}>
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />

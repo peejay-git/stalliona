@@ -22,9 +22,8 @@ export default function BountiesPage() {
   const [sortBy, setSortBy] = useState('newest');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showFilters, setShowFilters] = useState(false);
   const itemsPerPage = 2; // you can adjust this number
-
-
 
   const applyFilters = async () => {
     setLoading(true);
@@ -77,7 +76,6 @@ export default function BountiesPage() {
       }
     });
 
-
   return (
     <Layout>
       <div className="min-h-screen pb-16">
@@ -90,10 +88,48 @@ export default function BountiesPage() {
             </p>
           </div>
 
+          {/* Mobile filter toggle */}
+          <div className="lg:hidden flex justify-between items-center mb-6">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 bg-white/10 text-white py-2 px-4 rounded-lg hover:bg-white/20 transition-colors border border-white/20"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4h12m-12 0V8m30 0v8"
+                />
+              </svg>
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-300 whitespace-nowrap">Sort by:</span>
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="bg-white/10 border-white/20 text-white rounded-lg text-sm px-2 py-1.5"
+              >
+                <option value="newest">Newest</option>
+                <option value="reward-high">Highest Reward</option>
+                <option value="reward-low">Lowest Reward</option>
+                <option value="deadline">Deadline (Soon)</option>
+              </select>
+            </div>
+          </div>
+
           {/* Search and filter section */}
           <div className="flex flex-col lg:flex-row gap-8 mb-8">
             {/* Filter sidebar */}
-            <div className="lg:w-1/4">
+            <div className={`lg:w-1/4 ${showFilters || window.innerWidth >= 1024 ? 'block' : 'hidden'}`}>
               <BountyFilter statusFilters={statusFilters}
                 categoryFilters={categoryFilters}
                 rewardRange={rewardRange}
@@ -102,12 +138,16 @@ export default function BountiesPage() {
                 setCategoryFilters={setCategoryFilters}
                 setRewardRange={setRewardRange}
                 setSkills={setSkills}
-                onApply={applyFilters} onReset={onReset} />
+                onApply={() => {
+                  applyFilters();
+                  if (window.innerWidth < 1024) setShowFilters(false);
+                }} 
+                onReset={onReset} />
             </div>
 
             {/* Bounty listing */}
             <div className="lg:w-3/4">
-              {/* Search bar and sorting options */}
+              {/* Search bar and desktop sorting options */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="relative flex-grow max-w-md">
                   <input
@@ -133,7 +173,7 @@ export default function BountiesPage() {
                     />
                   </svg>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center gap-2">
                   <span className="text-sm text-gray-300 whitespace-nowrap">Sort by:</span>
                   <select
                     value={sortBy}

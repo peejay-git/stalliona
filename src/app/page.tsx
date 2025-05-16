@@ -134,13 +134,12 @@ export default function Home() {
           <p className="text-xl md:text-2xl text-white max-w-3xl mx-auto mb-8 small-hero-text">
             Connect, contribute, and earn rewards on the Stellar blockchain
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-
-            <Link href="/create" className="bg-white text-black font-medium py-2 px-4 rounded-[40px] flex items-center justify-between text-[15px] font-bold hover:bg-white/90 transition-colors">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-md mx-auto">
+            <Link href="/create" className="bg-white text-black font-medium py-3 px-6 rounded-[40px] flex items-center justify-between text-[15px] font-bold hover:bg-white/90 transition-colors w-full">
               Create Bounty
               <FaAngleRight className='' />
             </Link>
-            <Link href="/bounties" className="backdrop-blur-xl bg-white/10 text-white font-medium py-2 px-4 rounded-[40px] flex items-center justify-between text-[15px] font-bold border border-white/20 hover:bg-white/20 transition-colors">
+            <Link href="/bounties" className="backdrop-blur-xl bg-white/10 text-white font-medium py-3 px-6 rounded-[40px] flex items-center justify-between text-[15px] font-bold border border-white/20 hover:bg-white/20 transition-colors w-full">
               Browse Bounties
               <FaAngleRight className='' />
             </Link>
