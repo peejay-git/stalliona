@@ -9,13 +9,13 @@ import { IoWalletOutline } from "react-icons/io5";
 import LoginModal from './LoginModal';
 import RegisterModal from './RegisterModal';
 import ChooseRoleModal from './ChooseRoleModal';
+import { useUserStore } from '@/lib/stores/useUserStore';
 
 // Pre-defined nav links to avoid recreation on render
 const navLinks = [
   { name: 'Home', href: '/' },
   { name: 'Bounties', href: '/bounties' },
   { name: 'Create', href: '/create' },
-  { name: 'Dashboard', href: '/dashboard' },
 ];
 
 const Header = () => {
@@ -29,6 +29,7 @@ const Header = () => {
   const [showLogin, setShowLogin] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const router = useRouter();
+  const user = useUserStore((state) => state.user);
   
   // Close menu when route changes
   useEffect(() => {
@@ -128,6 +129,18 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
+            {user && (
+              <Link
+                href="/dashboard"
+                className={`font-medium whitespace-nowrap nav-txt p-3 rounded-[10px] ${
+                  pathname === '/dashboard'
+                    ? 'text-white bg-white/10'
+                    : 'text-[#797C86] hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                Dashboard
+              </Link>
+            )}
           </nav>
 
           {/* Wallet Connect Button (Desktop) */}
@@ -215,6 +228,19 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
+            {user && (
+              <Link
+                href="/dashboard"
+                className={`block py-2 font-medium ${
+                  pathname === '/dashboard'
+                    ? 'text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={toggleMenu}
+              >
+                Dashboard
+              </Link>
+            )}
             <div className="pt-4 pb-3 border-t border-white/10">
               <button
                 onClick={() => {
