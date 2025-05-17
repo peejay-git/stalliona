@@ -154,7 +154,7 @@ const Header = () => {
               </button>
             )}
             
-            {isConnected && isNewUser && (
+            {isConnected && isNewUser && !user && (
               <button
                 onClick={() => setShowLogin(true)}
                 className="bg-white text-black font-medium py-1.5 px-4 rounded-lg hover:bg-white/90 complete-profile"
@@ -170,14 +170,14 @@ const Header = () => {
               >
                 Disconnect
               </button>
-            ) : (
+            ) : !user ? (
               <button
                 onClick={() => setShowLogin(true)}
                 className="bg-white text-black font-medium py-1.5 px-4 rounded-lg hover:bg-white/90"
               >
                 Login
               </button>
-            )}
+            ) : null}
           </div>
 
           {/* Mobile menu button */}
@@ -242,15 +242,17 @@ const Header = () => {
               </Link>
             )}
             <div className="pt-4 pb-3 border-t border-white/10">
-              <button
-                onClick={() => {
-                  setShowLogin(true);
-                  setIsMenuOpen(false);
-                }}
-                className="bg-white text-black font-medium py-1.5 px-4 w-full mb-2 rounded-lg hover:bg-white/90"
-              >
-                Login
-              </button>
+              {!user && (
+                <button
+                  onClick={() => {
+                    setShowLogin(true);
+                    setIsMenuOpen(false);
+                  }}
+                  className="bg-white text-black font-medium py-1.5 px-4 w-full mb-2 rounded-lg hover:bg-white/90"
+                >
+                  Login
+                </button>
+              )}
               {isConnected && publicKey && (
                 <button
                   onClick={() => {
