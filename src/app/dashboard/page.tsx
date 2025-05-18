@@ -10,6 +10,7 @@ import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import { getBountiesByOwner } from '@/lib/bounties';
 import { assetSymbols } from '@/components/BountyCard';
 import Layout from '@/components/Layout';
+import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function DashboardPage() {
   useProtectedRoute();
@@ -86,6 +87,17 @@ export default function DashboardPage() {
     });
   };
 
+  const handleLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      useUserStore.getState().clearUser();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   if (isConnected) {
     return (
       <Layout>
@@ -144,6 +156,12 @@ export default function DashboardPage() {
                   <Link href="/bounties" className="bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-2 px-4 rounded-lg hover:bg-white/20 transition-colors">
                     Browse Bounties
                   </Link>
+                  <button 
+                    onClick={handleLogout}
+                    className="bg-red-600/20 text-red-300 border border-red-500/40 font-medium py-2 px-4 rounded-lg hover:bg-red-600/30 transition-colors"
+                  >
+                    Logout
+                  </button>
                 </div>
               </div>
             </div>
@@ -174,7 +192,7 @@ export default function DashboardPage() {
                   </svg>
                 </div>
                 <p className="text-gray-300 text-sm mb-1">Total Earned</p>
-                <p className="text-2xl font-semibold text-white">$750 USDC</p>
+                <p className="text-2xl font-semibold text-white">$ USDC</p>
               </div>
             </div>
           </div>
