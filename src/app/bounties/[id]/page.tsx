@@ -21,6 +21,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   const [checkingEditStatus, setCheckingEditStatus] = useState(true);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [rankingsApproved, setRankingsApproved] = useState(false);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -269,6 +270,45 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     router.push(`/bounties/${params.id}/edit`);
   };
 
+  // Handle approve rankings function
+  const handleApproveRankings = async () => {
+    if (!bounty || !userId) return;
+    
+    // Check if all places (1st, 2nd, 3rd) have been assigned
+    const hasFirstPlace = submissions.some(sub => sub.ranking === 1);
+    const hasSecondPlace = submissions.some(sub => sub.ranking === 2);
+    const hasThirdPlace = submissions.some(sub => sub.ranking === 3);
+    
+    if (!hasFirstPlace) {
+      toast.error('Please select a 1st place winner before approving');
+      return;
+    }
+    
+    // Optional: require all three places to be filled
+    // if (!hasFirstPlace || !hasSecondPlace || !hasThirdPlace) {
+    //   toast.error('Please select 1st, 2nd, and 3rd place winners before approving');
+    //   return;
+    // }
+    
+    try {
+      // In a production application, we would call an API to store this state
+      // For now, we'll just update local state
+      setRankingsApproved(true);
+      toast.success('Rankings have been approved and are now final!');
+      
+      // Update bounty status to COMPLETED
+      if (bounty) {
+        setBounty({
+          ...bounty,
+          status: BountyStatus.COMPLETED
+        });
+      }
+    } catch (err: any) {
+      console.error('Error approving rankings:', err);
+      toast.error(err.message || 'Failed to approve rankings');
+    }
+  };
+
   if (loading) return <BountyDetailSkeleton />;
   if (!bounty) return <div className="text-center py-12">Bounty not found</div>;
   
@@ -363,7 +403,22 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
         {/* Submissions section (only visible to bounty owner) */}
         {isOwner && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
-            <h2 className="text-xl font-semibold mb-4">Submissions</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">Submissions</h2>
+              {submissions.length > 0 && submissions.some(sub => sub.ranking) && !rankingsApproved && (
+                <button 
+                  onClick={handleApproveRankings}
+                  className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                >
+                  Approve Rankings
+                </button>
+              )}
+              {rankingsApproved && (
+                <div className="bg-green-900/40 text-green-300 border border-green-700/30 rounded-lg px-4 py-2">
+                  Rankings Finalized ✓
+                </div>
+              )}
+            </div>
             
             {loadingSubmissions ? (
               <div className="text-center py-8">
@@ -419,12 +474,13 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                                submission.ranking === 2 ? '2nd Place 🥈' : 
                                '3rd Place 🥉'}
                             </span>
-                          ) : (
+                          ) : !rankingsApproved ? (
                             <div className="flex space-x-2">
                               <button 
                                 onClick={() => handleRankSubmission(submission.id, 1)}
                                 className="px-2 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded text-xs hover:bg-yellow-900/60"
                                 title="Set as 1st place"
+                                disabled={submissions.some(sub => sub.ranking === 1)}
                               >
                                 1st
                               </button>
@@ -432,6 +488,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                                 onClick={() => handleRankSubmission(submission.id, 2)}
                                 className="px-2 py-1 bg-gray-700/40 text-gray-300 border border-gray-600/30 rounded text-xs hover:bg-gray-700/60"
                                 title="Set as 2nd place"
+                                disabled={submissions.some(sub => sub.ranking === 2)}
                               >
                                 2nd
                               </button>
@@ -439,10 +496,13 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                                 onClick={() => handleRankSubmission(submission.id, 3)}
                                 className="px-2 py-1 bg-amber-900/40 text-amber-300 border border-amber-700/30 rounded text-xs hover:bg-amber-900/60"
                                 title="Set as 3rd place"
+                                disabled={submissions.some(sub => sub.ranking === 3)}
                               >
                                 3rd
                               </button>
                             </div>
+                          ) : (
+                            <span className="text-gray-400">Not ranked</span>
                           )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -466,7 +526,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                             </button>
                           )}
                           
-                          {submission.ranking && (
+                          {submission.ranking && !rankingsApproved && (
                             <button
                               onClick={() => handleRankSubmission(submission.id, null)}
                               className="text-red-300 hover:text-red-200 ml-4"
