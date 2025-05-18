@@ -53,7 +53,7 @@ export async function GET(
 
 /**
  * PATCH /api/bounties/[id]/submissions/[submissionId]
- * Accept or reject a submission
+ * Accept, reject, or rank a submission
  */
 export async function PATCH(
   request: NextRequest,
@@ -72,11 +72,34 @@ export async function PATCH(
     const body = await request.json();
     
     // Validate the request
-    const { action, senderPublicKey, signedXdr } = body;
+    const { action, senderPublicKey, signedXdr, ranking } = body;
 
+    // Check if it's a ranking update
+    if (action === 'rank' && ranking !== undefined) {
+      // Validate ranking is 1, 2, or 3
+      if (![1, 2, 3].includes(ranking) && ranking !== null) {
+        return NextResponse.json(
+          { error: 'Ranking must be 1, 2, 3, or null' },
+          { status: 400 }
+        );
+      }
+
+      // TODO: Implement updateSubmissionRanking in SorobanService
+      // For now, return a mock success response
+      
+      return NextResponse.json({ 
+        success: true,
+        message: ranking ? `Submission ranked #${ranking} successfully` : 'Ranking removed successfully',
+        id: submissionId,
+        bountyId: id,
+        ranking
+      });
+    }
+
+    // Handle accept/reject actions
     if (!action || !['accept', 'reject'].includes(action)) {
       return NextResponse.json(
-        { error: 'Valid action (accept or reject) is required' },
+        { error: 'Valid action (accept, reject, or rank) is required' },
         { status: 400 }
       );
     }

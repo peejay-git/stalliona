@@ -163,6 +163,44 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     }
   };
 
+  // Handle ranking submission (1st, 2nd, 3rd place)
+  const handleRankSubmission = async (submissionId: string, ranking: 1 | 2 | 3 | null) => {
+    if (!bounty || !userId) return;
+    
+    try {
+      const response = await fetch(`/api/bounties/${params.id}/submissions/${submissionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'rank',
+          senderPublicKey: userId,
+          ranking
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to rank submission');
+      }
+      
+      // Update the local submissions list
+      setSubmissions(prev => 
+        prev.map(sub => 
+          sub.id === submissionId 
+            ? { ...sub, ranking } 
+            : sub
+        )
+      );
+      
+      toast.success(ranking ? `Submission ranked #${ranking} successfully` : 'Ranking removed');
+    } catch (err: any) {
+      console.error('Error ranking submission:', err);
+      toast.error(err.message || 'Failed to rank submission');
+    }
+  };
+
   // Handle reject submission
   const handleRejectSubmission = async (submissionId: string) => {
     if (!bounty || !userId) return;
@@ -385,6 +423,9 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                       <th className="px-4 py-3 bg-black/20 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Status
                       </th>
+                      <th className="px-4 py-3 bg-black/20 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Ranking
+                      </th>
                       <th className="px-4 py-3 bg-black/20 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Actions
                       </th>
@@ -401,6 +442,45 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
                           {getSubmissionStatusBadge(submission.status)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          {submission.ranking ? (
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                              submission.ranking === 1 
+                                ? 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/30' 
+                                : submission.ranking === 2
+                                  ? 'bg-gray-700/40 text-gray-300 border border-gray-600/30'
+                                  : 'bg-amber-900/40 text-amber-300 border border-amber-700/30'
+                            }`}>
+                              {submission.ranking === 1 ? '1st Place 🥇' : 
+                               submission.ranking === 2 ? '2nd Place 🥈' : 
+                               '3rd Place 🥉'}
+                            </span>
+                          ) : (
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => handleRankSubmission(submission.id, 1)}
+                                className="px-2 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded text-xs hover:bg-yellow-900/60"
+                                title="Set as 1st place"
+                              >
+                                1st
+                              </button>
+                              <button 
+                                onClick={() => handleRankSubmission(submission.id, 2)}
+                                className="px-2 py-1 bg-gray-700/40 text-gray-300 border border-gray-600/30 rounded text-xs hover:bg-gray-700/60"
+                                title="Set as 2nd place"
+                              >
+                                2nd
+                              </button>
+                              <button 
+                                onClick={() => handleRankSubmission(submission.id, 3)}
+                                className="px-2 py-1 bg-amber-900/40 text-amber-300 border border-amber-700/30 rounded text-xs hover:bg-amber-900/60"
+                                title="Set as 3rd place"
+                              >
+                                3rd
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button 
@@ -429,6 +509,16 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                                 Reject
                               </button>
                             </>
+                          )}
+                          
+                          {submission.ranking && (
+                            <button
+                              onClick={() => handleRankSubmission(submission.id, null)}
+                              className="text-red-300 hover:text-red-200 ml-4"
+                              title="Remove ranking"
+                            >
+                              Clear Rank
+                            </button>
                           )}
                         </td>
                       </tr>

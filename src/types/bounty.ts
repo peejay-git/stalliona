@@ -40,6 +40,7 @@ export interface Submission {
   content: string; // Submission content or link to work
   created: string; // ISO date string
   status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  ranking?: 1 | 2 | 3 | null; // Position (1st, 2nd, 3rd place)
 }
 
 export interface BountyWithSubmissions extends Bounty {
