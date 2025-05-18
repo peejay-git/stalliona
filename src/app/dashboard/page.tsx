@@ -38,22 +38,36 @@ export default function DashboardPage() {
       bountyId: '2',
       bountyTitle: 'Design Landing Page for DeFi Application',
       status: 'PENDING',
-      submitted: '2023-04-28T15:30:00Z',
+      submitted: '2025-04-28T15:30:00Z',
     },
     {
       id: 's2',
       bountyId: '3',
       bountyTitle: 'Implement Soroban Smart Contract for Token Vesting',
       status: 'ACCEPTED',
-      submitted: '2023-04-20T10:15:00Z',
+      submitted: '2025-04-20T10:15:00Z',
     },
     {
       id: 's3',
       bountyId: '5',
       bountyTitle: 'Develop Payment Processing Plugin for WooCommerce',
       status: 'REJECTED',
-      submitted: '2023-04-15T09:00:00Z',
+      submitted: '2025-04-15T09:00:00Z',
     },
+    {
+      id: 's4',
+      bountyId: '7',
+      bountyTitle: 'Create API Documentation Website',
+      status: 'PENDING',
+      submitted: '2025-05-01T14:22:00Z',
+    },
+    {
+      id: 's5',
+      bountyId: '9',
+      bountyTitle: 'Develop User Dashboard UI Components',
+      status: 'ACCEPTED',
+      submitted: '2025-05-03T11:45:00Z',
+    }
   ];
   useEffect(() => {
     const fetchData = async () => {

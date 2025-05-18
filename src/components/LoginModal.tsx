@@ -185,14 +185,8 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
             if (!userData.wallet) {
                 router.push('/connect-wallet');
             } else {
-                // 3. Redirect by role
-                if (userData.role === 'sponsor') {
-                    router.push('/dashboard/sponsor');
-                } else if (userData.role === 'talent') {
-                    router.push('/dashboard');
-                } else {
-                    router.push('/dashboard');
-                }
+                // Always redirect to /dashboard regardless of role
+                router.push('/dashboard');
             }
         } catch (err: any) {
             console.error(err);
