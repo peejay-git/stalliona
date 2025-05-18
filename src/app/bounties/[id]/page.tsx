@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { notFound, useRouter } from 'next/navigation';
 import { mockBounties } from '@/utils/mock-data';
-import { BountyStatus, Bounty } from '@/types/bounty';
+import { BountyStatus, Bounty, Submission } from '@/types/bounty';
 import { useEffect, useState } from 'react';
 import { getBountyById, bountyHasSubmissions } from '@/lib/bounties';
 import { assetSymbols } from '@/components/BountyCard';
@@ -19,6 +19,8 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   const [userId, setUserId] = useState<string | null>(null);
   const [canEdit, setCanEdit] = useState(false);
   const [checkingEditStatus, setCheckingEditStatus] = useState(true);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -36,11 +38,28 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     fetchData();
   }, [params.id]);
 
-  // if (!bounty) {
-  //   notFound();
-  // }
+  // Fetch submissions when bounty and userId are available
+  useEffect(() => {
+    const fetchSubmissions = async () => {
+      if (!bounty || !userId || bounty.owner !== userId) return;
+      
+      setLoadingSubmissions(true);
+      try {
+        const response = await fetch(`/api/bounties/${params.id}/submissions`);
+        if (!response.ok) throw new Error('Failed to fetch submissions');
+        
+        const data = await response.json();
+        setSubmissions(data.submissions || []);
+      } catch (err: any) {
+        console.error('Error fetching submissions:', err);
+        toast.error('Failed to load submissions');
+      } finally {
+        setLoadingSubmissions(false);
+      }
+    };
 
-  // Format date to be more readable
+    fetchSubmissions();
+  }, [bounty, userId, params.id]);
 
   // Detect logged-in user and get their ID
   useEffect(() => {
@@ -99,6 +118,88 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     });
   };
 
+  // Handle accept submission
+  const handleAcceptSubmission = async (submissionId: string) => {
+    if (!bounty || !userId) return;
+    
+    try {
+      const response = await fetch(`/api/bounties/${params.id}/submissions/${submissionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'accept',
+          senderPublicKey: userId, // This should be the wallet public key in production
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to accept submission');
+      }
+      
+      // Update the local submissions list
+      setSubmissions(prev => 
+        prev.map(sub => 
+          sub.id === submissionId 
+            ? { ...sub, status: 'ACCEPTED' } 
+            : sub
+        )
+      );
+      
+      toast.success('Submission accepted! The bounty reward will be transferred to the winner.');
+      
+      // Update bounty status to completed
+      if (bounty) {
+        setBounty({
+          ...bounty,
+          status: BountyStatus.COMPLETED
+        });
+      }
+    } catch (err: any) {
+      console.error('Error accepting submission:', err);
+      toast.error(err.message || 'Failed to accept submission');
+    }
+  };
+
+  // Handle reject submission
+  const handleRejectSubmission = async (submissionId: string) => {
+    if (!bounty || !userId) return;
+    
+    try {
+      const response = await fetch(`/api/bounties/${params.id}/submissions/${submissionId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'reject',
+          senderPublicKey: userId, // This should be the wallet public key in production
+        }),
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to reject submission');
+      }
+      
+      // Update the local submissions list
+      setSubmissions(prev => 
+        prev.map(sub => 
+          sub.id === submissionId 
+            ? { ...sub, status: 'REJECTED' } 
+            : sub
+        )
+      );
+      
+      toast.success('Submission rejected.');
+    } catch (err: any) {
+      console.error('Error rejecting submission:', err);
+      toast.error(err.message || 'Failed to reject submission');
+    }
+  };
+
   // Get status color and text
   const getStatusBadge = (status: BountyStatus) => {
     switch (status) {
@@ -137,12 +238,40 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     }
   };
 
+  // Get submission status badge
+  const getSubmissionStatusBadge = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return (
+          <span className="px-3 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded-full text-sm font-medium">
+            Pending
+          </span>
+        );
+      case 'ACCEPTED':
+        return (
+          <span className="px-3 py-1 bg-green-900/40 text-green-300 border border-green-700/30 rounded-full text-sm font-medium">
+            Accepted
+          </span>
+        );
+      case 'REJECTED':
+        return (
+          <span className="px-3 py-1 bg-red-900/40 text-red-300 border border-red-700/30 rounded-full text-sm font-medium">
+            Rejected
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
   const handleEditBounty = () => {
     router.push(`/bounties/${params.id}/edit`);
   };
 
   if (loading) return <BountyDetailSkeleton />;
   if (!bounty) return <div className="text-center py-12">Bounty not found</div>;
+  
+  const isOwner = userId === bounty.owner;
   
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6">
@@ -229,34 +358,117 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
             <p className="whitespace-pre-line">{bounty.description}</p>
           </div>
         </div>
-
-        {/* Apply section */}
-        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 text-white">
-          <h2 className="text-xl font-semibold mb-4">Submit Work</h2>
-          {bounty.status.toUpperCase() === BountyStatus.OPEN && userId !== bounty.owner ? (
-            <div>
-              <p className="text-gray-300 mb-6">
-                To apply for this bounty, you'll need to connect your Stellar wallet and provide details about your submission.
-              </p>
-              <div className="mb-6">
-                <label htmlFor="submission" className="block text-white font-medium mb-2">
-                  Submission Details
-                </label>
-                <textarea
-                  id="submission"
-                  rows={6}
-                  className="input"
-                  placeholder="Explain your approach, provide links to your work, or add any relevant details..."
-                ></textarea>
+        
+        {/* Submissions section (only visible to bounty owner) */}
+        {isOwner && (
+          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
+            <h2 className="text-xl font-semibold mb-4">Submissions</h2>
+            
+            {loadingSubmissions ? (
+              <div className="text-center py-8">
+                <div className="w-8 h-8 border-2 border-t-transparent border-white rounded-full animate-spin mx-auto mb-2"></div>
+                <p className="text-gray-300">Loading submissions...</p>
               </div>
-              <button className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors">Submit Work</button>
-            </div>
-          ) : (
-            <p className="text-gray-300">
-              This bounty is {bounty.status.toLowerCase()} and is not accepting submissions at this time.
-            </p>
-          )}
-        </div>
+            ) : submissions.length === 0 ? (
+              <p className="text-gray-300">No submissions yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-600">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-3 bg-black/20 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Applicant
+                      </th>
+                      <th className="px-4 py-3 bg-black/20 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Submitted
+                      </th>
+                      <th className="px-4 py-3 bg-black/20 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 bg-black/20 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-600">
+                    {submissions.map((submission) => (
+                      <tr key={submission.id}>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">
+                          {submission.applicant.slice(0, 6)}...{submission.applicant.slice(-4)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">
+                          {formatDate(submission.created)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm">
+                          {getSubmissionStatusBadge(submission.status)}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button 
+                            onClick={() => {
+                              // Show submission details modal or expand row
+                              alert(submission.content);
+                            }}
+                            className="text-gray-300 hover:text-white mr-4"
+                          >
+                            View
+                          </button>
+                          
+                          {submission.status === 'PENDING' && (
+                            <>
+                              <button 
+                                onClick={() => handleAcceptSubmission(submission.id)}
+                                className="text-green-300 hover:text-green-200 mr-4"
+                                disabled={bounty.status === BountyStatus.COMPLETED}
+                              >
+                                Accept
+                              </button>
+                              <button 
+                                onClick={() => handleRejectSubmission(submission.id)}
+                                className="text-red-300 hover:text-red-200"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Apply section - only show if not the owner */}
+        {!isOwner && (
+          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 text-white">
+            <h2 className="text-xl font-semibold mb-4">Submit Work</h2>
+            {bounty.status.toUpperCase() === BountyStatus.OPEN && userId !== bounty.owner ? (
+              <div>
+                <p className="text-gray-300 mb-6">
+                  To apply for this bounty, you'll need to connect your Stellar wallet and provide details about your submission.
+                </p>
+                <div className="mb-6">
+                  <label htmlFor="submission" className="block text-white font-medium mb-2">
+                    Submission Details
+                  </label>
+                  <textarea
+                    id="submission"
+                    rows={6}
+                    className="input"
+                    placeholder="Explain your approach, provide links to your work, or add any relevant details..."
+                  ></textarea>
+                </div>
+                <button className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors">Submit Work</button>
+              </div>
+            ) : (
+              <p className="text-gray-300">
+                This bounty is {bounty.status.toLowerCase()} and is not accepting submissions at this time.
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
