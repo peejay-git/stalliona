@@ -201,43 +201,6 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     }
   };
 
-  // Handle reject submission
-  const handleRejectSubmission = async (submissionId: string) => {
-    if (!bounty || !userId) return;
-    
-    try {
-      const response = await fetch(`/api/bounties/${params.id}/submissions/${submissionId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'reject',
-          senderPublicKey: userId, // This should be the wallet public key in production
-        }),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to reject submission');
-      }
-      
-      // Update the local submissions list
-      setSubmissions(prev => 
-        prev.map(sub => 
-          sub.id === submissionId 
-            ? { ...sub, status: 'REJECTED' } 
-            : sub
-        )
-      );
-      
-      toast.success('Submission rejected.');
-    } catch (err: any) {
-      console.error('Error rejecting submission:', err);
-      toast.error(err.message || 'Failed to reject submission');
-    }
-  };
-
   // Get status color and text
   const getStatusBadge = (status: BountyStatus) => {
     switch (status) {
@@ -494,21 +457,13 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                           </button>
                           
                           {submission.status === 'PENDING' && (
-                            <>
-                              <button 
-                                onClick={() => handleAcceptSubmission(submission.id)}
-                                className="text-green-300 hover:text-green-200 mr-4"
-                                disabled={bounty.status === BountyStatus.COMPLETED}
-                              >
-                                Accept
-                              </button>
-                              <button 
-                                onClick={() => handleRejectSubmission(submission.id)}
-                                className="text-red-300 hover:text-red-200"
-                              >
-                                Reject
-                              </button>
-                            </>
+                            <button 
+                              onClick={() => handleAcceptSubmission(submission.id)}
+                              className="text-green-300 hover:text-green-200 mr-4"
+                              disabled={bounty.status === BountyStatus.COMPLETED}
+                            >
+                              Accept
+                            </button>
                           )}
                           
                           {submission.ranking && (

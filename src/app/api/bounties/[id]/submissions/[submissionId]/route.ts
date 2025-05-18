@@ -96,10 +96,10 @@ export async function PATCH(
       });
     }
 
-    // Handle accept/reject actions
-    if (!action || !['accept', 'reject'].includes(action)) {
+    // Handle accept and rank actions only, removing reject functionality
+    if (!action || !['accept'].includes(action) && !(action === 'rank' && ranking !== undefined)) {
       return NextResponse.json(
-        { error: 'Valid action (accept, reject, or rank) is required' },
+        { error: 'Valid action (accept or rank) is required' },
         { status: 400 }
       );
     }
@@ -131,17 +131,6 @@ export async function PATCH(
         id: submissionId,
         bountyId: id,
         status: 'ACCEPTED'
-      });
-    } else {
-      // TODO: Implement rejectSubmission in SorobanService
-      // For now, return a mock success response
-      
-      return NextResponse.json({ 
-        success: true,
-        message: 'Submission rejected successfully',
-        id: submissionId,
-        bountyId: id,
-        status: 'REJECTED'
       });
     }
   } catch (error) {
