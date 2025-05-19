@@ -1,8 +1,9 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc, where, QueryConstraint, updateDoc } from 'firebase/firestore';
 import { Bounty } from '@/types/bounty';
+import { sendMail } from '@/server/sendEmail';
 
-interface SubmitBountyInput {
+export interface SubmitBountyInput {
     bountyId: string;
     userId: string;
     submissionData: any; // Define the structure of submissionData based on your requirements
@@ -114,71 +115,88 @@ export async function getFilteredBounties(filters: FilterOptions) {
     }));
 }
 
-export async function submitBounty({ bountyId, userId, submissionData }: SubmitBountyInput) {
-    // 1. Fetch bounty to check rules
-    const bountyRef = doc(db, 'bounties', bountyId);
-    const bountySnap = await getDoc(bountyRef);
+// export async function submitBounty({ bountyId, userId, submissionData }: SubmitBountyInput) {
+//     // 1. Fetch bounty
+//     const bountyRef = doc(db, 'bounties', bountyId);
+//     const bountySnap = await getDoc(bountyRef);
 
-    if (!bountySnap.exists()) throw new Error('Bounty not found');
+//     if (!bountySnap.exists()) throw new Error('Bounty not found');
 
-    const bounty = bountySnap.data();
+//     const bounty = bountySnap.data();
+//     const sponsorId = bounty.owner;
 
-    // 2. Check if user is the bounty owner
-    if (bounty.owner === userId) {
-        throw new Error("You cannot submit work to your own bounty.");
-    }
+//     // 2. Prevent self-submission
+//     if (sponsorId === userId) {
+//         throw new Error("You cannot submit work to your own bounty.");
+//     }
 
-    // 3. Check if deadline has passed
-    const deadlineDate = new Date(bounty.deadline);
-    const now = new Date();
-    if (now > deadlineDate) {
-        throw new Error("The submission deadline for this bounty has passed.");
-    }
+//     // 3. Deadline check
+//     const deadlineDate = new Date(bounty.deadline);
+//     const now = new Date();
+//     if (now > deadlineDate) {
+//         throw new Error("The submission deadline for this bounty has passed.");
+//     }
 
-    // 4. Check if user already submitted
-    const submissionsRef = collection(db, 'submissions');
-    const q = query(submissionsRef, where('bountyId', '==', bountyId), where('userId', '==', userId));
-    const existing = await getDocs(q);
+//     // 4. Check for existing submission
+//     const submissionsRef = collection(db, 'submissions');
+//     const q = query(submissionsRef, where('bountyId', '==', bountyId), where('userId', '==', userId));
+//     const existing = await getDocs(q);
 
-    if (!existing.empty) {
-        throw new Error("You have already submitted work for this bounty.");
-    }
+//     if (!existing.empty) {
+//         throw new Error("You have already submitted work for this bounty.");
+//     }
 
-    // 5. Save submission
-    const docRef = await addDoc(submissionsRef, {
-        bountyId,
-        userId,
-        ...submissionData,
-        submittedAt: serverTimestamp(),
-        status: 'PENDING',
-    });
+//     // 5. Save submission
+//     const docRef = await addDoc(submissionsRef, {
+//         bountyId,
+//         userId,
+//         ...submissionData,
+//         submittedAt: serverTimestamp(),
+//         status: 'PENDING',
+//     });
 
-    return docRef.id;
-}
+//     // 6. Fetch sponsor and talent emails
+//     const sponsorSnap = await getDoc(doc(db, 'users', sponsorId));
+//     const talentSnap = await getDoc(doc(db, 'users', userId));
+
+//     if (!sponsorSnap.exists() || !talentSnap.exists()) {
+//         console.warn('User records not found for sponsor or talent');
+//         return docRef.id;
+//     }
+
+//     const sponsorEmail = sponsorSnap.data().email;
+//     const talentEmail = talentSnap.data().email;
+//     const talentFirstName = talentSnap.data().firstName || 'Talent';
+
+//     // 7. Send emails
+//     await sendMail(talentEmail, sponsorEmail, talentFirstName);
+
+//     return docRef.id;
+// }
 
 export async function bountyHasSubmissions(bountyId: string): Promise<boolean> {
     const submissionsRef = collection(db, 'submissions');
     const q = query(submissionsRef, where('bountyId', '==', bountyId));
     const snapshot = await getDocs(q);
-    
+
     return !snapshot.empty;
 }
 
 export async function updateBounty(bountyId: string, updatedData: any) {
     // First check if the bounty has submissions
     const hasSubmissions = await bountyHasSubmissions(bountyId);
-    
+
     if (hasSubmissions) {
         throw new Error("Cannot edit a bounty that already has submissions.");
     }
-    
+
     const bountyRef = doc(db, 'bounties', bountyId);
-    
+
     // Update the bounty with the new data
     await updateDoc(bountyRef, {
         ...updatedData,
         updatedAt: serverTimestamp()
     });
-    
+
     return true;
 }
