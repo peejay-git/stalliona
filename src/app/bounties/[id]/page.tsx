@@ -22,7 +22,9 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [rankingsApproved, setRankingsApproved] = useState(false);
-  
+  const [submissionDetails, setSubmissionDetails] = useState('');
+
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -43,12 +45,12 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   useEffect(() => {
     const fetchSubmissions = async () => {
       if (!bounty || !userId || bounty.owner !== userId) return;
-      
+
       setLoadingSubmissions(true);
       try {
         const response = await fetch(`/api/bounties/${params.id}/submissions`);
         if (!response.ok) throw new Error('Failed to fetch submissions');
-        
+
         const data = await response.json();
         setSubmissions(data.submissions || []);
       } catch (err: any) {
@@ -110,7 +112,6 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     }
   }, [bounty, userId, params.id]);
 
-  console.log('User ID:', userId); // Log the user ID to the console
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -122,7 +123,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   // Handle accept submission
   const handleAcceptSubmission = async (submissionId: string) => {
     if (!bounty || !userId) return;
-    
+
     try {
       const response = await fetch(`/api/bounties/${params.id}/submissions/${submissionId}`, {
         method: 'PATCH',
@@ -134,23 +135,23 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
           senderPublicKey: userId, // This should be the wallet public key in production
         }),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to accept submission');
       }
-      
+
       // Update the local submissions list
-      setSubmissions(prev => 
-        prev.map(sub => 
-          sub.id === submissionId 
-            ? { ...sub, status: 'ACCEPTED' } 
+      setSubmissions(prev =>
+        prev.map(sub =>
+          sub.id === submissionId
+            ? { ...sub, status: 'ACCEPTED' }
             : sub
         )
       );
-      
+
       toast.success('Submission accepted! The bounty reward will be transferred to the winner.');
-      
+
       // Update bounty status to completed
       if (bounty) {
         setBounty({
@@ -167,7 +168,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   // Handle ranking submission (1st, 2nd, 3rd place)
   const handleRankSubmission = async (submissionId: string, ranking: 1 | 2 | 3 | null) => {
     if (!bounty || !userId) return;
-    
+
     try {
       const response = await fetch(`/api/bounties/${params.id}/submissions/${submissionId}`, {
         method: 'PATCH',
@@ -180,21 +181,21 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
           ranking
         }),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to rank submission');
       }
-      
+
       // Update the local submissions list
-      setSubmissions(prev => 
-        prev.map(sub => 
-          sub.id === submissionId 
-            ? { ...sub, ranking } 
+      setSubmissions(prev =>
+        prev.map(sub =>
+          sub.id === submissionId
+            ? { ...sub, ranking }
             : sub
         )
       );
-      
+
       toast.success(ranking ? `Submission ranked #${ranking} successfully` : 'Ranking removed');
     } catch (err: any) {
       console.error('Error ranking submission:', err);
@@ -273,29 +274,29 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   // Handle approve rankings function
   const handleApproveRankings = async () => {
     if (!bounty || !userId) return;
-    
+
     // Check if all places (1st, 2nd, 3rd) have been assigned
     const hasFirstPlace = submissions.some(sub => sub.ranking === 1);
     const hasSecondPlace = submissions.some(sub => sub.ranking === 2);
     const hasThirdPlace = submissions.some(sub => sub.ranking === 3);
-    
+
     if (!hasFirstPlace) {
       toast.error('Please select a 1st place winner before approving');
       return;
     }
-    
+
     // Optional: require all three places to be filled
     // if (!hasFirstPlace || !hasSecondPlace || !hasThirdPlace) {
     //   toast.error('Please select 1st, 2nd, and 3rd place winners before approving');
     //   return;
     // }
-    
+
     try {
       // In a production application, we would call an API to store this state
       // For now, we'll just update local state
       setRankingsApproved(true);
       toast.success('Rankings have been approved and are now final!');
-      
+
       // Update bounty status to COMPLETED
       if (bounty) {
         setBounty({
@@ -311,9 +312,72 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
 
   if (loading) return <BountyDetailSkeleton />;
   if (!bounty) return <div className="text-center py-12">Bounty not found</div>;
-  
+
   const isOwner = userId === bounty.owner;
-  
+
+
+  const handleSubmitWork = async () => {
+    if (!userId || !bounty?.id) {
+      toast.error("You must be logged in to submit.");
+      return;
+    }
+
+    if (!submissionDetails.trim()) {
+      toast.error("Please enter your submission details.");
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/submit-bounty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bountyId: bounty.id,
+          userId,
+          submissionData: {
+            content: submissionDetails.trim(),
+          },
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw result;
+      }
+
+      toast.success("Submission successful!");
+      setSubmissionDetails('');
+    } catch (error: any) {
+      let message = "Failed to submit work.";
+
+      if (error.code) {
+        switch (error.code) {
+          case 'permission-denied':
+            message = "You do not have permission to perform this action.";
+            break;
+          case 'unauthenticated':
+            message = "Please log in to submit your work.";
+            break;
+          case 'already-exists':
+          case 'resource-exhausted':
+            message = "You've already submitted work for this bounty.";
+            break;
+          case 'deadline-exceeded':
+            message = "The deadline for this bounty has passed.";
+            break;
+          default:
+            message = error.error || message;
+        }
+      } else if (error.error) {
+        message = error.error;
+      }
+
+      toast.error(message);
+    }
+  };
+
+
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
@@ -346,9 +410,9 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                   {assetSymbols[bounty.reward.asset] || ''}{bounty.reward.amount} {bounty.reward.asset}
                 </div>
               </div>
-              
+
               {canEdit && (
-                <button 
+                <button
                   onClick={handleEditBounty}
                   className="bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-3 px-4 rounded-lg hover:bg-white/20 transition-colors"
                 >
@@ -399,14 +463,14 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
             <p className="whitespace-pre-line">{bounty.description}</p>
           </div>
         </div>
-        
+
         {/* Submissions section (only visible to bounty owner) */}
         {isOwner && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Submissions</h2>
               {submissions.length > 0 && submissions.some(sub => sub.ranking) && !rankingsApproved && (
-                <button 
+                <button
                   onClick={handleApproveRankings}
                   className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
                 >
@@ -419,7 +483,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                 </div>
               )}
             </div>
-            
+
             {loadingSubmissions ? (
               <div className="text-center py-8">
                 <div className="w-8 h-8 border-2 border-t-transparent border-white rounded-full animate-spin mx-auto mb-2"></div>
@@ -463,20 +527,19 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
                           {submission.ranking ? (
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              submission.ranking === 1 
-                                ? 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/30' 
-                                : submission.ranking === 2
-                                  ? 'bg-gray-700/40 text-gray-300 border border-gray-600/30'
-                                  : 'bg-amber-900/40 text-amber-300 border border-amber-700/30'
-                            }`}>
-                              {submission.ranking === 1 ? '1st Place 🥇' : 
-                               submission.ranking === 2 ? '2nd Place 🥈' : 
-                               '3rd Place 🥉'}
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${submission.ranking === 1
+                              ? 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/30'
+                              : submission.ranking === 2
+                                ? 'bg-gray-700/40 text-gray-300 border border-gray-600/30'
+                                : 'bg-amber-900/40 text-amber-300 border border-amber-700/30'
+                              }`}>
+                              {submission.ranking === 1 ? '1st Place 🥇' :
+                                submission.ranking === 2 ? '2nd Place 🥈' :
+                                  '3rd Place 🥉'}
                             </span>
                           ) : !rankingsApproved ? (
                             <div className="flex space-x-2">
-                              <button 
+                              <button
                                 onClick={() => handleRankSubmission(submission.id, 1)}
                                 className="px-2 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded text-xs hover:bg-yellow-900/60"
                                 title="Set as 1st place"
@@ -484,7 +547,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                               >
                                 1st
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleRankSubmission(submission.id, 2)}
                                 className="px-2 py-1 bg-gray-700/40 text-gray-300 border border-gray-600/30 rounded text-xs hover:bg-gray-700/60"
                                 title="Set as 2nd place"
@@ -492,7 +555,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                               >
                                 2nd
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleRankSubmission(submission.id, 3)}
                                 className="px-2 py-1 bg-amber-900/40 text-amber-300 border border-amber-700/30 rounded text-xs hover:bg-amber-900/60"
                                 title="Set as 3rd place"
@@ -506,7 +569,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                           )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          <button 
+                          <button
                             onClick={() => {
                               // Show submission details modal or expand row
                               alert(submission.content);
@@ -515,9 +578,9 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                           >
                             View
                           </button>
-                          
+
                           {submission.status === 'PENDING' && (
-                            <button 
+                            <button
                               onClick={() => handleAcceptSubmission(submission.id)}
                               className="text-green-300 hover:text-green-200 mr-4"
                               disabled={bounty.status === BountyStatus.COMPLETED}
@@ -525,7 +588,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                               Accept
                             </button>
                           )}
-                          
+
                           {submission.ranking && !rankingsApproved && (
                             <button
                               onClick={() => handleRankSubmission(submission.id, null)}
@@ -561,11 +624,13 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                   <textarea
                     id="submission"
                     rows={6}
-                    className="input"
+                    className="input w-full"
                     placeholder="Explain your approach, provide links to your work, or add any relevant details..."
+                    value={submissionDetails}
+                    onChange={(e) => setSubmissionDetails(e.target.value)}
                   ></textarea>
                 </div>
-                <button className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors">Submit Work</button>
+                <button className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors" onClick={handleSubmitWork}>Submit Work</button>
               </div>
             ) : (
               <p className="text-gray-300">

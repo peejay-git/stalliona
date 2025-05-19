@@ -26,6 +26,7 @@
     "firebase": "^11.6.1",
     "framer-motion": "^12.9.4",
     "next": "14.0.4",
+    "nodemailer": "^7.0.3",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-hot-toast": "^2.5.2",
@@ -38,6 +39,7 @@
   "devDependencies": {
     "@types/jest": "29.5.11",
     "@types/node": "20.10.5",
+    "@types/nodemailer": "^6.4.17",
     "@types/react": "18.2.45",
     "@types/react-dom": "18.2.18",
     "autoprefixer": "10.4.16",
