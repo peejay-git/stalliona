@@ -4,6 +4,7 @@ import { BlockchainError } from '@/utils/error-handler';
 import { BountyCategory, BountyStatus } from '@/types/bounty';
 
 // Initialize the Soroban service
+// TODO: Pass in the publicKey of the currently signed in user
 const sorobanService = new SorobanService();
 
 /**
@@ -24,8 +25,9 @@ export async function GET(
     }
 
     // Get the bounty from the contract
-    const bounty = await sorobanService.getBounty(id);
-    
+    // TODO: Fetch these from the database instead
+    const bounty = await sorobanService.getBounty(Number(id));
+
     return NextResponse.json({ bounty });
   } catch (error) {
     console.error(`Error fetching bounty ${params.id}:`, error);
@@ -61,9 +63,20 @@ export async function PUT(
 
     // Parse the request body
     const body = await request.json();
-    
+
     // Validate the request
-    const { title, description, rewardAmount, rewardAsset, deadline, status, category, skills, senderPublicKey, signedXdr } = body;
+    const {
+      title,
+      description,
+      rewardAmount,
+      rewardAsset,
+      deadline,
+      status,
+      category,
+      skills,
+      senderPublicKey,
+      signedXdr,
+    } = body;
 
     if (!senderPublicKey) {
       return NextResponse.json(
@@ -74,18 +87,12 @@ export async function PUT(
 
     // Check if status is valid if provided
     if (status && !Object.values(BountyStatus).includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
     // Check if category is valid if provided
     if (category && !Object.values(BountyCategory).includes(category)) {
-      return NextResponse.json(
-        { error: 'Invalid category' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
     }
 
     // Mock signing function for testing
@@ -97,11 +104,11 @@ export async function PUT(
     // TODO: Implement updateBounty in SorobanService
     // This would be where we would call the update_bounty function on the contract
     // For now, return a mock success response
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
       message: 'Bounty updated successfully',
-      id 
+      id,
     });
   } catch (error) {
     console.error(`Error updating bounty ${params.id}:`, error);
@@ -137,7 +144,7 @@ export async function DELETE(
 
     // Parse the request body
     const body = await request.json();
-    
+
     // Validate the request
     const { senderPublicKey, signedXdr } = body;
 
@@ -157,11 +164,11 @@ export async function DELETE(
     // TODO: Implement cancelBounty in SorobanService
     // This would be where we would call the cancel_bounty function on the contract
     // For now, return a mock success response
-    
-    return NextResponse.json({ 
+
+    return NextResponse.json({
       success: true,
       message: 'Bounty cancelled successfully',
-      id 
+      id,
     });
   } catch (error) {
     console.error(`Error cancelling bounty ${params.id}:`, error);
@@ -176,4 +183,4 @@ export async function DELETE(
       { status: 500 }
     );
   }
-} 
+}

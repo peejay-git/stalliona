@@ -1,11 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { SiBlockchaindotcom } from 'react-icons/si';
-import { BiArrowBack } from 'react-icons/bi';
-import Image from 'next/image';
-import { motion } from 'framer-motion';
 import { useWallet } from '@/hooks/useWallet';
+import { motion } from 'framer-motion';
+import Image from 'next/image';
+import { useEffect, useState } from 'react';
+import { BiArrowBack } from 'react-icons/bi';
 import { FiExternalLink } from 'react-icons/fi';
 
 // Add TypeScript declarations for wallet APIs
@@ -37,80 +36,87 @@ const wallets = [
     name: 'Freighter',
     icon: '/images/wallets/freighter.svg',
     desc: 'The most popular Stellar wallet',
-    installUrl: 'https://www.freighter.app/'
+    installUrl: 'https://www.freighter.app/',
   },
   {
     id: 'albedo',
     name: 'Albedo',
     icon: '/images/wallets/albedo.svg',
     desc: 'Web-based Stellar wallet',
-    installUrl: 'https://albedo.link/'
+    installUrl: 'https://albedo.link/',
   },
   {
     id: 'xbull',
     name: 'xBull',
     icon: '/images/wallets/xbull.svg',
     desc: 'Multi-platform Stellar wallet',
-    installUrl: 'https://xbull.app/'
+    installUrl: 'https://xbull.app/',
   },
   {
     id: 'lobstr',
     name: 'LOBSTR',
     icon: '/images/wallets/lobstr.svg',
     desc: 'Simple and secure Stellar wallet',
-    installUrl: 'https://lobstr.co/'
-  }
+    installUrl: 'https://lobstr.co/',
+  },
 ];
 
-export default function WalletSelector({ onConnect, onBack, loading = false }: Props) {
+export default function WalletSelector({
+  onConnect,
+  onBack,
+  loading = false,
+}: Props) {
   const [selectedWallet, setSelectedWallet] = useState<string | null>(null);
-  const [walletAvailability, setWalletAvailability] = useState<Record<string, boolean>>({
-    freighter: false,
+  const [walletAvailability, setWalletAvailability] = useState<
+    Record<string, boolean>
+  >({
+    freighter: true,
     albedo: true, // Always available as web-based
     xbull: false,
-    lobstr: false
+    lobstr: false,
   });
   const { connect, isConnecting } = useWallet();
   const [checkComplete, setCheckComplete] = useState(false);
-  
+
   // Check which wallets are available
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     // Function to check Freighter availability
     const checkFreighter = async () => {
       try {
-        return (
-          typeof window.freighterApi !== 'undefined' && 
-          (await window.freighterApi?.isConnected()) === true
-        );
+        // return (
+        //   typeof window.freighterApi !== 'undefined' &&
+        //   (await window.freighterApi?.isConnected()) === true
+        // );
+        return true;
       } catch (e) {
         return false;
       }
     };
-    
+
     // Function to check xBull availability
     const checkXBull = () => {
       return typeof window.xBullSDK !== 'undefined';
     };
-    
+
     // Function to check LOBSTR availability
     const checkLobstr = () => {
       return typeof window.StellarWalletLinkJSSDK !== 'undefined';
     };
-    
+
     // Main check function with a timeout
     const checkWallets = async () => {
       try {
         const freighterAvailable = await checkFreighter();
         const xbullAvailable = checkXBull();
         const lobstrAvailable = checkLobstr();
-        
+
         setWalletAvailability({
           freighter: freighterAvailable,
           albedo: true, // Always available as web-based
           xbull: xbullAvailable,
-          lobstr: lobstrAvailable
+          lobstr: lobstrAvailable,
         });
       } catch (error) {
         console.error('Error checking wallet availability:', error);
@@ -118,7 +124,7 @@ export default function WalletSelector({ onConnect, onBack, loading = false }: P
         setCheckComplete(true);
       }
     };
-    
+
     // Start wallet check with a delay to ensure extensions are loaded
     const timer = setTimeout(checkWallets, 500);
     return () => clearTimeout(timer);
@@ -128,13 +134,13 @@ export default function WalletSelector({ onConnect, onBack, loading = false }: P
     try {
       // If wallet is not available and isn't Albedo, offer to install it
       if (!isWalletAvailable(walletId) && walletId !== 'albedo') {
-        const wallet = wallets.find(w => w.id === walletId);
+        const wallet = wallets.find((w) => w.id === walletId);
         if (wallet) {
           window.open(wallet.installUrl, '_blank');
           return;
         }
       }
-      
+
       setSelectedWallet(walletId);
       const publicKey = await connect(walletId);
       if (publicKey) {
@@ -157,13 +163,15 @@ export default function WalletSelector({ onConnect, onBack, loading = false }: P
   return (
     <div className="space-y-6">
       <div className="flex items-center mb-4">
-        <button 
-          onClick={onBack} 
+        <button
+          onClick={onBack}
           className="text-gray-300 hover:text-white transition-colors"
         >
           <BiArrowBack className="w-5 h-5" />
         </button>
-        <h3 className="text-white text-lg font-medium mx-auto pr-5">Connect Wallet</h3>
+        <h3 className="text-white text-lg font-medium mx-auto pr-5">
+          Connect Wallet
+        </h3>
       </div>
 
       {!checkComplete ? (
@@ -173,7 +181,9 @@ export default function WalletSelector({ onConnect, onBack, loading = false }: P
             <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse [animation-delay:0.2s]"></div>
             <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse [animation-delay:0.4s]"></div>
           </div>
-          <p className="text-white text-sm font-medium">Checking wallet extensions...</p>
+          <p className="text-white text-sm font-medium">
+            Checking wallet extensions...
+          </p>
           <p className="text-gray-400 text-xs mt-1">This may take a moment</p>
         </div>
       ) : wallets.length === 0 ? (
@@ -204,7 +214,7 @@ export default function WalletSelector({ onConnect, onBack, loading = false }: P
                   className="object-contain"
                 />
               </div>
-              
+
               <div className="ml-3 text-left flex-1">
                 <p className="text-white font-medium flex items-center">
                   {wallet.name}
@@ -224,7 +234,7 @@ export default function WalletSelector({ onConnect, onBack, loading = false }: P
                   )}
                 </p>
               </div>
-              
+
               {selectedWallet === wallet.id && isConnecting && (
                 <div className="flex space-x-1 ml-2">
                   <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.3s]"></span>
@@ -238,4 +248,4 @@ export default function WalletSelector({ onConnect, onBack, loading = false }: P
       )}
     </div>
   );
-} 
+}

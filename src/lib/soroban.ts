@@ -1,12 +1,20 @@
-import { Bounty, BountyStatus, BountyCategory } from '@/types/bounty';
+import { Distribution } from '@/types/bounty';
 import { BlockchainError } from '@/utils/error-handler';
-import * as StellarSdk from 'stellar-sdk';
+import { getPublicKey, isConnected } from '@stellar/freighter-api';
+import {
+  Status as BountyStatus,
+  Bounty as ContractBounty,
+  Client as SorobanClient,
+} from '../../packages/stallion/src/index';
 
 // Environment variables with defaults
-const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || 'mock_contract';
-const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'TESTNET';
-const SOROBAN_RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
-const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_CLIENT === 'true';
+const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || '';
+const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || '';
+const SOROBAN_RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || '';
+
+if (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL) {
+  throw new Error('Missing required environment variables for Soroban');
+}
 
 /**
  * Soroban service for interacting with the bounty contract
@@ -14,338 +22,355 @@ const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK_CLIENT === 'true';
 export class SorobanService {
   private contractId: string;
   private network: string;
-  private server: any = null;
-  private contract: any = null;
-  private useMock: boolean;
+  private sorobanClient: SorobanClient;
+  private publicKey: string | null;
 
-  constructor(
-    contractId: string = CONTRACT_ID,
-    network: string = NETWORK,
-    sorobanRpcUrl: string = SOROBAN_RPC_URL,
-    useMock: boolean = USE_MOCK
-  ) {
-    this.contractId = contractId;
-    this.network = network;
-    this.useMock = useMock;
+  constructor(publicKey: string) {
+    this.contractId = CONTRACT_ID;
+    this.network = NETWORK;
+    this.publicKey = publicKey;
 
-    if (!this.useMock) {
-      try {
-        // Always use mock for now as we're in development
-        // When implementing actual Stellar SDK integration, this will be updated
-        this.useMock = true;
-        console.log(`Initialized mock Soroban service with contract: ${contractId} on network: ${network}`);
-      } catch (error) {
-        console.error("Error initializing Soroban client:", error);
-        throw new BlockchainError('Failed to initialize Soroban client', 'CONNECTION_ERROR');
+    try {
+      // Initialize the Soroban client for contract interactions
+      this.sorobanClient = new SorobanClient({
+        contractId: this.contractId,
+        networkPassphrase: this.network,
+        rpcUrl: SOROBAN_RPC_URL,
+        publicKey: this.publicKey,
+      });
+
+      // Initialize wallet connection
+      isConnected().then((connected) => {
+        if (connected) {
+          getPublicKey().then((publicKey) => {
+            this.publicKey = publicKey;
+          });
+        }
+      });
+
+      console.log(
+        `Initialized Soroban service with contract: ${this.contractId} on network: ${this.network}`
+      );
+    } catch (error) {
+      console.error('Error initializing Soroban client:', error);
+      throw new BlockchainError(
+        'Failed to initialize Soroban client',
+        'CONNECTION_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get a specific submission for a bounty
+   */
+  async getSubmission(bountyId: number, user: string): Promise<string> {
+    try {
+      const tx = await this.sorobanClient.get_submission({
+        bounty_id: bountyId,
+        user,
+      });
+
+      const result = await tx.simulate();
+      const sentTx = await result.signAndSend();
+
+      // await confirmation
+      if (sentTx.result.isOk()) {
+        return sentTx.result.unwrap();
       }
-    } else {
-      console.log(`Initializing mock Soroban service with contract: ${contractId} on network: ${network}`);
+
+      throw new BlockchainError('Failed to get submission', 'CONTRACT_ERROR');
+    } catch (error) {
+      console.error('Error getting submission:', error);
+      throw new BlockchainError('Failed to get submission', 'CONTRACT_ERROR');
     }
   }
 
   /**
    * Create a new bounty
    */
-  async createBounty(
-    senderPublicKey: string,
-    title: string,
-    description: string,
-    rewardAmount: string,
-    rewardAsset: string,
-    deadline: number, // Unix timestamp in seconds
-    category: BountyCategory,
-    skills: string[],
-    signTransaction: (xdr: string) => Promise<string>
-  ): Promise<string> {
-    if (this.useMock) {
-      return this.mockCreateBounty(
-        senderPublicKey, 
-        title, 
-        description, 
-        rewardAmount, 
-        rewardAsset, 
-        deadline, 
-        category, 
-        skills
-      );
-    }
-
+  async createBounty({
+    title,
+    owner,
+    token,
+    reward,
+    distribution,
+    submissionDeadline,
+    judgingDeadline,
+  }: {
+    title: string;
+    owner: string;
+    token: string;
+    reward: { amount: string; asset: string };
+    distribution: Distribution[];
+    submissionDeadline: number;
+    judgingDeadline: number;
+  }): Promise<number> {
     try {
-      if (!this.server || !this.contract) {
-        throw new BlockchainError('Soroban client not initialized', 'CONNECTION_ERROR');
+      if (!this.publicKey) {
+        throw new Error('Wallet not connected');
       }
 
-      // Mock implementation for now - to be replaced with real implementation
-      console.log('Creating bounty with params:', {
-        senderPublicKey,
-        title,
-        description,
-        rewardAmount,
-        rewardAsset,
-        deadline,
-        category,
-        skills
+      const tx = await this.sorobanClient.create_bounty({
+        owner: owner,
+        token: token,
+        reward: BigInt(reward.amount),
+        distribution: distribution.map((dist) => [
+          dist.percentage,
+          dist.position,
+        ]),
+        submission_deadline: BigInt(submissionDeadline),
+        judging_deadline: BigInt(judgingDeadline),
+        title: title,
       });
-      
-      // Simulate a delay to mimic blockchain transaction
-      await new Promise(r => setTimeout(r, 1000));
-      
-      // Return a mock ID
-      return "mock_bounty_id_" + Date.now().toString();
+
+      const result = await tx.simulate();
+      const sentTx = await result.signAndSend();
+
+      // await confirmation
+      if (sentTx.result.isOk()) {
+        return Number(sentTx.result.unwrap().toString());
+      }
+
+      throw new BlockchainError('Failed to create bounty', 'CONTRACT_ERROR');
+
+      // TODO: Save to DB along with other details not saved in contract
     } catch (error) {
       console.error('Error creating bounty:', error);
-      if (error instanceof BlockchainError) {
-        throw error;
-      }
-      throw new BlockchainError('Failed to create bounty', 'CONTRACT_ERROR');
+      throw new BlockchainError('Failed to create bounty', 'TRANSACTION_ERROR');
     }
   }
 
   /**
-   * Get a bounty by ID
+   * Get all bounties
    */
-  async getBounty(bountyId: string): Promise<Bounty> {
-    if (this.useMock) {
-      return this.mockBountyResponse(bountyId);
-    }
-
+  async getBounties(): Promise<ContractBounty[]> {
     try {
-      if (!this.server || !this.contract) {
-        throw new BlockchainError('Soroban client not initialized', 'CONNECTION_ERROR');
+      const tx = await this.sorobanClient.get_bounties();
+      const result = await tx.simulate();
+      const bountyIds = result.result;
+      const bounties = await Promise.all(
+        bountyIds.map(async (id) => {
+          return await this.getBounty(Number(id.toString()));
+        })
+      );
+      return bounties;
+    } catch (error) {
+      console.error('Error getting bounties:', error);
+      throw new BlockchainError('Failed to get bounties', 'CONTRACT_ERROR');
+    }
+  }
+
+  /**
+   * Get bounties for a specific user
+   */
+  async getUserBounties(user: string): Promise<ContractBounty[]> {
+    try {
+      const tx = await this.sorobanClient.get_user_bounties({
+        user,
+      });
+
+      const result = await tx.simulate();
+
+      // Get the individual bounties
+      const bountyIds = result.result;
+      const bounties = await Promise.all(
+        bountyIds.map(async (id) => {
+          return await this.getBounty(Number(id.toString()));
+        })
+      );
+      return bounties;
+    } catch (error) {
+      console.error('Error getting user bounties:', error);
+      throw new BlockchainError(
+        'Failed to get user bounties',
+        'CONTRACT_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get bounties owned by a specific user
+   */
+  async getOwnerBounties(owner: string): Promise<ContractBounty[]> {
+    try {
+      const tx = await this.sorobanClient.get_owner_bounties({
+        owner,
+      });
+      const result = await tx.simulate();
+      const bountyIds = result.result;
+      const bounties = await Promise.all(
+        bountyIds.map(async (id) => {
+          return await this.getBounty(Number(id.toString()));
+        })
+      );
+      return bounties;
+    } catch (error) {
+      console.error('Error getting owner bounties:', error);
+      throw new BlockchainError(
+        'Failed to get owner bounties',
+        'CONTRACT_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get bounties by status
+   */
+  async getBountiesByStatus(status: BountyStatus): Promise<ContractBounty[]> {
+    try {
+      const tx = await this.sorobanClient.get_bounties_by_status({
+        status,
+      });
+      const result = await tx.simulate();
+      const bountyIds = result.result;
+      const bounties = await Promise.all(
+        bountyIds.map(async (id) => {
+          return await this.getBounty(Number(id.toString()));
+        })
+      );
+      return bounties;
+    } catch (error) {
+      console.error('Error getting bounties by status:', error);
+      throw new BlockchainError(
+        'Failed to get bounties by status',
+        'CONTRACT_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get bounties by token
+   */
+  async getBountiesByToken(token: string): Promise<ContractBounty[]> {
+    try {
+      const tx = await this.sorobanClient.get_bounties_by_token({
+        token,
+      });
+      const result = await tx.simulate();
+      const bountyIds = result.result;
+      const bounties = await Promise.all(
+        bountyIds.map(async (id) => {
+          return await this.getBounty(Number(id.toString()));
+        })
+      );
+      return bounties;
+    } catch (error) {
+      console.error('Error getting bounties by token:', error);
+      throw new BlockchainError(
+        'Failed to get bounties by token',
+        'CONTRACT_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get active bounties
+   */
+  async getActiveBounties(): Promise<ContractBounty[]> {
+    try {
+      const tx = await this.sorobanClient.get_active_bounties();
+      const result = await tx.simulate();
+      const bountyIds = result.result;
+
+      const bounties = await Promise.all(
+        bountyIds.map(async (id) => {
+          return await this.getBounty(Number(id.toString()));
+        })
+      );
+
+      return bounties;
+    } catch (error) {
+      console.error('Error getting active bounties:', error);
+      throw new BlockchainError(
+        'Failed to get active bounties',
+        'CONTRACT_ERROR'
+      );
+    }
+  }
+
+  /**
+   * Get bounty details
+   */
+  async getBounty(bountyId: number): Promise<ContractBounty> {
+    try {
+      const tx = await this.sorobanClient.get_bounty({
+        bounty_id: bountyId,
+      });
+      const result = await tx.simulate();
+      const sentTx = await result.signAndSend();
+
+      // await confirmation
+      if (sentTx.result.isOk()) {
+        return sentTx.result.unwrap();
       }
 
-      // Mock implementation for now - to be replaced with real implementation
-      await new Promise(r => setTimeout(r, 500));
-      return this.mockBountyResponse(bountyId);
+      throw new BlockchainError('Failed to get bounty', 'CONTRACT_ERROR');
     } catch (error) {
       console.error('Error getting bounty:', error);
-      if (error instanceof BlockchainError) {
-        throw error;
-      }
       throw new BlockchainError('Failed to get bounty', 'CONTRACT_ERROR');
     }
   }
 
   /**
-   * List all bounties
+   * Get submissions for a bounty
    */
-  async listBounties(): Promise<Bounty[]> {
-    if (this.useMock) {
-      return this.mockBountiesResponse();
-    }
-
+  async getBountySubmissions(
+    bountyId: number
+  ): Promise<{ applicant: string; submission: string }[]> {
     try {
-      if (!this.server || !this.contract) {
-        throw new BlockchainError('Soroban client not initialized', 'CONNECTION_ERROR');
-      }
+      const tx = await this.sorobanClient.get_bounty_submissions({
+        bounty_id: bountyId,
+      });
+      const result = await tx.simulate();
+      const submissions = result.result;
 
-      // Mock implementation for now - to be replaced with real implementation
-      await new Promise(r => setTimeout(r, 800));
-      return this.mockBountiesResponse();
+      const submissionsList = Array.from(submissions.entries()).map(
+        ([applicant, submission]) => ({
+          applicant,
+          submission,
+        })
+      );
+      return submissionsList;
     } catch (error) {
-      console.error('Error listing bounties:', error);
-      if (error instanceof BlockchainError) {
-        throw error;
-      }
-      throw new BlockchainError('Failed to list bounties', 'CONTRACT_ERROR');
+      console.error('Error getting bounty submissions:', error);
+      throw new BlockchainError(
+        'Failed to get bounty submissions',
+        'CONTRACT_ERROR'
+      );
     }
   }
 
   /**
-   * Submit work for a bounty
+   * Apply to a bounty
    */
-  async submitWork(
+  async applyToBounty(
     senderPublicKey: string,
-    bountyId: string,
-    content: string,
-    signTransaction: (xdr: string) => Promise<string>
-  ): Promise<string> {
-    if (this.useMock) {
-      return this.mockSubmitWork(senderPublicKey, bountyId, content);
-    }
-
+    bountyId: number,
+    content: string
+  ): Promise<void> {
     try {
-      if (!this.server || !this.contract) {
-        throw new BlockchainError('Soroban client not initialized', 'CONNECTION_ERROR');
+      if (!this.publicKey) {
+        throw new Error('Wallet not connected');
       }
 
-      // Mock implementation for now - to be replaced with real implementation
-      console.log('Submitting work:', { senderPublicKey, bountyId, content });
-      await new Promise(r => setTimeout(r, 1000));
-      return "mock_submission_id_" + Date.now().toString();
+      const tx = await this.sorobanClient.apply_to_bounty({
+        applicant: senderPublicKey,
+        bounty_id: bountyId,
+        submission_link: content,
+      });
+
+      const result = await tx.simulate();
+      const sentTx = await result.signAndSend();
+
+      // await confirmation
+      if (sentTx.result.isOk()) {
+        return;
+      }
+
+      throw new BlockchainError('Failed to submit work', 'CONTRACT_ERROR');
     } catch (error) {
       console.error('Error submitting work:', error);
-      if (error instanceof BlockchainError) {
-        throw error;
-      }
       throw new BlockchainError('Failed to submit work', 'CONTRACT_ERROR');
     }
   }
-
-  /**
-   * Accept a submission
-   */
-  async acceptSubmission(
-    senderPublicKey: string,
-    submissionId: string,
-    signTransaction: (xdr: string) => Promise<string>
-  ): Promise<void> {
-    if (this.useMock) {
-      return this.mockAcceptSubmission(senderPublicKey, submissionId);
-    }
-
-    try {
-      if (!this.server || !this.contract) {
-        throw new BlockchainError('Soroban client not initialized', 'CONNECTION_ERROR');
-      }
-
-      // Mock implementation for now - to be replaced with real implementation
-      console.log('Accepting submission:', { senderPublicKey, submissionId });
-      await new Promise(r => setTimeout(r, 1000));
-      return;
-    } catch (error) {
-      console.error('Error accepting submission:', error);
-      if (error instanceof BlockchainError) {
-        throw error;
-      }
-      throw new BlockchainError('Failed to accept submission', 'CONTRACT_ERROR');
-    }
-  }
-
-  // MOCK IMPLEMENTATIONS
-
-  /**
-   * Mock create bounty
-   */
-  private async mockCreateBounty(
-    senderPublicKey: string,
-    title: string,
-    description: string,
-    rewardAmount: string,
-    rewardAsset: string,
-    deadline: number,
-    category: BountyCategory,
-    skills: string[]
-  ): Promise<string> {
-    // Log the creation request
-    console.log('Creating mock bounty with params:', {
-      senderPublicKey,
-      title,
-      description,
-      rewardAmount,
-      rewardAsset,
-      deadline,
-      category,
-      skills
-    });
-    
-    // Simulate a delay
-    await new Promise(r => setTimeout(r, 1000));
-    
-    // Return a mock ID
-    return "mock_bounty_id_" + Date.now().toString();
-  }
-
-  /**
-   * Mock submit work
-   */
-  private async mockSubmitWork(
-    senderPublicKey: string,
-    bountyId: string,
-    content: string
-  ): Promise<string> {
-    // Log the submission details
-    console.log('Submitting mock work:', { senderPublicKey, bountyId, content });
-    
-    // Simulate a delay
-    await new Promise(r => setTimeout(r, 1000));
-    
-    // Return a mock submission ID
-    return "mock_submission_id_" + Date.now().toString();
-  }
-
-  /**
-   * Mock accept submission
-   */
-  private async mockAcceptSubmission(
-    senderPublicKey: string,
-    submissionId: string
-  ): Promise<void> {
-    // Log the acceptance
-    console.log('Accepting mock submission:', { senderPublicKey, submissionId });
-    
-    // Simulate a delay
-    await new Promise(r => setTimeout(r, 1000));
-    
-    return;
-  }
-
-  /**
-   * Mock bounty response for testing
-   */
-  private mockBountyResponse(id: string): Bounty {
-    return {
-      id,
-      title: 'Example Bounty',
-      description: 'This is a mock bounty for testing purposes',
-      reward: {
-        amount: '500',
-        asset: 'USDC',
-      },
-      owner: 'GBVHXVE5DGGGOFT3GC4PFVZVFDI6EYUAFHR45PHFMMRN3VCSCDIKCFND',
-      deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-      status: BountyStatus.OPEN,
-      category: BountyCategory.DEVELOPMENT,
-      skills: ['Rust', 'Soroban', 'Smart Contracts'],
-      created: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-      updatedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    };
-  }
-
-  /**
-   * Mock bounties list response for testing
-   */
-  private mockBountiesResponse(): Bounty[] {
-    return [
-      {
-        id: '1',
-        title: 'Build a Stellar Wallet Integration',
-        description: 'Create a seamless wallet integration for our platform using Soroban smart contracts',
-        reward: { amount: '500', asset: 'USDC' },
-        owner: 'GBVHXVE5DGGGOFT3GC4PFVZVFDI6EYUAFHR45PHFMMRN3VCSCDIKCFND',
-        deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
-        status: BountyStatus.OPEN,
-        category: BountyCategory.DEVELOPMENT,
-        skills: ['React', 'TypeScript', 'Stellar SDK'],
-        created: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '2',
-        title: 'Design DeFi Dashboard UI',
-        description: 'Create a modern UI design for our DeFi dashboard featuring charts and analytics',
-        reward: { amount: '350', asset: 'USDC' },
-        owner: 'GDFCYBELWTBX3EOAFRGOXPQO23YYHZ6XAKBCTTGP3MQKH3G6VNLRO3Q',
-        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        status: BountyStatus.OPEN,
-        category: BountyCategory.DESIGN,
-        skills: ['UI/UX', 'Figma', 'Dashboard Design'],
-        created: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-      {
-        id: '3',
-        title: 'Smart Contract for Token Vesting',
-        description: 'Implement a Soroban contract for token vesting with configurable schedules',
-        reward: { amount: '800', asset: 'USDC' },
-        owner: 'GBVHXVE5DGGGOFT3GC4PFVZVFDI6EYUAFHR45PHFMMRN3VCSCDIKCFND',
-        deadline: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000).toISOString(),
-        status: BountyStatus.IN_PROGRESS,
-        category: BountyCategory.DEVELOPMENT,
-        skills: ['Rust', 'Soroban', 'Smart Contracts'],
-        created: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      },
-    ];
-  }
-} 
+}
