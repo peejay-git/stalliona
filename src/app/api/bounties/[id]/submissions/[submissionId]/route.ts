@@ -3,41 +3,32 @@ import { SorobanService } from '@/lib/soroban';
 import { BlockchainError } from '@/utils/error-handler';
 
 // Initialize the Soroban service
+// TODO: Pass in the publicKey of the currently signed in user
 const sorobanService = new SorobanService();
 
 /**
- * GET /api/bounties/[id]/submissions/[submissionId]
+ * GET /api/bounties/[id]/submissions/[user]
  * Get a specific submission for a bounty
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; submissionId: string } }
+  { params }: { params: { id: string; user: string } }
 ) {
   try {
-    const { id, submissionId } = params;
-    if (!id || !submissionId) {
+    const { id, user } = params;
+    if (!id || !user) {
       return NextResponse.json(
         { error: 'Bounty ID and Submission ID are required' },
         { status: 400 }
       );
     }
 
-    // TODO: Implement getSubmission in SorobanService
-    // This would be where we would call the get_submission function on the contract
-    // For now, return a mock submission
+    // TODO: Fetch these from the database instead
+    const submission = await sorobanService.getSubmission(Number(id), user);
 
-    const mockSubmission = {
-      id: submissionId,
-      bountyId: id,
-      applicant: 'GBVHXVE5DGGGOFT3GC4PFVZVFDI6EYUAFHR45PHFMMRN3VCSCDIKCFND',
-      content: 'I have completed this task by implementing the requested features...',
-      created: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'PENDING'
-    };
-    
-    return NextResponse.json({ submission: mockSubmission });
+    return NextResponse.json({ submission });
   } catch (error) {
-    console.error(`Error fetching submission ${params.submissionId} for bounty ${params.id}:`, error);
+    console.error(`Error fetching submission for user ${params.user}:`, error);
     if (error instanceof BlockchainError) {
       return NextResponse.json(
         { error: error.message, code: error.code },
@@ -53,7 +44,7 @@ export async function GET(
 
 /**
  * PATCH /api/bounties/[id]/submissions/[submissionId]
- * Accept, reject, or rank a submission
+ * Rank a submission
  */
 export async function PATCH(
   request: NextRequest,
@@ -70,34 +61,33 @@ export async function PATCH(
 
     // Parse the request body
     const body = await request.json();
-    
+
     // Validate the request
     const { action, senderPublicKey, signedXdr, ranking } = body;
 
     // Check if it's a ranking update
     if (action === 'rank' && ranking !== undefined) {
-      // Validate ranking is 1, 2, or 3
-      if (![1, 2, 3].includes(ranking) && ranking !== null) {
-        return NextResponse.json(
-          { error: 'Ranking must be 1, 2, 3, or null' },
-          { status: 400 }
-        );
-      }
-
-      // TODO: Implement updateSubmissionRanking in SorobanService
-      // For now, return a mock success response
-      
-      return NextResponse.json({ 
+      await sorobanService.selectWinner(
+        senderPublicKey,
+        Number(id),
+        Number(submissionId),
+        ranking
+      );
+      return NextResponse.json({
         success: true,
-        message: ranking ? `Submission ranked #${ranking} successfully` : 'Ranking removed successfully',
+        message: 'Submission ranked successfully',
         id: submissionId,
         bountyId: id,
-        ranking
+        ranking,
       });
     }
 
     // Handle accept and rank actions only, removing reject functionality
-    if (!action || !['accept'].includes(action) && !(action === 'rank' && ranking !== undefined)) {
+    if (
+      !action ||
+      (!['accept'].includes(action) &&
+        !(action === 'rank' && ranking !== undefined))
+    ) {
       return NextResponse.json(
         { error: 'Valid action (accept or rank) is required' },
         { status: 400 }
@@ -121,20 +111,23 @@ export async function PATCH(
       // Accept the submission
       await sorobanService.acceptSubmission(
         senderPublicKey,
-        submissionId,
+        Number(submissionId),
         signedXdr ? () => Promise.resolve(signedXdr) : mockSign
       );
 
-      return NextResponse.json({ 
+      return NextResponse.json({
         success: true,
         message: 'Submission accepted successfully',
         id: submissionId,
         bountyId: id,
-        status: 'ACCEPTED'
+        status: 'ACCEPTED',
       });
     }
   } catch (error) {
-    console.error(`Error processing submission ${params.submissionId} for bounty ${params.id}:`, error);
+    console.error(
+      `Error processing submission ${params.submissionId} for bounty ${params.id}:`,
+      error
+    );
     if (error instanceof BlockchainError) {
       return NextResponse.json(
         { error: error.message, code: error.code },
@@ -146,4 +139,4 @@ export async function PATCH(
       { status: 500 }
     );
   }
-} 
+}

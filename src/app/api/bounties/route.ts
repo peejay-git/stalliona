@@ -1,9 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { SorobanService } from '@/lib/soroban';
+import { NextRequest, NextResponse } from 'next/server';
+import {
+  Status as BountyStatus,
+  Bounty as ContractBounty,
+} from '../../../../packages/stallion/src';
 import { BlockchainError } from '@/utils/error-handler';
-import { BountyCategory } from '@/types/bounty';
 
 // Initialize the Soroban service
+// TODO: Pass in the publicKey of the currently signed in user
 const sorobanService = new SorobanService();
 
 /**
@@ -14,61 +18,26 @@ export async function GET(request: NextRequest) {
   try {
     // Parse query parameters for filtering
     const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status');
-    const category = searchParams.get('category');
-    const minReward = searchParams.get('minReward');
-    const maxReward = searchParams.get('maxReward');
-    const skill = searchParams.get('skill');
+    const status = searchParams.get('status') as BountyStatus | null;
+    const token = searchParams.get('token');
+    const owner = searchParams.get('owner');
 
-    // Get all bounties from the contract
-    const bounties = await sorobanService.listBounties();
+    let bounties: ContractBounty[];
 
-    // Apply filters if provided
-    let filteredBounties = bounties;
-    
+    // TODO: Fetch these from the database instead
     if (status) {
-      const statuses = status.split(',');
-      filteredBounties = filteredBounties.filter(bounty => 
-        statuses.includes(bounty.status)
-      );
+      bounties = await sorobanService.getBountiesByStatus(status);
+    } else if (token) {
+      bounties = await sorobanService.getBountiesByToken(token);
+    } else if (owner) {
+      bounties = await sorobanService.getOwnerBounties(owner);
+    } else {
+      bounties = await sorobanService.getActiveBounties();
     }
-    
-    if (category) {
-      const categories = category.split(',');
-      filteredBounties = filteredBounties.filter(bounty => 
-        categories.includes(bounty.category)
-      );
-    }
-    
-    if (minReward) {
-      const minRewardValue = parseInt(minReward);
-      filteredBounties = filteredBounties.filter(bounty => 
-        parseInt(bounty.reward.amount) >= minRewardValue
-      );
-    }
-    
-    if (maxReward) {
-      const maxRewardValue = parseInt(maxReward);
-      filteredBounties = filteredBounties.filter(bounty => 
-        parseInt(bounty.reward.amount) <= maxRewardValue
-      );
-    }
-    
-    if (skill) {
-      filteredBounties = filteredBounties.filter(bounty => 
-        bounty.skills.some(s => s.toLowerCase().includes(skill.toLowerCase()))
-      );
-    }
-    
-    return NextResponse.json({ bounties: filteredBounties });
+
+    return NextResponse.json(bounties);
   } catch (error) {
     console.error('Error fetching bounties:', error);
-    if (error instanceof BlockchainError) {
-      return NextResponse.json(
-        { error: error.message, code: error.code },
-        { status: 400 }
-      );
-    }
     return NextResponse.json(
       { error: 'Failed to fetch bounties' },
       { status: 500 }
@@ -82,45 +51,50 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Parse the request body
-    const body = await request.json();
-    
-    // Validate required fields
-    const { title, description, rewardAmount, rewardAsset, deadline, category, skills, senderPublicKey, signedXdr } = body;
+    const {
+      owner,
+      token,
+      reward,
+      distribution,
+      submissionDeadline,
+      judgingDeadline,
+      title,
+      description,
+      category,
+      skills,
+    } = await request.json();
 
-    if (!title || !description || !rewardAmount || !rewardAsset || !deadline || !category || !skills || !senderPublicKey) {
+    // Validate required fields
+    if (
+      !owner ||
+      !token ||
+      !reward ||
+      !distribution ||
+      !submissionDeadline ||
+      !judgingDeadline ||
+      !title ||
+      !description ||
+      !category ||
+      !skills
+    ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       );
     }
 
-    // Check if the category is valid
-    if (!Object.values(BountyCategory).includes(category)) {
-      return NextResponse.json(
-        { error: 'Invalid category' },
-        { status: 400 }
-      );
-    }
-
-    // Mock signing function for testing
-    const mockSign = async (xdr: string) => {
-      console.log('Signing transaction:', xdr);
-      return 'signed_' + xdr;
-    };
-
-    // Create the bounty
-    const bountyId = await sorobanService.createBounty(
-      senderPublicKey,
+    // Create bounty on the blockchain
+    const bountyId = await sorobanService.createBounty({
+      owner,
+      token,
+      reward: { amount: reward.amount, asset: reward.asset },
+      distribution,
+      submissionDeadline,
+      judgingDeadline,
       title,
-      description,
-      rewardAmount,
-      rewardAsset,
-      deadline,
-      category,
-      skills,
-      signedXdr ? () => Promise.resolve(signedXdr) : mockSign
-    );
+    });
+
+    // TODO: Save to DB and return
 
     return NextResponse.json({ id: bountyId });
   } catch (error) {
@@ -136,4 +110,4 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
-} 
+}
