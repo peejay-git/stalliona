@@ -25,10 +25,10 @@ export class SorobanService {
   private sorobanClient: SorobanClient;
   private publicKey: string | null;
 
-  constructor(publicKey: string) {
+  constructor(publicKey?: string) {
     this.contractId = CONTRACT_ID;
     this.network = NETWORK;
-    this.publicKey = publicKey;
+    this.publicKey = publicKey || null;
 
     try {
       // Initialize the Soroban client for contract interactions
@@ -36,17 +36,19 @@ export class SorobanService {
         contractId: this.contractId,
         networkPassphrase: this.network,
         rpcUrl: SOROBAN_RPC_URL,
-        publicKey: this.publicKey,
+        publicKey: this.publicKey || '',
       });
 
-      // Initialize wallet connection
-      isConnected().then((connected) => {
-        if (connected) {
-          getPublicKey().then((publicKey) => {
-            this.publicKey = publicKey;
-          });
-        }
-      });
+      // Initialize wallet connection if no public key provided
+      if (!this.publicKey) {
+        isConnected().then((connected) => {
+          if (connected) {
+            getPublicKey().then((publicKey) => {
+              this.publicKey = publicKey;
+            });
+          }
+        });
+      }
 
       console.log(
         `Initialized Soroban service with contract: ${this.contractId} on network: ${this.network}`
@@ -371,6 +373,112 @@ export class SorobanService {
     } catch (error) {
       console.error('Error submitting work:', error);
       throw new BlockchainError('Failed to submit work', 'CONTRACT_ERROR');
+    }
+  }
+
+  /**
+   * Update a bounty
+   */
+  async updateBounty(
+    bountyId: number, 
+    updates: {
+      title?: string;
+      distribution?: Array<readonly [number, number]>;
+      submissionDeadline?: number;
+    }
+  ): Promise<void> {
+    try {
+      if (!this.publicKey) {
+        throw new Error('Wallet not connected');
+      }
+
+      // Create the transaction for updating the bounty
+      // Matching contract method signature
+      const tx = await this.sorobanClient.update_bounty({
+        owner: this.publicKey,
+        bounty_id: bountyId,
+        new_title: updates.title ? updates.title : undefined,
+        new_distribution: updates.distribution || [],
+        new_submission_deadline: updates.submissionDeadline ? BigInt(updates.submissionDeadline) : undefined,
+      });
+
+      const result = await tx.simulate();
+      const sentTx = await result.signAndSend();
+
+      // await confirmation
+      if (sentTx.result.isOk()) {
+        return;
+      }
+
+      throw new BlockchainError('Failed to update bounty', 'CONTRACT_ERROR');
+    } catch (error) {
+      console.error('Error updating bounty:', error);
+      throw new BlockchainError('Failed to update bounty', 'TRANSACTION_ERROR');
+    }
+  }
+
+  /**
+   * Delete a bounty
+   */
+  async deleteBounty(bountyId: number): Promise<void> {
+    try {
+      if (!this.publicKey) {
+        throw new Error('Wallet not connected');
+      }
+
+      // Create the transaction for deleting the bounty
+      const tx = await this.sorobanClient.delete_bounty({
+        owner: this.publicKey,
+        bounty_id: bountyId,
+      });
+
+      const result = await tx.simulate();
+      const sentTx = await result.signAndSend();
+
+      // await confirmation
+      if (sentTx.result.isOk()) {
+        return;
+      }
+
+      throw new BlockchainError('Failed to delete bounty', 'CONTRACT_ERROR');
+    } catch (error) {
+      console.error('Error deleting bounty:', error);
+      throw new BlockchainError('Failed to delete bounty', 'TRANSACTION_ERROR');
+    }
+  }
+
+  /**
+   * Select winners for a bounty
+   */
+  async selectWinners(
+    bountyId: number,
+    owner: string,
+    winners: string[]
+  ): Promise<void> {
+    try {
+      if (!this.publicKey) {
+        throw new Error('Wallet not connected');
+      }
+
+      // Create the transaction for selecting winners
+      const tx = await this.sorobanClient.select_winners({
+        owner,
+        bounty_id: bountyId,
+        winners,
+      });
+
+      const result = await tx.simulate();
+      const sentTx = await result.signAndSend();
+
+      // await confirmation
+      if (sentTx.result.isOk()) {
+        return;
+      }
+
+      throw new BlockchainError('Failed to select winners', 'CONTRACT_ERROR');
+    } catch (error) {
+      console.error('Error selecting winners:', error);
+      throw new BlockchainError('Failed to select winners', 'TRANSACTION_ERROR');
     }
   }
 }

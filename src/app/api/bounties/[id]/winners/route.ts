@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { BlockchainError } from '@/utils/error-handler';
 import { BountyService } from '@/lib/bountyService';
+import { BlockchainError } from '@/utils/error-handler';
 
 /**
- * GET /api/bounties/[id]/submissions
- * Get submissions for a bounty
+ * GET /api/bounties/[id]/winners
+ * Get winners for a bounty
  */
 export async function GET(
   request: NextRequest,
@@ -22,12 +22,12 @@ export async function GET(
     // Create bounty service
     const bountyService = new BountyService();
     
-    // Get all submissions for the bounty (combines blockchain and database data)
-    const submissions = await bountyService.getBountySubmissions(id);
+    // Get the winners for the bounty
+    const winners = await bountyService.getBountyWinners(id);
 
-    return NextResponse.json(submissions);
+    return NextResponse.json(winners);
   } catch (error) {
-    console.error(`Error fetching submissions for bounty ${params.id}:`, error);
+    console.error(`Error fetching winners for bounty ${params.id}:`, error);
     if (error instanceof BlockchainError) {
       return NextResponse.json(
         { error: error.message, code: error.code },
@@ -35,24 +35,23 @@ export async function GET(
       );
     }
     return NextResponse.json(
-      { error: 'Failed to fetch submissions' },
+      { error: 'Failed to fetch winners' },
       { status: 500 }
     );
   }
 }
 
 /**
- * POST /api/bounties/[id]/submissions
- * This is called AFTER the blockchain submission
- * Saves the off-chain submission data
+ * POST /api/bounties/[id]/winners
+ * Select winners for a bounty
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const { id: bountyId } = params;
-    if (!bountyId) {
+    const { id } = params;
+    if (!id) {
       return NextResponse.json(
         { error: 'Bounty ID is required' },
         { status: 400 }
@@ -60,38 +59,32 @@ export async function POST(
     }
 
     // Parse the request body
-    const { 
-      applicantAddress, 
-      content, 
-      blockchainSubmissionId 
-    } = await request.json();
+    const { winnerAddresses, userPublicKey } = await request.json();
 
     // Validate required fields
-    if (!applicantAddress || !content || !blockchainSubmissionId) {
+    if (!winnerAddresses || !Array.isArray(winnerAddresses) || !userPublicKey) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Winner addresses and user public key are required' },
         { status: 400 }
       );
     }
 
     // Create bounty service
-    const bountyService = new BountyService();
+    const bountyService = new BountyService(userPublicKey);
     
-    // Save submission to database
-    await bountyService.saveSubmissionToDatabase(
-      parseInt(bountyId),
-      applicantAddress,
-      content,
-      blockchainSubmissionId
+    // Select winners for the bounty
+    await bountyService.selectBountyWinners(
+      parseInt(id),
+      winnerAddresses,
+      userPublicKey
     );
 
     return NextResponse.json({
       success: true,
-      message: 'Submission saved successfully',
-      id: blockchainSubmissionId,
+      message: 'Winners selected successfully',
     });
   } catch (error) {
-    console.error(`Error submitting to bounty ${params.id}:`, error);
+    console.error(`Error selecting winners for bounty ${params.id}:`, error);
     if (error instanceof BlockchainError) {
       return NextResponse.json(
         { error: error.message, code: error.code },
@@ -99,8 +92,8 @@ export async function POST(
       );
     }
     return NextResponse.json(
-      { error: 'Failed to submit work' },
+      { error: error instanceof Error ? error.message : 'Failed to select winners' },
       { status: 500 }
     );
   }
-}
+} 

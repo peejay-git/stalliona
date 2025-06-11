@@ -10,6 +10,9 @@ import { assetSymbols } from '@/components/BountyCard';
 import BountyDetailSkeleton from '@/components/BountyDetailSkeleton';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import toast from 'react-hot-toast';
+import SubmitWorkForm from '@/components/SubmitWorkForm';
+import { useWallet } from '@/hooks/useWallet';
+import { FiAward, FiUser } from 'react-icons/fi';
 
 export default function BountyDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -22,6 +25,9 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [rankingsApproved, setRankingsApproved] = useState(false);
+  const { isConnected } = useWallet();
+  const [winners, setWinners] = useState<any[]>([]);
+  const [loadingWinners, setLoadingWinners] = useState(false);
   
   useEffect(() => {
     const fetchData = async () => {
@@ -29,6 +35,11 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
         const data = await getBountyById(params.id);
         setBounty(data);
         console.log('Bounty:', data);
+
+        // If bounty is completed, fetch winners
+        if (data && data.status === BountyStatus.COMPLETED) {
+          fetchWinners(data.id);
+        }
       } catch (err: any) {
         setError(err.message || 'Error fetching bounty');
       } finally {
@@ -38,6 +49,21 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
 
     fetchData();
   }, [params.id]);
+
+  const fetchWinners = async (bountyId: number) => {
+    try {
+      setLoadingWinners(true);
+      const response = await fetch(`/api/bounties/${bountyId}/winners`);
+      if (response.ok) {
+        const data = await response.json();
+        setWinners(data);
+      }
+    } catch (error) {
+      console.error('Error fetching winners:', error);
+    } finally {
+      setLoadingWinners(false);
+    }
+  };
 
   // Fetch submissions when bounty and userId are available
   useEffect(() => {
@@ -144,7 +170,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
       setSubmissions(prev => 
         prev.map(sub => 
           sub.id === submissionId 
-            ? { ...sub, status: 'ACCEPTED' } 
+            ? { ...sub, status: 'ACCEPTED' as unknown as BountyStatus } 
             : sub
         )
       );
@@ -215,12 +241,6 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
         return (
           <span className="px-3 py-1 bg-blue-900/40 text-blue-300 border border-blue-700/30 rounded-full text-sm font-medium">
             In Progress
-          </span>
-        );
-      case BountyStatus.REVIEW:
-        return (
-          <span className="px-3 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded-full text-sm font-medium">
-            Under Review
           </span>
         );
       case BountyStatus.COMPLETED:
@@ -306,6 +326,15 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     } catch (err: any) {
       console.error('Error approving rankings:', err);
       toast.error(err.message || 'Failed to approve rankings');
+    }
+  };
+
+  const positionToMedal = (position: number) => {
+    switch (position) {
+      case 1: return '🥇';
+      case 2: return '🥈';
+      case 3: return '🥉';
+      default: return `${position}th`;
     }
   };
 
@@ -400,6 +429,58 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
           </div>
         </div>
         
+        {/* Winners section for completed bounties */}
+        {bounty.status === BountyStatus.COMPLETED && (
+          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <FiAward className="text-yellow-400" />
+              Winners
+            </h2>
+            
+            {loadingWinners ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+              </div>
+            ) : winners.length > 0 ? (
+              <div className="space-y-4">
+                {winners
+                  .sort((a, b) => a.position - b.position)
+                  .map((winner) => (
+                    <div key={winner.position} className="flex items-center gap-4 bg-white/5 p-4 rounded-lg">
+                      <div className="text-3xl">{positionToMedal(winner.position)}</div>
+                      <div className="flex-grow">
+                        <div className="flex justify-between items-center">
+                          <span className="text-white font-medium">
+                            {winner.position === 1 ? '1st Place' :
+                             winner.position === 2 ? '2nd Place' :
+                             winner.position === 3 ? '3rd Place' :
+                             `${winner.position}th Place`}
+                          </span>
+                          <span className="text-gray-300 text-sm">
+                            {winner.percentage}% of reward
+                          </span>
+                        </div>
+                        <div className="text-gray-400 text-sm flex items-center gap-1 mt-1">
+                          <FiUser className="flex-shrink-0" />
+                          <span>
+                            {winner.applicantAddress === 'No winner selected' 
+                              ? 'No winner selected' 
+                              : `${winner.applicantAddress.substring(0, 8)}...${winner.applicantAddress.substring(winner.applicantAddress.length - 8)}`}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-green-400 font-medium">
+                          {winner.rewardAmount} {winner.rewardAsset}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            ) : (
+              <p className="text-gray-300">No winner information available for this bounty.</p>
+            )}
+          </div>
+        )}
+        
         {/* Submissions section (only visible to bounty owner) */}
         {isOwner && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
@@ -459,7 +540,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                           {formatDate(submission.created)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
-                          {getSubmissionStatusBadge(submission.status)}
+                          {getSubmissionStatusBadge(submission.status.toString())}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
                           {submission.ranking ? (
@@ -516,7 +597,7 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                             View
                           </button>
                           
-                          {submission.status === 'PENDING' && (
+                          {submission.status.toString() === 'PENDING' && (
                             <button 
                               onClick={() => handleAcceptSubmission(submission.id)}
                               className="text-green-300 hover:text-green-200 mr-4"
@@ -572,6 +653,14 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
                 This bounty is {bounty.status.toLowerCase()} and is not accepting submissions at this time.
               </p>
             )}
+          </div>
+        )}
+
+        {/* Submit Work Form */}
+        {isConnected && bounty && (
+          <div className="mt-8">
+            <h2 className="text-2xl font-bold text-white mb-6">Submit Work</h2>
+            <SubmitWorkForm bountyId={Number(bounty.id)} />
           </div>
         )}
       </div>

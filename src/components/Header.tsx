@@ -10,13 +10,16 @@ import LoginModal from './LoginModal';
 import RegisterModal from './RegisterModal';
 import ChooseRoleModal from './ChooseRoleModal';
 import { useUserStore } from '@/lib/stores/useUserStore';
+import { FiAward } from 'react-icons/fi';
 
 // Pre-defined nav links to avoid recreation on render
 const navLinks = [
   { name: 'Home', href: '/' },
   { name: 'Bounties', href: '/bounties' },
-  { name: 'Create', href: '/create' },
 ];
+
+// Separate Create Bounty link to conditionally show it
+const createBountyLink = { name: 'Create', href: '/create' };
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -35,6 +38,14 @@ const Header = () => {
   useEffect(() => {
     setIsMenuOpen(false);
   }, [pathname]);
+  
+  // Synchronize wallet and user state
+  useEffect(() => {
+    // If user is logged out but wallet is still connected, disconnect the wallet
+    if (!user && isConnected) {
+      disconnect();
+    }
+  }, [user, isConnected, disconnect]);
   
   // Memoized toggle function
   const toggleMenu = useCallback(() => {
@@ -129,6 +140,21 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
+            
+            {/* Only show Create link for sponsors */}
+            {user && user.role === 'sponsor' && (
+              <Link
+                href={createBountyLink.href}
+                className={`font-medium whitespace-nowrap nav-txt p-3 rounded-[10px] ${
+                  pathname === createBountyLink.href
+                    ? 'text-white bg-white/10'
+                    : 'text-[#797C86] hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {createBountyLink.name}
+              </Link>
+            )}
+            
             {user && (
               <Link
                 href="/dashboard"
@@ -145,7 +171,7 @@ const Header = () => {
 
           {/* Wallet Connect Button (Desktop) */}
           <div className="hidden md:flex items-center space-x-4">
-            {isConnected && !isNewUser && (
+            {isConnected && !user && (
               <button
                 onClick={() => setChooseRoleOpen(true)}
                 className="bg-white text-black font-medium py-1.5 px-4 rounded-lg hover:bg-white/90 complete-profile"
@@ -154,30 +180,27 @@ const Header = () => {
               </button>
             )}
             
-            {isConnected && isNewUser && !user && (
-              <button
-                onClick={() => setShowLogin(true)}
-                className="bg-white text-black font-medium py-1.5 px-4 rounded-lg hover:bg-white/90 complete-profile"
-              >
-                Login
-              </button>
-            )}
-            
-            {isConnected && publicKey ? (
+            {/* Authentication/Wallet buttons - mutually exclusive states */}
+            {user ? (
+              // User is logged in - show dashboard button in nav
+              null
+            ) : isConnected && publicKey ? (
+              // Wallet connected but no user - show disconnect button
               <button
                 onClick={disconnect}
                 className="bg-white text-black font-medium py-1.5 px-3 text-sm rounded-lg hover:bg-white/90"
               >
                 Disconnect
               </button>
-            ) : !user ? (
+            ) : (
+              // No wallet connected and no user - show login button
               <button
                 onClick={() => setShowLogin(true)}
                 className="bg-white text-black font-medium py-1.5 px-4 rounded-lg hover:bg-white/90"
               >
                 Login
               </button>
-            ) : null}
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -228,6 +251,22 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
+            
+            {/* Only show Create link for sponsors */}
+            {user && user.role === 'sponsor' && (
+              <Link
+                href={createBountyLink.href}
+                className={`block py-2 font-medium ${
+                  pathname === createBountyLink.href
+                    ? 'text-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={toggleMenu}
+              >
+                {createBountyLink.name}
+              </Link>
+            )}
+            
             {user && (
               <Link
                 href="/dashboard"
@@ -241,30 +280,36 @@ const Header = () => {
                 Dashboard
               </Link>
             )}
-            <div className="pt-4 pb-3 border-t border-white/10">
-              {!user && (
-                <button
-                  onClick={() => {
-                    setShowLogin(true);
-                    setIsMenuOpen(false);
-                  }}
-                  className="bg-white text-black font-medium py-1.5 px-4 w-full mb-2 rounded-lg hover:bg-white/90"
-                >
-                  Login
-                </button>
-              )}
-              {isConnected && publicKey && (
-                <button
-                  onClick={() => {
-                    disconnect();
-                    setIsMenuOpen(false);
-                  }}
-                  className="bg-white text-black font-medium py-1.5 w-full rounded-lg hover:bg-white/90"
-                >
-                  Disconnect
-                </button>
-              )}
-            </div>
+          </div>
+          
+          <div className="pt-4 pb-3 border-t border-white/10">
+            {/* Authentication/Wallet buttons for mobile - mutually exclusive states */}
+            {user ? (
+              // User is logged in - no need for buttons (dashboard link is in nav)
+              null
+            ) : isConnected && publicKey ? (
+              // Wallet connected but no user
+              <button
+                onClick={() => {
+                  disconnect();
+                  setIsMenuOpen(false);
+                }}
+                className="bg-white text-black font-medium py-1.5 w-full rounded-lg hover:bg-white/90"
+              >
+                Disconnect
+              </button>
+            ) : (
+              // No wallet connected and no user
+              <button
+                onClick={() => {
+                  setShowLogin(true);
+                  setIsMenuOpen(false);
+                }}
+                className="bg-white text-black font-medium py-1.5 px-4 w-full mb-2 rounded-lg hover:bg-white/90"
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
       )}

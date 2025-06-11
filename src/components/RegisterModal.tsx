@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { IoClose } from 'react-icons/io5';
@@ -66,6 +66,20 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [step, setStep] = useState<'form' | 'wallet'>('form');
+
+    // Prevent background scrolling when modal is open
+    useEffect(() => {
+        if (isOpen) {
+            document.body.classList.add('overflow-hidden');
+        } else {
+            document.body.classList.remove('overflow-hidden');
+        }
+        
+        // Cleanup on unmount
+        return () => {
+            document.body.classList.remove('overflow-hidden');
+        };
+    }, [isOpen]);
 
     const validateField = (name: keyof FormDataType, value: any) => {
         let error = '';
@@ -255,8 +269,13 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
             useUserStore.getState().setUser(userProfile);
             localStorage.setItem('user', JSON.stringify(userProfile));
             toast.success('Profile created successfully!');
+            
+            // Close the modal first, then redirect
             onClose();
-            router.push('/dashboard');
+            // Use a small timeout to ensure the modal is closed before redirecting
+            setTimeout(() => {
+                router.push('/dashboard');
+            }, 100);
         } catch (error: any) {
             if (error instanceof FirebaseError) {
                 switch (error.code) {

@@ -1,41 +1,42 @@
-import { SorobanService } from '@/lib/soroban';
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  Status as BountyStatus,
-  Bounty as ContractBounty,
-} from '../../../../packages/stallion/src';
 import { BlockchainError } from '@/utils/error-handler';
-
-// Initialize the Soroban service
-// TODO: Pass in the publicKey of the currently signed in user
-const sorobanService = new SorobanService();
+import { BountyService } from '@/lib/bountyService';
 
 /**
  * GET /api/bounties
  * List all bounties with optional filtering
+ * Backend handles fetching from both blockchain and database
  */
 export async function GET(request: NextRequest) {
   try {
     // Parse query parameters for filtering
     const searchParams = request.nextUrl.searchParams;
-    const status = searchParams.get('status') as BountyStatus | null;
+    const status = searchParams.get('status');
     const token = searchParams.get('token');
     const owner = searchParams.get('owner');
-
-    let bounties: ContractBounty[];
-
-    // TODO: Fetch these from the database instead
+    
+    // Create service instance
+    const bountyService = new BountyService();
+    
+    // Get all bounties (the service will combine blockchain and database data)
+    const bounties = await bountyService.getAllBounties();
+    
+    // Apply filters if needed
+    let filteredBounties = bounties;
+    
     if (status) {
-      bounties = await sorobanService.getBountiesByStatus(status);
-    } else if (token) {
-      bounties = await sorobanService.getBountiesByToken(token);
-    } else if (owner) {
-      bounties = await sorobanService.getOwnerBounties(owner);
-    } else {
-      bounties = await sorobanService.getActiveBounties();
+      filteredBounties = filteredBounties.filter(b => b.status === status);
     }
-
-    return NextResponse.json(bounties);
+    
+    if (token) {
+      filteredBounties = filteredBounties.filter(b => b.reward.asset === token);
+    }
+    
+    if (owner) {
+      filteredBounties = filteredBounties.filter(b => b.owner === owner);
+    }
+    
+    return NextResponse.json(filteredBounties);
   } catch (error) {
     console.error('Error fetching bounties:', error);
     return NextResponse.json(
@@ -47,32 +48,22 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/bounties
- * Create a new bounty
+ * This endpoint is called AFTER the blockchain transaction
+ * It saves the off-chain data to the database
  */
 export async function POST(request: NextRequest) {
   try {
     const {
-      owner,
-      token,
-      reward,
-      distribution,
-      submissionDeadline,
-      judgingDeadline,
-      title,
+      blockchainBountyId, // This comes from the frontend after blockchain creation
       description,
       category,
       skills,
+      extraRequirements,
     } = await request.json();
 
     // Validate required fields
     if (
-      !owner ||
-      !token ||
-      !reward ||
-      !distribution ||
-      !submissionDeadline ||
-      !judgingDeadline ||
-      !title ||
+      !blockchainBountyId ||
       !description ||
       !category ||
       !skills
@@ -83,20 +74,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create bounty on the blockchain
-    const bountyId = await sorobanService.createBounty({
-      owner,
-      token,
-      reward: { amount: reward.amount, asset: reward.asset },
-      distribution,
-      submissionDeadline,
-      judgingDeadline,
-      title,
+    // Create bounty service
+    const bountyService = new BountyService();
+    
+    // Save to database using the blockchain-generated ID
+    await bountyService.saveBountyToDatabase(
+      blockchainBountyId,
+      {
+        description,
+        category,
+        skills,
+        extraRequirements
+      }
+    );
+
+    return NextResponse.json({ 
+      success: true, 
+      id: blockchainBountyId,
+      message: 'Bounty saved successfully'
     });
-
-    // TODO: Save to DB and return
-
-    return NextResponse.json({ id: bountyId });
   } catch (error) {
     console.error('Error creating bounty:', error);
     if (error instanceof BlockchainError) {

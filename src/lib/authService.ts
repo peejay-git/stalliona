@@ -7,7 +7,8 @@ import {
     signOut,
     GoogleAuthProvider,
     onAuthStateChanged,
-    UserCredential
+    UserCredential,
+    sendPasswordResetEmail
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -271,7 +272,12 @@ export async function walletToAccount(walletAddress: string, userEmail: string) 
 export async function logoutUser() {
     await signOut(auth);
     useUserStore.getState().clearUser();
+    
+    // Clear user data from localStorage
     localStorage.removeItem('user');
+    
+    // Also clear wallet connection info to prevent "Complete Profile" button from showing
+    localStorage.removeItem('stallionWalletType');
 }
 // #endregion
 
@@ -301,5 +307,34 @@ export function initAuthStateObserver(callback: (user: any) => void) {
             callback(null);
         }
     });
+}
+// #endregion
+
+// #region Forgot Password
+export async function forgotPassword(email: string) {
+    try {
+        // Configure action code settings to specify the URL to redirect to after 
+        // the password reset is complete
+        const actionCodeSettings = {
+            // URL you want to redirect back to after password reset
+            url: `${window.location.origin}/auth/reset-success`,
+            // This must be true for reset to work properly
+            handleCodeInApp: true
+        };
+
+        await sendPasswordResetEmail(auth, email, actionCodeSettings);
+        return { success: true, message: 'Password reset email sent successfully' };
+    } catch (error: any) {
+        console.error('Error sending password reset email:', error);
+        let errorMessage = 'Failed to send password reset email';
+        
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = 'No user found with this email address';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email format';
+        }
+        
+        return { success: false, message: errorMessage };
+    }
 }
 // #endregion

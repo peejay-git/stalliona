@@ -14,7 +14,7 @@ import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
 
 export default function DashboardPage() {
   useProtectedRoute();
-  const { isConnected, publicKey } = useWallet();
+  const { isConnected, publicKey, connect } = useWallet();
   const [activeTab, setActiveTab] = useState<'created' | 'submissions'>('created');
   const [bounty, setBounty] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -32,43 +32,13 @@ export default function DashboardPage() {
   const userCreatedBounties = mockBounties.filter((_, index) => index % 2 === 0);
 
   // Mock user submissions (in a real app, this would come from the contract)
-  const userSubmissions = [
-    {
-      id: 's1',
-      bountyId: '2',
-      bountyTitle: 'Design Landing Page for DeFi Application',
-      status: 'PENDING',
-      submitted: '2025-04-28T15:30:00Z',
-    },
-    {
-      id: 's2',
-      bountyId: '3',
-      bountyTitle: 'Implement Soroban Smart Contract for Token Vesting',
-      status: 'ACCEPTED',
-      submitted: '2025-04-20T10:15:00Z',
-    },
-    {
-      id: 's3',
-      bountyId: '5',
-      bountyTitle: 'Develop Payment Processing Plugin for WooCommerce',
-      status: 'REJECTED',
-      submitted: '2025-04-15T09:00:00Z',
-    },
-    {
-      id: 's4',
-      bountyId: '7',
-      bountyTitle: 'Create API Documentation Website',
-      status: 'PENDING',
-      submitted: '2025-05-01T14:22:00Z',
-    },
-    {
-      id: 's5',
-      bountyId: '9',
-      bountyTitle: 'Develop User Dashboard UI Components',
-      status: 'ACCEPTED',
-      submitted: '2025-05-03T11:45:00Z',
-    }
-  ];
+  const userSubmissions: {
+    id: string;
+    bountyId: string;
+    bountyTitle: string;
+    status: string;
+    submitted: string;
+  }[] = [];
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -103,16 +73,26 @@ export default function DashboardPage() {
 
   const handleLogout = async () => {
     try {
-      const auth = getAuth();
-      await signOut(auth);
-      useUserStore.getState().clearUser();
-      window.location.href = '/';
+      // Show a confirmation dialog
+      const confirmLogout = window.confirm("Are you sure you want to log out?");
+      
+      // Only proceed with logout if user confirms
+      if (confirmLogout) {
+        const auth = getAuth();
+        await signOut(auth);
+        useUserStore.getState().clearUser();
+        
+        // Also clear wallet connection info to prevent "Complete Profile" button from showing
+        localStorage.removeItem('stallionWalletType');
+        
+        window.location.href = '/';
+      }
     } catch (error) {
       console.error('Error signing out:', error);
     }
   };
 
-  if (isConnected) {
+  if (!isConnected && (!user || !user.walletConnected)) {
     return (
       <Layout>
         <div className="min-h-screen py-12 px-4 sm:px-6">
@@ -124,7 +104,12 @@ export default function DashboardPage() {
               <p className="text-gray-300 mb-6">
                 Connect your Stellar wallet to view your dashboard.
               </p>
-              <button className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors">Connect Wallet</button>
+              <button 
+                onClick={() => connect()}
+                className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors"
+              >
+                Connect Wallet
+              </button>
             </div>
           </div>
         </div>

@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { FormEvent, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { IoClose } from 'react-icons/io5';
 import { FiMail, FiLock } from 'react-icons/fi';
 import { FcGoogle } from 'react-icons/fc';
 import { SiBlockchaindotcom } from 'react-icons/si';
-import { loginUser, signInWithGoogle, walletToAccount } from '@/lib/authService';
-import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { loginUser, signInWithGoogle, walletToAccount, forgotPassword } from '@/lib/authService';
+import { auth, db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useUserStore } from '@/lib/stores/useUserStore';
 import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,7 +23,7 @@ type Props = {
     onSwitchToRegister?: () => void;
 };
 
-type LoginView = 'main' | 'wallet-selector' | 'wallet-email';
+type LoginView = 'main' | 'wallet-selector' | 'wallet-email' | 'forgot-password';
 
 export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Props) {
     const router = useRouter();
@@ -35,16 +36,25 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
     const [walletEmail, setWalletEmail] = useState('');
     const [currentView, setCurrentView] = useState<LoginView>('main');
     const [animationComplete, setAnimationComplete] = useState(false);
+    const [resetEmail, setResetEmail] = useState('');
+    const [isResettingPassword, setIsResettingPassword] = useState(false);
     const { connect: connectWallet, isConnected, publicKey, disconnect, walletType } = useWallet();
 
     useEffect(() => {
         if (isOpen) {
             setAnimationComplete(true);
+            document.body.classList.add('overflow-hidden');
         } else {
             setAnimationComplete(false);
+            document.body.classList.remove('overflow-hidden');
             // Reset view when closing modal
             setCurrentView('main');
         }
+        
+        // Cleanup on unmount
+        return () => {
+            document.body.classList.remove('overflow-hidden');
+        };
     }, [isOpen]);
 
     const validateField = (name: string, value: string) => {
@@ -148,20 +158,67 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
 
         setIsSubmitting(true);
 
-        try {
-            const userCredential = await loginUser(formData.email, formData.password);
-            const uid = userCredential.user.uid;
+        // Add timeout to prevent indefinite loading
+        const loginTimeout = setTimeout(() => {
+            if (isSubmitting) {
+                console.error("Login timeout - operation took too long");
+                toast.error("Login timed out. Please try again.");
+                setIsSubmitting(false);
+            }
+        }, 15000); // 15 second timeout
 
+        try {
+            console.log("Attempting login with Firebase...");
+            
+            // Try direct Firebase auth first (bypass our custom loginUser function)
+            let userCredential;
+            try {
+                userCredential = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+                console.log("Direct Firebase login successful");
+            } catch (authError: any) {
+                console.error("Direct Firebase login error:", authError);
+                
+                // If we get operation-not-allowed, it means Email/Password auth is not enabled
+                if (authError.code === 'auth/operation-not-allowed') {
+                    toast.error('Email/Password login is not enabled in Firebase. Please enable it in Firebase Authentication settings.');
+                    clearTimeout(loginTimeout);
+                    setIsSubmitting(false);
+                    return;
+                }
+                
+                // For other errors, rethrow to be caught by the outer catch block
+                throw authError;
+            }
+            
+            console.log("Firebase login successful, getting user data...");
+            
+            const uid = userCredential.user.uid;
             const docRef = doc(db, 'users', uid);
+            
+            console.log("Fetching user document from Firestore...");
             const userSnap = await getDoc(docRef);
 
             if (!userSnap.exists()) {
+                console.error("User document not found in Firestore");
                 throw new Error('User profile not found.');
             }
 
+            // Update last login timestamp
+            try {
+                await updateDoc(docRef, {
+                    lastLogin: new Date().toISOString()
+                });
+                console.log("Updated last login timestamp");
+            } catch (updateError) {
+                console.error("Failed to update last login timestamp:", updateError);
+                // Non-critical error, continue with login
+            }
+
             const userData = userSnap.data();
+            console.log("User data retrieved:", JSON.stringify(userData, null, 2));
 
             if (!userData?.role || !userData?.profileData) {
+                console.error("User data missing required fields:", userData);
                 throw new Error('Incomplete user profile.');
             }
 
@@ -173,23 +230,36 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
             };
 
             // 1. Store in Zustand
+            console.log("Setting user in store...");
             useUserStore.getState().setUser(userProfile);
 
             // 2. Store in localStorage
             localStorage.setItem('user', JSON.stringify(userProfile));
 
+            console.log("Login process completed successfully");
             toast.success('Login successful!');
             onClose();
 
             // Check if wallet needs to be connected
-            if (!userData.wallet) {
-                router.push('/connect-wallet');
-            } else {
-                // Always redirect to /dashboard regardless of role
-                router.push('/dashboard');
-            }
+            // Use a small timeout to ensure the modal is closed before redirecting
+            setTimeout(() => {
+                if (!userData.wallet) {
+                    router.push('/connect-wallet');
+                } else {
+                    // Always redirect to /dashboard regardless of role
+                    router.push('/dashboard');
+                }
+            }, 100);
         } catch (err: any) {
-            console.error(err);
+            console.error("Login error details:", err);
+            
+            if (err.code) {
+                console.error(`Firebase error code: ${err.code}`);
+            }
+            
+            if (err.message) {
+                console.error(`Error message: ${err.message}`);
+            }
 
             // Handle Firebase-specific errors
             if (err.code) {
@@ -209,6 +279,9 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                     case 'auth/invalid-email':
                         toast.error('Invalid email format. Please provide a valid email address.');
                         break;
+                    case 'auth/operation-not-allowed':
+                        toast.error('Email/Password login is not enabled. Please contact support.');
+                        break;
                     default:
                         toast.error('Login failed. Please check your credentials.');
                         break;
@@ -217,7 +290,36 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                 toast.error(err.message || 'Login failed. Please try again later.');
             }
         } finally {
+            clearTimeout(loginTimeout);
             setIsSubmitting(false);
+        }
+    };
+
+    // Add forgot password handler
+    const handleForgotPassword = async (e: React.FormEvent) => {
+        e.preventDefault();
+        
+        if (!resetEmail) {
+            toast.error('Please enter your email address');
+            return;
+        }
+        
+        setIsResettingPassword(true);
+        
+        try {
+            const result = await forgotPassword(resetEmail);
+            if (result.success) {
+                toast.success('Password reset email sent. Please check your inbox.');
+                // Return to main login view after successful password reset request
+                setCurrentView('main');
+            } else {
+                toast.error(result.message);
+            }
+        } catch (error) {
+            console.error('Password reset error:', error);
+            toast.error('Failed to send password reset email. Please try again.');
+        } finally {
+            setIsResettingPassword(false);
         }
     };
     
@@ -349,6 +451,15 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                     {fieldErrors.password && (
                         <p className="text-sm text-red-300 mt-1">{fieldErrors.password}</p>
                     )}
+                    <div className="flex justify-end mt-2">
+                        <button 
+                            type="button"
+                            onClick={() => setCurrentView('forgot-password')}
+                            className="text-sm text-gray-300 hover:text-white transition-colors"
+                        >
+                            Forgot password?
+                        </button>
+                    </div>
                 </motion.div>
 
                 <motion.button
@@ -424,6 +535,65 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
         </>
     );
     
+    // Add new render function for forgot password view
+    const renderForgotPasswordContent = () => {
+        return (
+            <div className="space-y-6">
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="text-gray-300 text-center"
+                >
+                    Enter your email address and we'll send you a link to reset your password
+                </motion.p>
+                
+                <form onSubmit={handleForgotPassword}>
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="mb-6"
+                    >
+                        <div className="relative">
+                            <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-300" />
+                            <input
+                                type="email"
+                                placeholder="Your email address"
+                                value={resetEmail}
+                                onChange={(e) => setResetEmail(e.target.value)}
+                                className="input w-full pl-10 transition-all border-white/20 bg-white/10 backdrop-blur-xl text-white"
+                                required
+                            />
+                        </div>
+                    </motion.div>
+                    
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="flex flex-col space-y-4"
+                    >
+                        <button
+                            type="submit"
+                            className="btn-gradient w-full py-3 rounded-xl font-medium text-white"
+                            disabled={isResettingPassword}
+                        >
+                            {isResettingPassword ? 'Sending...' : 'Send Mail'}
+                        </button>
+                        
+                        <button
+                            type="button"
+                            onClick={() => setCurrentView('main')}
+                            className="text-sm text-gray-300 hover:text-white transition-colors"
+                        >
+                            Back to Login
+                        </button>
+                    </motion.div>
+                </form>
+            </div>
+        );
+    };
+    
     return (
         <AnimatePresence>
             {isOpen && (
@@ -462,11 +632,13 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                                     <h2 className="text-3xl font-bold mb-2 text-white text-center">
                                         {currentView === 'main' ? 'Welcome Back' : 
                                          currentView === 'wallet-selector' ? 'Select Wallet' : 
+                                         currentView === 'forgot-password' ? 'Reset Password' :
                                          'Link Your Account'}
                                     </h2>
                                     <p className="text-gray-300 text-center mb-8">
                                         {currentView === 'main' ? 'Sign in to your account' :
                                          currentView === 'wallet-selector' ? 'Choose your preferred wallet' :
+                                         currentView === 'forgot-password' ? 'We\'ll send you a reset link' :
                                          'Enter your email to continue'}
                                     </p>
                                 </motion.div>
@@ -507,6 +679,16 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                                             exit={{ opacity: 0, x: -20 }}
                                         >
                                             {renderWalletEmailContent()}
+                                        </motion.div>
+                                    )}
+                                    {currentView === 'forgot-password' && (
+                                        <motion.div
+                                            key="forgot-password"
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -20 }}
+                                        >
+                                            {renderForgotPasswordContent()}
                                         </motion.div>
                                     )}
                                 </AnimatePresence>

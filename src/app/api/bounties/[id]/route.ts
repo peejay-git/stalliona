@@ -1,15 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SorobanService } from '@/lib/soroban';
 import { BlockchainError } from '@/utils/error-handler';
-import { BountyCategory, BountyStatus } from '@/types/bounty';
-
-// Initialize the Soroban service
-// TODO: Pass in the publicKey of the currently signed in user
-const sorobanService = new SorobanService();
+import { BountyService } from '@/lib/bountyService';
 
 /**
  * GET /api/bounties/[id]
  * Get a bounty by ID
+ * Backend handles fetching both blockchain and database data
  */
 export async function GET(
   request: NextRequest,
@@ -24,11 +20,13 @@ export async function GET(
       );
     }
 
-    // Get the bounty from the contract
-    // TODO: Fetch these from the database instead
-    const bounty = await sorobanService.getBounty(Number(id));
+    // Create bounty service
+    const bountyService = new BountyService();
+    
+    // Get the complete bounty (combining blockchain and database data)
+    const bounty = await bountyService.getBountyById(id);
 
-    return NextResponse.json({ bounty });
+    return NextResponse.json(bounty);
   } catch (error) {
     console.error(`Error fetching bounty ${params.id}:`, error);
     if (error instanceof BlockchainError) {
@@ -47,6 +45,7 @@ export async function GET(
 /**
  * PUT /api/bounties/[id]
  * Update a bounty by ID
+ * This is called AFTER the blockchain update
  */
 export async function PUT(
   request: NextRequest,
@@ -61,49 +60,27 @@ export async function PUT(
       );
     }
 
-    // Parse the request body
-    const body = await request.json();
-
-    // Validate the request
+    // Parse the request body - only expecting off-chain data updates
     const {
-      title,
       description,
-      rewardAmount,
-      rewardAsset,
-      deadline,
-      status,
       category,
       skills,
-      senderPublicKey,
-      signedXdr,
-    } = body;
+      extraRequirements,
+    } = await request.json();
 
-    if (!senderPublicKey) {
-      return NextResponse.json(
-        { error: 'Sender public key is required' },
-        { status: 400 }
-      );
-    }
-
-    // Check if status is valid if provided
-    if (status && !Object.values(BountyStatus).includes(status)) {
-      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-    }
-
-    // Check if category is valid if provided
-    if (category && !Object.values(BountyCategory).includes(category)) {
-      return NextResponse.json({ error: 'Invalid category' }, { status: 400 });
-    }
-
-    // Mock signing function for testing
-    const mockSign = async (xdr: string) => {
-      console.log('Signing transaction:', xdr);
-      return 'signed_' + xdr;
-    };
-
-    // TODO: Implement updateBounty in SorobanService
-    // This would be where we would call the update_bounty function on the contract
-    // For now, return a mock success response
+    // Create bounty service and update the database
+    const bountyService = new BountyService();
+    
+    // Update off-chain data
+    await bountyService.saveBountyToDatabase(
+      parseInt(id),
+      {
+        description: description || '',
+        category: category || '',
+        skills: skills || [],
+        extraRequirements,
+      }
+    );
 
     return NextResponse.json({
       success: true,
@@ -127,7 +104,8 @@ export async function PUT(
 
 /**
  * DELETE /api/bounties/[id]
- * Cancel a bounty by ID
+ * Delete a bounty's off-chain data
+ * This should be called after the blockchain operation
  */
 export async function DELETE(
   request: NextRequest,
@@ -142,28 +120,9 @@ export async function DELETE(
       );
     }
 
-    // Parse the request body
-    const body = await request.json();
-
-    // Validate the request
-    const { senderPublicKey, signedXdr } = body;
-
-    if (!senderPublicKey) {
-      return NextResponse.json(
-        { error: 'Sender public key is required' },
-        { status: 400 }
-      );
-    }
-
-    // Mock signing function for testing
-    const mockSign = async (xdr: string) => {
-      console.log('Signing transaction:', xdr);
-      return 'signed_' + xdr;
-    };
-
-    // TODO: Implement cancelBounty in SorobanService
-    // This would be where we would call the cancel_bounty function on the contract
-    // For now, return a mock success response
+    // For now, we're not actually implementing deletion of off-chain data
+    // This would depend on your requirements - you might want to keep the data
+    // for historical purposes even if the bounty is cancelled on-chain
 
     return NextResponse.json({
       success: true,
