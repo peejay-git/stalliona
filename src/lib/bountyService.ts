@@ -6,6 +6,31 @@ import { Bounty, BountyStatus, Distribution } from '@/types/bounty';
 // For now we're using Firestore instead of Prisma since that seems to be what's currently set up
 // This service handles the coordination between blockchain and database
 
+// Helper to convert chain status to app status
+function convertChainStatus(status: any): BountyStatus {
+  // Check if the status is an object with a tag property
+  if (status && typeof status === 'object' && 'tag' in status) {
+    // Map the chain status tag to our BountyStatus enum
+    switch (status.tag) {
+      case 'Open':
+        return BountyStatus.OPEN;
+      case 'InProgress':
+        return BountyStatus.IN_PROGRESS;
+      case 'Review':
+        return BountyStatus.REVIEW;
+      case 'Completed':
+        return BountyStatus.COMPLETED;
+      case 'Cancelled':
+        return BountyStatus.CANCELLED;
+      default:
+        return BountyStatus.OPEN;
+    }
+  }
+  
+  // Fallback to string status if not an object
+  return status as BountyStatus;
+}
+
 /**
  * BountyService class that coordinates blockchain and database operations
  */
@@ -65,6 +90,9 @@ export class BountyService {
       }
 
       const offChainData = docSnap.data();
+      
+      // Get creation date either from blockchain or database
+      const createdDate = offChainData.createdAt || new Date().toISOString();
 
       // Combine the data
       const combinedBounty: Bounty = {
@@ -76,16 +104,16 @@ export class BountyService {
           amount: onChainBounty.reward.toString(),
           asset: onChainBounty.token,
         },
-        distribution: onChainBounty.distribution.map((dist: any) => ({
+        distribution: Array.from(onChainBounty.distribution).map((dist: any) => ({
           percentage: dist[0],
           position: dist[1],
         })),
         submissionDeadline: Number(onChainBounty.submission_deadline),
         judgingDeadline: Number(onChainBounty.judging_deadline),
-        status: onChainBounty.status as BountyStatus,
+        status: convertChainStatus(onChainBounty.status),
         category: offChainData.category,
         skills: offChainData.skills,
-        created: onChainBounty.created ? new Date(Number(onChainBounty.created)).toISOString() : offChainData.createdAt,
+        created: createdDate,
         updatedAt: offChainData.updatedAt,
         deadline: new Date(Number(onChainBounty.submission_deadline)).toISOString(),
       };
@@ -109,9 +137,18 @@ export class BountyService {
       const bounties = await Promise.all(
         onChainBounties.map(async (bounty) => {
           try {
-            return await this.getBountyById(Number(bounty.id));
+            // Make sure bounty has an id property
+            const bountyId = bounty.id !== undefined ? Number(bounty.id) : 
+                           (bounty as any).bounty_id !== undefined ? Number((bounty as any).bounty_id) : 0;
+                           
+            if (bountyId === 0) {
+              console.error('Bounty is missing ID property:', bounty);
+              return null;
+            }
+            
+            return await this.getBountyById(bountyId);
           } catch (error) {
-            console.error(`Error fetching bounty ${bounty.id}:`, error);
+            console.error(`Error fetching bounty:`, error);
             return null;
           }
         })
@@ -185,6 +222,7 @@ export class BountyService {
           details: offChainData.content || '',
           created: offChainData.createdAt || new Date().toISOString(),
           status: 'PENDING', // Default status
+          ranking: offChainData.ranking || null, // Add ranking property
         };
       });
     } catch (error) {
