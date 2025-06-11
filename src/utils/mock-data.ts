@@ -27,7 +27,7 @@ const generatePastDate = (daysAgo: number): string => {
 // Mock bounties data
 export const mockBounties: Bounty[] = [
   {
-    id: '1',
+    id: 1,
     title: 'Build a Stellar Wallet Integration Component',
     description:
       'Create a reusable React component for connecting to Stellar wallets (Freighter, Albedo, etc.) with comprehensive documentation and examples.',
@@ -35,6 +35,11 @@ export const mockBounties: Bounty[] = [
       amount: '500',
       asset: 'USDC',
     },
+    distribution: [
+      { percentage: 100, position: 1 }
+    ],
+    submissionDeadline: new Date(generateFutureDate(14)).getTime(),
+    judgingDeadline: new Date(generateFutureDate(21)).getTime(),
     owner: generateRandomStellarAddress(),
     deadline: generateFutureDate(14),
     status: BountyStatus.OPEN,
@@ -44,7 +49,7 @@ export const mockBounties: Bounty[] = [
     updatedAt: generatePastDate(5),
   },
   {
-    id: '2',
+    id: 2,
     title: 'Design Landing Page for DeFi Application',
     description:
       'Create a modern, visually appealing landing page design for a DeFi application built on Stellar. The design should communicate trust, security, and innovation.',
@@ -52,6 +57,11 @@ export const mockBounties: Bounty[] = [
       amount: '350',
       asset: 'USDC',
     },
+    distribution: [
+      { percentage: 100, position: 1 }
+    ],
+    submissionDeadline: new Date(generateFutureDate(10)).getTime(),
+    judgingDeadline: new Date(generateFutureDate(17)).getTime(),
     owner: generateRandomStellarAddress(),
     deadline: generateFutureDate(10),
     status: BountyStatus.OPEN,
@@ -61,7 +71,7 @@ export const mockBounties: Bounty[] = [
     updatedAt: generatePastDate(3),
   },
   {
-    id: '3',
+    id: 3,
     title: 'Implement Soroban Smart Contract for Token Vesting',
     description:
       'Build a Soroban smart contract that handles token vesting schedules with configurable cliff and vesting periods. Tests and documentation required.',
@@ -69,6 +79,12 @@ export const mockBounties: Bounty[] = [
       amount: '800',
       asset: 'USDC',
     },
+    distribution: [
+      { percentage: 70, position: 1 },
+      { percentage: 30, position: 2 }
+    ],
+    submissionDeadline: new Date(generateFutureDate(30)).getTime(),
+    judgingDeadline: new Date(generateFutureDate(37)).getTime(),
     owner: generateRandomStellarAddress(),
     deadline: generateFutureDate(30),
     status: BountyStatus.OPEN,
@@ -78,7 +94,7 @@ export const mockBounties: Bounty[] = [
     updatedAt: generatePastDate(7),
   },
   {
-    id: '4',
+    id: 4,
     title: 'Create Educational Content on Stellar and Soroban',
     description:
       'Develop a series of educational articles/videos explaining how Stellar works and the benefits of developing on Soroban for smart contracts.',
@@ -86,16 +102,21 @@ export const mockBounties: Bounty[] = [
       amount: '250',
       asset: 'USDC',
     },
+    distribution: [
+      { percentage: 100, position: 1 }
+    ],
+    submissionDeadline: new Date(generateFutureDate(21)).getTime(),
+    judgingDeadline: new Date(generateFutureDate(28)).getTime(),
     owner: generateRandomStellarAddress(),
     deadline: generateFutureDate(21),
     status: BountyStatus.OPEN,
-    category: BountyCategory.CONTENT,
+    category: BountyCategory.MARKETING,
     skills: ['Technical Writing', 'Education', 'Blockchain Knowledge'],
     created: generatePastDate(10),
     updatedAt: generatePastDate(10),
   },
   {
-    id: '5',
+    id: 5,
     title: 'Develop Payment Processing Plugin for WooCommerce',
     description:
       'Create a WooCommerce plugin that enables e-commerce stores to accept Stellar-based payments. Should include support for different assets.',
@@ -103,6 +124,12 @@ export const mockBounties: Bounty[] = [
       amount: '600',
       asset: 'USDC',
     },
+    distribution: [
+      { percentage: 60, position: 1 },
+      { percentage: 40, position: 2 }
+    ],
+    submissionDeadline: new Date(generateFutureDate(25)).getTime(),
+    judgingDeadline: new Date(generateFutureDate(32)).getTime(),
     owner: generateRandomStellarAddress(),
     deadline: generateFutureDate(25),
     status: BountyStatus.IN_PROGRESS,
@@ -112,7 +139,7 @@ export const mockBounties: Bounty[] = [
     updatedAt: generatePastDate(2),
   },
   {
-    id: '6',
+    id: 6,
     title: 'Market Research: Stellar Adoption in Emerging Markets',
     description:
       'Conduct research on the adoption and potential of Stellar blockchain in emerging markets. Focus on remittances, financial inclusion, and local partnerships.',
@@ -120,6 +147,13 @@ export const mockBounties: Bounty[] = [
       amount: '400',
       asset: 'USDC',
     },
+    distribution: [
+      { percentage: 50, position: 1 },
+      { percentage: 30, position: 2 },
+      { percentage: 20, position: 3 }
+    ],
+    submissionDeadline: new Date(generateFutureDate(18)).getTime(),
+    judgingDeadline: new Date(generateFutureDate(25)).getTime(),
     owner: generateRandomStellarAddress(),
     deadline: generateFutureDate(18),
     status: BountyStatus.OPEN,
