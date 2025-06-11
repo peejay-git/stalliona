@@ -56,10 +56,13 @@ export default function AdminBountiesPage() {
   };
 
   // Handle bounty deletion
-  const handleDelete = async (bountyId: string) => {
+  const handleDelete = async (bountyId: number | string) => {
+    const bountyIdStr = typeof bountyId === 'number' ? bountyId.toString() : bountyId;
+    const bountyIdNum = typeof bountyId === 'string' ? Number(bountyId) : bountyId;
+    
     try {
-      await deleteBounty(bountyId);
-      setBounties(bounties.filter(bounty => bounty.id !== bountyId));
+      await deleteBounty(bountyIdStr);
+      setBounties(bounties.filter(bounty => bounty.id !== bountyIdNum));
       toast.success('Bounty deleted successfully');
       setConfirmDelete(null);
     } catch (error) {
@@ -69,14 +72,17 @@ export default function AdminBountiesPage() {
   };
 
   // Handle status update
-  const handleStatusUpdate = async (bountyId: string, newStatus: string) => {
+  const handleStatusUpdate = async (bountyId: number | string, newStatus: string) => {
+    const bountyIdStr = typeof bountyId === 'number' ? bountyId.toString() : bountyId;
+    const bountyIdNum = typeof bountyId === 'string' ? Number(bountyId) : bountyId;
+
     try {
-      await updateBountyStatus(bountyId, newStatus);
+      await updateBountyStatus(bountyIdStr, newStatus);
       
       // Update the local state
       setBounties(bounties.map(bounty => 
-        bounty.id === bountyId 
-          ? { ...bounty, status: newStatus } 
+        bounty.id === bountyIdNum
+          ? { ...bounty, status: newStatus as BountyStatus } 
           : bounty
       ));
       
@@ -209,13 +215,13 @@ export default function AdminBountiesPage() {
                           <select
                             className="text-xs bg-gray-800 text-white rounded border border-gray-700 py-1 px-1"
                             value={bounty.status}
-                            onChange={(e) => handleStatusUpdate(bounty.id, e.target.value)}
+                            onChange={(e) => handleStatusUpdate(bounty.id, e.target.value as BountyStatus)}
                           >
-                            <option value="OPEN">Open</option>
-                            <option value="IN_PROGRESS">In Progress</option>
-                            <option value="REVIEW">Review</option>
-                            <option value="COMPLETED">Completed</option>
-                            <option value="CANCELLED">Cancelled</option>
+                            <option value={BountyStatus.OPEN}>Open</option>
+                            <option value={BountyStatus.IN_PROGRESS}>In Progress</option>
+                            <option value={BountyStatus.REVIEW}>Review</option>
+                            <option value={BountyStatus.COMPLETED}>Completed</option>
+                            <option value={BountyStatus.CANCELLED}>Cancelled</option>
                           </select>
                         </div>
                       </div>
@@ -245,7 +251,7 @@ export default function AdminBountiesPage() {
                         >
                           <FiEdit size={18} />
                         </Link>
-                        {confirmDelete === bounty.id ? (
+                        {confirmDelete === bounty.id.toString() ? (
                           <div className="flex items-center space-x-1">
                             <button
                               onClick={() => handleDelete(bounty.id)}
@@ -264,7 +270,7 @@ export default function AdminBountiesPage() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => setConfirmDelete(bounty.id)}
+                            onClick={() => setConfirmDelete(bounty.id.toString())}
                             className="text-red-400 hover:text-red-300"
                             title="Delete"
                           >

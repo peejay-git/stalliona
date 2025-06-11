@@ -7,6 +7,7 @@ export enum Status {
 export enum BountyStatus {
   OPEN = 'OPEN',
   IN_PROGRESS = 'IN_PROGRESS',
+  REVIEW = 'REVIEW',
   COMPLETED = 'COMPLETED',
   CANCELLED = 'CANCELLED'
 }
