@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BountyService } from '@/lib/bountyService';
 import { BlockchainError } from '@/utils/error-handler';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/bounties/[id]/winners
  * Get winners for a bounty

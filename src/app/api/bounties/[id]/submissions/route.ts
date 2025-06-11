@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BlockchainError } from '@/utils/error-handler';
 import { BountyService } from '@/lib/bountyService';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/bounties/[id]/submissions
  * Get submissions for a bounty
