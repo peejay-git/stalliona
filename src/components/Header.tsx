@@ -82,7 +82,7 @@ const Header = () => {
   }, []);
 
   return (
-    <header className="relative sticky top-0 z-40 bg-[#070708] shadow-md">
+    <header className="sticky top-0 z-40 bg-[#070708] shadow-md">
       {showLogin && (
         <LoginModal
           isOpen={showLogin}

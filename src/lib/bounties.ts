@@ -1,6 +1,6 @@
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, query, orderBy, getDocs, doc, getDoc, where, QueryConstraint, updateDoc } from 'firebase/firestore';
-import { Bounty } from '@/types/bounty';
+import { Bounty, BountyStatus, BountyCategory } from '@/types/bounty';
 
 interface SubmitBountyInput {
     bountyId: string;
@@ -43,10 +43,23 @@ export async function getBountyById(id: string): Promise<Bounty | null> {
     const docSnap = await getDoc(docRef);
     if (!docSnap.exists()) return null;
 
+    const data = docSnap.data();
     return {
-        id: docSnap.id,
-        ...docSnap.data(),
-    } as Bounty;
+        id: parseInt(docSnap.id), // Convert string ID to number
+        owner: data.owner || '',
+        title: data.title || '',
+        description: data.description || '',
+        reward: data.reward || { amount: '0', asset: 'XLM' },
+        distribution: data.distribution || [],
+        submissionDeadline: data.submissionDeadline || 0,
+        judgingDeadline: data.judgingDeadline || 0,
+        status: data.status || BountyStatus.OPEN,
+        category: data.category || BountyCategory.OTHER,
+        skills: data.skills || [],
+        created: data.created || new Date().toISOString(),
+        updatedAt: data.updatedAt || new Date().toISOString(),
+        deadline: data.deadline || new Date().toISOString()
+    };
 }
 
 export async function getBountiesByOwner(ownerId: string): Promise<Bounty[]> {
@@ -56,10 +69,25 @@ export async function getBountiesByOwner(ownerId: string): Promise<Bounty[]> {
     );
 
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-    })) as Bounty[];
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: parseInt(doc.id), // Convert string ID to number
+            owner: data.owner || '',
+            title: data.title || '',
+            description: data.description || '',
+            reward: data.reward || { amount: '0', asset: 'XLM' },
+            distribution: data.distribution || [],
+            submissionDeadline: data.submissionDeadline || 0,
+            judgingDeadline: data.judgingDeadline || 0,
+            status: data.status || BountyStatus.OPEN,
+            category: data.category || BountyCategory.OTHER,
+            skills: data.skills || [],
+            created: data.created || new Date().toISOString(),
+            updatedAt: data.updatedAt || new Date().toISOString(),
+            deadline: data.deadline || new Date().toISOString()
+        };
+    });
 }
 
 export async function getFilteredBounties(filters: FilterOptions) {
