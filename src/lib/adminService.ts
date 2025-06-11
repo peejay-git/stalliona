@@ -1,6 +1,6 @@
 import { db } from '@/lib/firebase';
 import { collection, doc, getDoc, getDocs, updateDoc, query, where, orderBy, limit, Timestamp, deleteDoc } from 'firebase/firestore';
-import { Bounty, Submission } from '@/types/bounty';
+import { Bounty, Submission, BountyStatus, BountyCategory } from '@/types/bounty';
 
 // Get all bounties for admin view
 export async function getAllBounties() {
@@ -9,10 +9,26 @@ export async function getAllBounties() {
     const q = query(bountiesRef, orderBy('created', 'desc'));
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Bounty[];
+    // Cast the data with type conversion to ensure it matches the Bounty interface
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: parseInt(doc.id), // Convert string ID to number
+        owner: data.owner || '',
+        title: data.title || '',
+        description: data.description || '',
+        reward: data.reward || { amount: '0', asset: 'XLM' },
+        distribution: data.distribution || [],
+        submissionDeadline: data.submissionDeadline || 0,
+        judgingDeadline: data.judgingDeadline || 0,
+        status: data.status || BountyStatus.OPEN,
+        category: data.category || BountyCategory.OTHER,
+        skills: data.skills || [],
+        created: data.created || new Date().toISOString(),
+        updatedAt: data.updatedAt || new Date().toISOString(),
+        deadline: data.deadline || new Date().toISOString()
+      } as Bounty;
+    });
   } catch (error) {
     console.error('Error getting all bounties:', error);
     throw error;
