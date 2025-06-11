@@ -135,11 +135,11 @@ export class BountyService {
       
       // Map over each bounty ID and get the complete data
       const bounties = await Promise.all(
-        onChainBounties.map(async (bounty) => {
+        onChainBounties.map(async (bounty: any) => {
           try {
             // Make sure bounty has an id property
             const bountyId = bounty.id !== undefined ? Number(bounty.id) : 
-                           (bounty as any).bounty_id !== undefined ? Number((bounty as any).bounty_id) : 0;
+                           bounty.bounty_id !== undefined ? Number(bounty.bounty_id) : 0;
                            
             if (bountyId === 0) {
               console.error('Bounty is missing ID property:', bounty);
