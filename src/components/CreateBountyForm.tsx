@@ -142,21 +142,21 @@ Any other details that might be helpful for the talent working on this bounty.`,
       
       // Step 4: Create bounty on the blockchain
       try {
-        const bountyId = await createBountyOnChain({
-          userPublicKey,
-          title: formData.title,
-          token: formData.token,
-          reward: { 
-            amount: formData.rewardAmount,
-            asset: formData.token
-          },
-          distribution: formData.distribution,
-          submissionDeadline: new Date(formData.submissionDeadline).getTime(),
-          judgingDeadline: new Date(formData.judgingDeadline).getTime(),
-        });
-        
-        // Step 5: Store blockchain bounty ID
-        setBlockchainBountyId(bountyId);
+      const bountyId = await createBountyOnChain({
+        userPublicKey,
+        title: formData.title,
+        token: formData.token,
+        reward: { 
+          amount: formData.rewardAmount,
+          asset: formData.token
+        },
+        distribution: formData.distribution,
+        submissionDeadline: new Date(formData.submissionDeadline).getTime(),
+        judgingDeadline: new Date(formData.judgingDeadline).getTime(),
+      });
+      
+      // Step 5: Store blockchain bounty ID
+      setBlockchainBountyId(bountyId);
       } catch (blockchainError) {
         // If there's a blockchain error, we need to handle it appropriately
         console.error('Blockchain error:', blockchainError);

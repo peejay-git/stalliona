@@ -102,20 +102,20 @@ export async function createBountyOnChain({
       // Use retry logic for blockchain operations
       const bountyId = await retryOperation(async () => {
         return await sorobanService.createBounty({
-          owner: userPublicKey,
+      owner: userPublicKey,
           token: tokenAddress, // Use the resolved token address
-          reward: { amount: reward.amount, asset: reward.asset },
-          distribution,
-          submissionDeadline,
-          judgingDeadline,
-          title,
-        });
+      reward: { amount: reward.amount, asset: reward.asset },
+      distribution,
+      submissionDeadline,
+      judgingDeadline,
+      title,
+    });
       });
       
       // Success message
       toast.success('Transaction approved! Creating bounty on blockchain...', { id: 'wallet-transaction' });
-      
-      return bountyId;
+    
+    return bountyId;
     } catch (blockchainError: any) {
       // If the error is related to user interaction (like declining), don't retry
       if (blockchainError.message?.includes('User declined') || 

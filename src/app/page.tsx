@@ -117,13 +117,13 @@ export default function Home() {
           <h1 className="relative text-4xl md:text-6xl font-bold mb-6">
             <span className="text-white hero-text">
               Where Talent Shape the <br />Future of Web3<span className="inline-flex items-center">.
-                <Image 
+              <Image
                   src="/images/stellar.svg" 
                   alt="Stellar Logo" 
                   width={40} 
                   height={40} 
                   className="ml-0.5" 
-                />
+              />
               </span></span>
           </h1>
           <p className="text-xl md:text-2xl text-white max-w-3xl mx-auto mb-8 small-hero-text">

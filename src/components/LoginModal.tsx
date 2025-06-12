@@ -310,7 +310,7 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
             
             if (err.code) {
                 console.error(`Firebase error code: ${err.code}`);
-                
+
                 switch (err.code) {
                     case 'auth/user-not-found':
                         toast.error('No user found with this email. Please check your email address.');
@@ -548,18 +548,23 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
                 <div className="relative bg-[#070708] px-4 text-sm text-gray-300">or continue with</div>
             </div>
             
-            <motion.button
-                disabled={true}
-                className="mt-6 w-full flex items-center justify-center gap-2 border border-white/20 bg-white/10 hover:bg-white/10 text-white py-3 px-4 rounded-lg transition-colors opacity-70 cursor-not-allowed"
+            <motion.div
+                className="mt-6 relative"
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.7 }}
-                whileHover={{ scale: 1 }}
-                whileTap={{ scale: 1 }}
             >
-                <FcGoogle className="w-5 h-5" />
-                <span>Google Sign-in (Coming Soon)</span>
-            </motion.button>
+                <span className="absolute -top-2 right-0 text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">Coming Soon</span>
+                <motion.button
+                    disabled={true}
+                    className="w-full flex items-center justify-center gap-2 border border-white/20 bg-white/10 hover:bg-white/10 text-white py-3 px-4 rounded-lg transition-colors opacity-70 cursor-not-allowed"
+                    whileHover={{ scale: 1 }}
+                    whileTap={{ scale: 1 }}
+                >
+                    <FcGoogle className="w-5 h-5" />
+                    <span>Google Sign-in</span>
+                </motion.button>
+            </motion.div>
 
             <motion.div 
                 className="mt-6 text-center"
@@ -662,9 +667,9 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
                     >
                         <motion.div
                             initial={{ scale: 0.9, opacity: 0, y: -50 }}
-                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
                             exit={{ scale: 0.9, opacity: 0 }}
-                            transition={{ type: "spring", duration: 0.5 }}
+                        transition={{ type: "spring", duration: 0.5 }}
                             className="backdrop-blur-xl bg-[#070708] border border-white/20 rounded-xl shadow-2xl w-full max-w-md mx-auto z-[10000]"
                             style={{ maxHeight: '80vh', overflowY: 'auto' }}
                         >
@@ -746,9 +751,9 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                            </div>
-                        </motion.div>
-                    </div>
+                        </div>
+                    </motion.div>
+                </div>
                 </>
             )}
         </AnimatePresence>

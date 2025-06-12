@@ -51,26 +51,26 @@ let googleProvider: GoogleAuthProvider;
 // Only initialize Firebase on the client side to avoid SSR issues
 if (typeof window !== 'undefined') {
   try {
-    // Initialize Firebase
+// Initialize Firebase
     app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-    // Initialize Firebase services
+// Initialize Firebase services
     auth = getAuth(app);
     
-    // Set auth persistence to local (this helps with handling redirects)
+// Set auth persistence to local (this helps with handling redirects)
     // Only set persistence on the client side
-    setPersistence(auth, browserLocalPersistence)
-      .catch((error) => {
-        console.error("Firebase auth persistence error:", error);
-      });
+setPersistence(auth, browserLocalPersistence)
+  .catch((error) => {
+    console.error("Firebase auth persistence error:", error);
+  });
 
     db = getFirestore(app);
     storage = getStorage(app);
     googleProvider = new GoogleAuthProvider();
 
-    // Add scopes to Google provider
-    googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
-    googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+// Add scopes to Google provider
+googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
+googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
     
     // Set custom parameters to help with domain authorization
     googleProvider.setCustomParameters({

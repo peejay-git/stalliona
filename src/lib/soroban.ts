@@ -177,24 +177,24 @@ export class SorobanService {
       try {
         // Prepare transaction
         console.log('Preparing transaction...');
-        const tx = await this.sorobanClient.create_bounty({
-          owner: owner,
-          token: token,
-          reward: BigInt(reward.amount),
-          distribution: distribution.map((dist) => [
-            dist.percentage,
-            dist.position,
-          ]),
-          submission_deadline: BigInt(submissionDeadline),
-          judging_deadline: BigInt(judgingDeadline),
-          title: title,
-        });
+      const tx = await this.sorobanClient.create_bounty({
+        owner: owner,
+        token: token,
+        reward: BigInt(reward.amount),
+        distribution: distribution.map((dist) => [
+          dist.percentage,
+          dist.position,
+        ]),
+        submission_deadline: BigInt(submissionDeadline),
+        judging_deadline: BigInt(judgingDeadline),
+        title: title,
+      });
 
         console.log('Transaction prepared, simulating...');
         
         // Simulate to ensure transaction is valid
         try {
-          const result = await tx.simulate();
+      const result = await tx.simulate();
           console.log('Simulation result:', JSON.stringify(result, null, 2));
           
           // The result object might contain errors in various formats
@@ -208,12 +208,12 @@ export class SorobanService {
           
           // Sign and send the transaction to the blockchain
           console.log('Sending transaction to wallet for approval...');
-          const sentTx = await result.signAndSend();
+      const sentTx = await result.signAndSend();
           console.log('Transaction sent, waiting for result...');
           console.log('Transaction result:', JSON.stringify(sentTx, null, 2));
 
-          // await confirmation
-          if (sentTx.result.isOk()) {
+      // await confirmation
+      if (sentTx.result.isOk()) {
             const bountyId = Number(sentTx.result.unwrap().toString());
             console.log(`Bounty created successfully with ID: ${bountyId}`);
             return bountyId;

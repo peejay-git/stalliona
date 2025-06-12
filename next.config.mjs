@@ -14,11 +14,11 @@ const nextConfig = {
   webpack: (config, { isServer }) => {
     // Browser polyfills needed for Stellar SDK
     if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
         crypto: false,
         stream: false,
         path: false,
