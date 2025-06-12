@@ -129,6 +129,11 @@ export async function signInWithGoogle() {
         // Add hostname to console for debugging
         console.log("Attempting Google sign-in from domain:", window.location.hostname);
         
+        // Get auth domain from Firebase config
+        // @ts-ignore - accessing auth domain
+        const firebaseAuthDomain = auth.app.options.authDomain;
+        console.log("Firebase auth domain:", firebaseAuthDomain);
+        
         // Try with popup first
         let result;
         try {
@@ -136,17 +141,18 @@ export async function signInWithGoogle() {
         } catch (popupError: any) {
             console.error("Popup sign-in failed:", popupError);
             
-            // If it's an unauthorized domain error, log detailed information
+            // If it's an unauthorized domain error, log detailed information and try a workaround
             if (popupError.code === 'auth/unauthorized-domain') {
                 console.error("Domain error details:", {
                     domain: window.location.hostname,
                     fullOrigin: window.location.origin,
                     code: popupError.code,
-                    message: popupError.message
+                    message: popupError.message,
+                    firebaseAuthDomain
                 });
                 
-                // Rethrow the error to be caught by the outer catch block
-                throw popupError;
+                // Rethrow with more specific information
+                throw new Error(`Google sign-in domain error: Your current domain (${window.location.hostname}) is not authorized in Firebase. Please add both 'earnstallions.xyz' and 'www.earnstallions.xyz' to your Firebase Console authorized domains.`);
             }
             
             // If we reach here, it's another type of error

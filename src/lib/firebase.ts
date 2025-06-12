@@ -16,11 +16,20 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || ""
 };
 
-// Log Firebase config for debugging (without sensitive data)
+// Override authDomain at runtime for specific domains
 if (typeof window !== 'undefined') {
+  const hostname = window.location.hostname;
+  
+  // For production domains, use the current hostname as authDomain
+  if (hostname === 'earnstallions.xyz' || hostname === 'www.earnstallions.xyz') {
+    console.log(`Using ${hostname} as authDomain instead of ${firebaseConfig.authDomain}`);
+    firebaseConfig.authDomain = hostname;
+  }
+  
+  // Log Firebase config for debugging (without sensitive data)
   console.log("Firebase authDomain:", firebaseConfig.authDomain);
   console.log("Current origin:", window.location.origin);
-  console.log("Current hostname:", window.location.hostname);
+  console.log("Current hostname:", hostname);
 }
 
 // Check if any Firebase apps have been initialized

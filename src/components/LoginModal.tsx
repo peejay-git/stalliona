@@ -103,7 +103,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
             console.error("Google sign-in error:", err);
             
             // Display more specific error messages based on the error
-            if (err.message?.includes('unauthorized-domain')) {
+            if (err.message?.includes('unauthorized-domain') || err.message?.includes('domain error')) {
                 console.error('Unauthorized domain error:', {
                     domain: window.location.hostname,
                     fullUrl: window.location.href,
@@ -111,12 +111,25 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                     code: err.code
                 });
                 
-                toast.error(`Google sign-in failed: This domain (${window.location.origin}) is not authorized for Google sign-in. Please add it in your Firebase console under Authentication > Settings > Authorized domains.`);
+                // Show detailed error message
+                toast.error(err.message || `Google sign-in failed: Domain not authorized. Please contact support.`);
                 
-                // Show instructions
-                console.info("FIREBASE DOMAIN FIX: Add both versions of your domain to Firebase:");
-                console.info(`1. ${window.location.hostname}`);
-                console.info(`2. ${window.location.hostname.startsWith('www.') ? window.location.hostname.substring(4) : 'www.' + window.location.hostname}`);
+                // Log detailed fix instructions
+                console.info(`
+=====================================================
+FIREBASE DOMAIN FIX INSTRUCTIONS
+=====================================================
+1. Go to Firebase Console: https://console.firebase.google.com
+2. Select your project
+3. Go to Authentication > Settings tab
+4. Scroll to "Authorized domains" section
+5. Add BOTH of these domains:
+   - earnstallions.xyz
+   - www.earnstallions.xyz
+6. Make sure your .env and Vercel environment variables include:
+   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=earnstallions.xyz
+=====================================================
+                `);
             } else if (err.message?.includes('popup-closed')) {
                 toast.error('Sign-in popup was closed. Please try again.');
             } else if (err.message?.includes('popup-blocked')) {
