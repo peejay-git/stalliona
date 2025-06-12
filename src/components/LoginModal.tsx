@@ -96,8 +96,20 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                 router.push('/dashboard');
             }
         } catch (err: any) {
-            console.error(err);
-            toast.error('Google sign-in failed. Please try again.');
+            console.error("Google sign-in error:", err);
+            
+            // Display more specific error messages based on the error
+            if (err.message?.includes('unauthorized-domain')) {
+                toast.error('This domain is not authorized for Google sign-in. Please add it in your Firebase console.');
+            } else if (err.message?.includes('popup-closed')) {
+                toast.error('Sign-in popup was closed. Please try again.');
+            } else if (err.message?.includes('popup-blocked')) {
+                toast.error('Sign-in popup was blocked by your browser. Please allow popups for this site.');
+            } else if (err.message?.includes('network')) {
+                toast.error('Network error. Please check your internet connection and try again.');
+            } else {
+                toast.error(`Google sign-in failed: ${err.message || 'Unknown error'}`);
+            }
         } finally {
             setIsGoogleSubmitting(false);
         }

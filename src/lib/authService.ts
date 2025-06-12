@@ -119,6 +119,11 @@ export async function loginUser(email: string, password: string) {
 // #region Google Auth
 export async function signInWithGoogle() {
     try {
+        // Configure Google provider with custom parameters
+        googleProvider.setCustomParameters({
+            prompt: 'select_account'
+        });
+        
         const result = await signInWithPopup(auth, googleProvider);
         const user = result.user;
         
@@ -179,9 +184,21 @@ export async function signInWithGoogle() {
             
             return { user: result.user, isNewUser: false };
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error signing in with Google", error);
-        throw error;
+        
+        // Provide more specific error messages
+        if (error.code === 'auth/popup-closed-by-user') {
+            throw new Error('Sign-in popup was closed before completing the sign-in');
+        } else if (error.code === 'auth/popup-blocked') {
+            throw new Error('Sign-in popup was blocked by the browser');
+        } else if (error.code === 'auth/cancelled-popup-request') {
+            throw new Error('Multiple popup requests were triggered');
+        } else if (error.code === 'auth/unauthorized-domain') {
+            throw new Error('This domain is not authorized for Google sign-in. Please contact support.');
+        } else {
+            throw error;
+        }
     }
 }
 // #endregion
