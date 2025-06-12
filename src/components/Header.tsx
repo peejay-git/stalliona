@@ -41,11 +41,17 @@ const Header = () => {
   
   // Synchronize wallet and user state
   useEffect(() => {
-    // If user is logged out but wallet is still connected, disconnect the wallet
-    if (!user && isConnected) {
+    // Check if we're in the signup process by looking at the current route
+    const isInSignupProcess = pathname === '/register' || 
+                              pathname.startsWith('/register/') || 
+                              showRegister || 
+                              isChooseRoleOpen;
+    
+    // Only disconnect wallet if user is logged out, wallet is connected, and not in signup
+    if (!user && isConnected && !isInSignupProcess) {
       disconnect();
     }
-  }, [user, isConnected, disconnect]);
+  }, [user, isConnected, disconnect, pathname, showRegister, isChooseRoleOpen]);
   
   // Memoized toggle function
   const toggleMenu = useCallback(() => {

@@ -300,6 +300,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Disconnect wallet
   const disconnect = () => {
+    console.log('Wallet disconnect called from:', new Error().stack);
     setIsConnected(false);
     setWalletType(null);
     setPublicKey(null);
