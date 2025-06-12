@@ -100,7 +100,8 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
             
             // Display more specific error messages based on the error
             if (err.message?.includes('unauthorized-domain')) {
-                toast.error('This domain is not authorized for Google sign-in. Please add it in your Firebase console.');
+                console.error('Unauthorized domain error:', window.location.origin);
+                toast.error(`This domain (${window.location.origin}) is not authorized for Google sign-in. Please add it in your Firebase console under Authentication > Settings > Authorized domains.`);
             } else if (err.message?.includes('popup-closed')) {
                 toast.error('Sign-in popup was closed. Please try again.');
             } else if (err.message?.includes('popup-blocked')) {

@@ -195,7 +195,8 @@ export async function signInWithGoogle() {
         } else if (error.code === 'auth/cancelled-popup-request') {
             throw new Error('Multiple popup requests were triggered');
         } else if (error.code === 'auth/unauthorized-domain') {
-            throw new Error('This domain is not authorized for Google sign-in. Please contact support.');
+            console.error('Domain not authorized in Firebase:', window.location.origin);
+            throw new Error(`This domain (${window.location.origin}) is not authorized for Google sign-in. Please add it to Firebase Console's authorized domains.`);
         } else {
             throw error;
         }
