@@ -175,17 +175,17 @@ export default function Home() {
         <div className="flex whitespace-nowrap animate-scroll w-full">
           {Array(3).fill(null).map((_, i) => (
             <div key={i} className="flex items-center gap-6 mr-10">
-              <span className="text-[180px] font-[900] opacity-30 text-white/30 font-['Druk_Wide_Trial']">STALLIONS</span>
-              <div className="mx-4 opacity-30">
+              <span className="text-[150px] font-[700] opacity-40 text-white/40 font-['Druk_Wide_Trial']">STALLIONS</span>
+              <div className="mx-4 opacity-40">
                 <Image
                   src="/images/mad.png"
                   alt="Stallion Logo"
-                  width={200}
-                  height={200}
-                  className="min-w-[180px]"
+                  width={180}
+                  height={180}
+                  className="min-w-[160px]"
                 />
               </div>
-              <span className="text-[180px] font-[900] opacity-30 text-white/30 font-['Druk_Wide_Trial']">ASSEMBLE</span>
+              <span className="text-[150px] font-[700] opacity-40 text-white/40 font-['Druk_Wide_Trial']">ASSEMBLE</span>
             </div>
           ))}
         </div>

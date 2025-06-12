@@ -11,6 +11,11 @@ import { getBountiesByOwner } from '@/lib/bounties';
 import { assetSymbols } from '@/components/BountyCard';
 import Layout from '@/components/Layout';
 import { getAuth, onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { connectWallet } from '@/lib/authService';
+import toast from 'react-hot-toast';
+import TalentWalletConnector from '@/components/TalentWalletConnector';
 
 export default function DashboardPage() {
   useProtectedRoute();
@@ -19,26 +24,45 @@ export default function DashboardPage() {
   const [bounty, setBounty] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const user = useUserStore((state) => state.user);
   const fetchUser = useUserStore((state) => state.fetchUserFromFirestore);
 
 
+  // Fetch user data including wallet info
   useEffect(() => {
-    if (!user) {
-      fetchUser();
-    }
-  }, [user, fetchUser]);
-  // Filter bounties to simulate user's created bounties (in a real app, this would fetch from contract)
-  const userCreatedBounties = mockBounties.filter((_, index) => index % 2 === 0);
+    const loadUserData = async () => {
+      if (!user?.uid) {
+        await fetchUser();
+        return;
+      }
+      
+      try {
+        // Check if user has a wallet in Firestore but it's not connected in the UI
+        if (user.walletConnected && !isConnected) {
+          const userDoc = doc(db, 'users', user.uid);
+          const userSnap = await getDoc(userDoc);
+          
+          if (userSnap.exists()) {
+            const userData = userSnap.data();
+            if (userData.wallet?.address) {
+              // Try to automatically connect the wallet
+              setIsLoadingWallet(true);
+              await connect();
+              setIsLoadingWallet(false);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error loading wallet data:', err);
+        setIsLoadingWallet(false);
+      }
+    };
+    
+    loadUserData();
+  }, [user, fetchUser, isConnected, connect]);
 
-  // Mock user submissions (in a real app, this would come from the contract)
-  const userSubmissions: {
-    id: string;
-    bountyId: string;
-    bountyTitle: string;
-    status: string;
-    submitted: string;
-  }[] = [];
+  // Fetch bounties
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -60,7 +84,43 @@ export default function DashboardPage() {
     }
   }, [user?.uid]);
 
+  // Handle wallet connection
+  const handleConnectWallet = async () => {
+    try {
+      setIsLoadingWallet(true);
+      const publicKey = await connect();
+      
+      if (publicKey && user?.uid) {
+        // Save the wallet to the user's account
+        await connectWallet({
+          address: publicKey,
+          publicKey: publicKey,
+          network: 'TESTNET'
+        });
+        
+        // Update user data in store
+        await fetchUser();
+        toast.success('Wallet connected successfully!');
+      }
+    } catch (err) {
+      console.error('Error connecting wallet:', err);
+      toast.error('Failed to connect wallet');
+    } finally {
+      setIsLoadingWallet(false);
+    }
+  };
 
+  // Filter bounties to simulate user's created bounties (in a real app, this would fetch from contract)
+  const userCreatedBounties = mockBounties.filter((_, index) => index % 2 === 0);
+
+  // Mock user submissions (in a real app, this would come from the contract)
+  const userSubmissions: {
+    id: string;
+    bountyId: string;
+    bountyTitle: string;
+    status: string;
+    submitted: string;
+  }[] = [];
 
   // Format date to be more readable
   const formatDate = (dateString: string) => {
@@ -98,19 +158,14 @@ export default function DashboardPage() {
         <div className="min-h-screen py-12 px-4 sm:px-6">
           <div className="max-w-5xl mx-auto">
             <h1 className="text-3xl font-bold mb-8 text-white">Dashboard</h1>
-            <h1 className="text-2xl font-semibold text-white">Welcome {user?.username || '...'}</h1>
+            <h1 className="text-2xl font-semibold text-white">Welcome {user?.username || user?.firstName || '...'}</h1>
 
-            <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 text-center text-white">
-              <p className="text-gray-300 mb-6">
-                Connect your Stellar wallet to view your dashboard.
-              </p>
-              <button 
-                onClick={() => connect()}
-                className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors"
-              >
-                Connect Wallet
-              </button>
-            </div>
+            <TalentWalletConnector 
+              onSuccess={() => {
+                // Refresh the page after successful wallet connection
+                window.location.reload();
+              }} 
+            />
           </div>
         </div>
       </Layout>

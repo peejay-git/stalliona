@@ -9,10 +9,16 @@ import {
 
 // Environment variables with defaults
 const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || '';
-const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || '';
-const SOROBAN_RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || '';
+const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'Test SDF Network ; September 2015';
+const SOROBAN_RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
 
-if (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL) {
+// Only throw in development environment, in production we'll show appropriate UI
+if (process.env.NODE_ENV === 'development' && (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL)) {
+  console.error('Missing required environment variables for Soroban:', {
+    CONTRACT_ID: !!CONTRACT_ID,
+    NETWORK: !!NETWORK,
+    SOROBAN_RPC_URL: !!SOROBAN_RPC_URL,
+  });
   throw new Error('Missing required environment variables for Soroban');
 }
 
@@ -31,6 +37,25 @@ export class SorobanService {
     this.publicKey = publicKey || null;
 
     try {
+      // Log environment variables and configuration
+      console.log('=== SOROBAN SERVICE CONFIGURATION ===');
+      console.log(`Contract ID: ${CONTRACT_ID}`);
+      console.log(`Network: ${NETWORK}`);
+      console.log(`RPC URL: ${SOROBAN_RPC_URL}`);
+      console.log(`Public Key: ${publicKey || 'Not provided'}`);
+      
+      if (!CONTRACT_ID || CONTRACT_ID.length < 10) {
+        console.error('Warning: Contract ID appears to be invalid or missing');
+      }
+      
+      if (!NETWORK) {
+        console.error('Warning: Network passphrase is missing');
+      }
+      
+      if (!SOROBAN_RPC_URL) {
+        console.error('Warning: Soroban RPC URL is missing');
+      }
+
       // Initialize the Soroban client for contract interactions
       this.sorobanClient = new SorobanClient({
         contractId: this.contractId,
@@ -112,33 +137,109 @@ export class SorobanService {
         throw new Error('Wallet not connected');
       }
 
-      const tx = await this.sorobanClient.create_bounty({
-        owner: owner,
-        token: token,
-        reward: BigInt(reward.amount),
-        distribution: distribution.map((dist) => [
-          dist.percentage,
-          dist.position,
-        ]),
-        submission_deadline: BigInt(submissionDeadline),
-        judging_deadline: BigInt(judgingDeadline),
-        title: title,
-      });
+      console.log(`=== CREATE BOUNTY DETAILS ===`);
+      console.log(`Owner: ${owner}`);
+      console.log(`Token: ${token}`);
+      console.log(`Reward: ${reward.amount} ${reward.asset}`);
+      console.log(`Distribution: ${JSON.stringify(distribution)}`);
+      console.log(`Submission Deadline: ${new Date(submissionDeadline).toISOString()} (${submissionDeadline})`);
+      console.log(`Judging Deadline: ${new Date(judgingDeadline).toISOString()} (${judgingDeadline})`);
+      console.log(`Title: ${title}`);
+      console.log(`Contract ID: ${this.contractId}`);
+      console.log(`Network: ${this.network}`);
+      console.log(`Wallet: ${this.publicKey}`);
 
-      const result = await tx.simulate();
-      const sentTx = await result.signAndSend();
-
-      // await confirmation
-      if (sentTx.result.isOk()) {
-        return Number(sentTx.result.unwrap().toString());
+      // Validate parameters before sending to the blockchain
+      if (!owner || owner.trim() === '') {
+        throw new Error('Invalid owner address');
       }
 
-      throw new BlockchainError('Failed to create bounty', 'CONTRACT_ERROR');
+      if (!token || token.trim() === '') {
+        throw new Error('Invalid token');
+      }
 
-      // TODO: Save to DB along with other details not saved in contract
+      if (!reward.amount || isNaN(Number(reward.amount)) || Number(reward.amount) <= 0) {
+        throw new Error('Invalid reward amount');
+      }
+
+      if (distribution.length === 0) {
+        throw new Error('Distribution cannot be empty');
+      }
+
+      if (submissionDeadline <= Date.now()) {
+        throw new Error('Submission deadline must be in the future');
+      }
+
+      if (judgingDeadline <= submissionDeadline) {
+        throw new Error('Judging deadline must be after submission deadline');
+      }
+
+      try {
+        // Prepare transaction
+        console.log('Preparing transaction...');
+        const tx = await this.sorobanClient.create_bounty({
+          owner: owner,
+          token: token,
+          reward: BigInt(reward.amount),
+          distribution: distribution.map((dist) => [
+            dist.percentage,
+            dist.position,
+          ]),
+          submission_deadline: BigInt(submissionDeadline),
+          judging_deadline: BigInt(judgingDeadline),
+          title: title,
+        });
+
+        console.log('Transaction prepared, simulating...');
+        
+        // Simulate to ensure transaction is valid
+        try {
+          const result = await tx.simulate();
+          console.log('Simulation result:', JSON.stringify(result, null, 2));
+          
+          // The result object might contain errors in various formats
+          // Using type assertion since the exact structure can vary
+          const resultAny = result as any;
+          if (resultAny.simulationError || resultAny.error) {
+            const errorDetails = resultAny.simulationError || resultAny.error;
+            console.error('Simulation failed:', errorDetails);
+            throw new Error(`Simulation error: ${JSON.stringify(errorDetails)}`);
+          }
+          
+          // Sign and send the transaction to the blockchain
+          console.log('Sending transaction to wallet for approval...');
+          const sentTx = await result.signAndSend();
+          console.log('Transaction sent, waiting for result...');
+          console.log('Transaction result:', JSON.stringify(sentTx, null, 2));
+
+          // await confirmation
+          if (sentTx.result.isOk()) {
+            const bountyId = Number(sentTx.result.unwrap().toString());
+            console.log(`Bounty created successfully with ID: ${bountyId}`);
+            return bountyId;
+          }
+
+          // If we get here, there was a problem
+          const errorMsg = sentTx.result.isErr() ? sentTx.result.unwrapErr() : 'Unknown error';
+          console.error('Transaction failed:', errorMsg);
+          throw new BlockchainError(`Transaction failed: ${JSON.stringify(errorMsg)}`, 'CONTRACT_ERROR');
+        } catch (simulateError: any) {
+          console.error('Simulation failed:', simulateError);
+          throw new Error(`Failed to simulate transaction: ${simulateError?.message || JSON.stringify(simulateError)}`);
+        }
+      } catch (contractError: any) {
+        console.error('Contract interaction failed:', contractError);
+        throw new Error(`Contract error: ${contractError?.message || JSON.stringify(contractError)}`);
+      }
     } catch (error) {
       console.error('Error creating bounty:', error);
-      throw new BlockchainError('Failed to create bounty', 'TRANSACTION_ERROR');
+      if (error instanceof BlockchainError) {
+        throw error;
+      }
+      throw new BlockchainError(
+        error instanceof Error ? error.message : 'Failed to create bounty', 
+        'TRANSACTION_ERROR'
+      );
     }
   }
 

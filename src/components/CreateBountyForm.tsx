@@ -3,6 +3,8 @@ import { getPublicKey, isConnected } from '@stellar/freighter-api';
 import { createBountyOnChain } from '@/utils/blockchain';
 import { Distribution } from '@/types/bounty';
 import { FiPlusCircle, FiXCircle } from 'react-icons/fi';
+import { SorobanService } from '@/lib/soroban';
+import { getNetwork } from '@stellar/freighter-api';
 
 export default function CreateBountyForm() {
   const [isLoading, setIsLoading] = useState(false);
@@ -139,21 +141,30 @@ Any other details that might be helpful for the talent working on this bounty.`,
       setStep('blockchain');
       
       // Step 4: Create bounty on the blockchain
-      const bountyId = await createBountyOnChain({
-        userPublicKey,
-        title: formData.title,
-        token: formData.token,
-        reward: { 
-          amount: formData.rewardAmount,
-          asset: formData.token
-        },
-        distribution: formData.distribution,
-        submissionDeadline: new Date(formData.submissionDeadline).getTime(),
-        judgingDeadline: new Date(formData.judgingDeadline).getTime(),
-      });
-      
-      // Step 5: Store blockchain bounty ID
-      setBlockchainBountyId(bountyId);
+      try {
+        const bountyId = await createBountyOnChain({
+          userPublicKey,
+          title: formData.title,
+          token: formData.token,
+          reward: { 
+            amount: formData.rewardAmount,
+            asset: formData.token
+          },
+          distribution: formData.distribution,
+          submissionDeadline: new Date(formData.submissionDeadline).getTime(),
+          judgingDeadline: new Date(formData.judgingDeadline).getTime(),
+        });
+        
+        // Step 5: Store blockchain bounty ID
+        setBlockchainBountyId(bountyId);
+      } catch (blockchainError) {
+        // If there's a blockchain error, we need to handle it appropriately
+        console.error('Blockchain error:', blockchainError);
+        // Reset back to form if user declined or there was an error
+        setStep('form');
+        setIsLoading(false);
+        return; // Exit early so we don't proceed to database step
+      }
       
       // Step 6: Update UI state
       setStep('database');
@@ -165,7 +176,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          blockchainBountyId: bountyId,
+          blockchainBountyId: blockchainBountyId,
           description: formData.description,
           category: formData.category,
           skills: formData.skills,
@@ -183,6 +194,8 @@ Any other details that might be helpful for the talent working on this bounty.`,
     } catch (error) {
       console.error('Error creating bounty:', error);
       alert('Failed to create bounty: ' + (error as Error).message);
+      // Reset back to form
+      setStep('form');
     } finally {
       setIsLoading(false);
     }
@@ -268,6 +281,9 @@ Any other details that might be helpful for the talent working on this bounty.`,
                   </svg>
                 </div>
               </div>
+              <p className="text-xs text-gray-400 mt-1">
+                USDC is recommended for best compatibility with the Stellar network.
+              </p>
             </div>
             <div>
               <label className="block text-white mb-2">Reward Amount</label>
@@ -372,6 +388,43 @@ Any other details that might be helpful for the talent working on this bounty.`,
           >
             {isLoading ? 'Creating Bounty...' : 'Create Bounty'}
           </button>
+          
+          {/* Debug button - visible only in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mt-4 text-center">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const connected = await isConnected();
+                    if (!connected) {
+                      alert('Wallet not connected');
+                      return;
+                    }
+                    
+                    const userPublicKey = await getPublicKey();
+                    console.log('Checking contract configuration...');
+                    console.log('Public Key:', userPublicKey);
+                    
+                    // Initialize Soroban service to log configuration
+                    const sorobanService = new SorobanService(userPublicKey);
+                    
+                    // Get network
+                    const network = await getNetwork();
+                    console.log('Current network:', network);
+                    
+                    alert('Contract configuration checked. Check console for details.');
+                  } catch (error: any) {
+                    console.error('Debug check failed:', error);
+                    alert(`Debug check failed: ${error.message || 'Unknown error'}`);
+                  }
+                }}
+                className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+              >
+                Check Contract Configuration
+              </button>
+            </div>
+          )}
         </form>
       )}
       
@@ -380,6 +433,11 @@ Any other details that might be helpful for the talent working on this bounty.`,
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
           <p className="text-white mt-4">Creating bounty on the blockchain...</p>
           <p className="text-gray-400 mt-2">Please confirm the transaction in your wallet</p>
+          <div className="mt-6 text-gray-400 text-sm max-w-md mx-auto">
+            <p>Your wallet should be prompting you to confirm this transaction.</p>
+            <p className="mt-2">If you don't see a wallet popup, please check your wallet extension.</p>
+            <p className="mt-4">Confirm the transaction to create your bounty on the Stellar blockchain.</p>
+          </div>
         </div>
       )}
       

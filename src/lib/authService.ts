@@ -223,43 +223,49 @@ export async function walletToAccount(walletAddress: string, userEmail: string) 
     // or creating a new account if the user doesn't exist
     
     try {
-        // Check if the wallet is already associated with an account
-        const userRef = doc(db, 'users', walletAddress);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-            // Wallet already has an account
-            return { success: false, message: 'This wallet is already connected to an account' };
-        }
-        
-        // Get user by email using Firestore v9 syntax
+        // First, let's try to find a user with this email address
         const usersRef = collection(db, 'users');
         const q = query(usersRef, where('email', '==', userEmail));
         const querySnapshot = await getDocs(q);
         
-        if (querySnapshot.empty) {
-            // No user with this email, could create a new account
-            return { success: false, message: 'No account found with this email' };
-        }
-        
-        const existingUserDoc = querySnapshot.docs[0];
-        const existingUserData = existingUserDoc.data();
-        
-        // Check if the user already has a wallet
-        if (existingUserData.wallet) {
-            return { success: false, message: 'This account already has a wallet connected' };
-        }
-        
-        // Update the user with wallet info
-        await updateDoc(doc(db, 'users', existingUserDoc.id), {
-            wallet: {
-                address: walletAddress,
-                publicKey: '', // Would be filled in with actual wallet public key
-                network: '' // Would be filled with network info
+        if (!querySnapshot.empty) {
+            // User with this email exists
+            const existingUserDoc = querySnapshot.docs[0];
+            const existingUserData = existingUserDoc.data();
+            
+            // Check if the user already has a different wallet connected
+            if (existingUserData.wallet && 
+                existingUserData.wallet.publicKey && 
+                existingUserData.wallet.publicKey !== walletAddress) {
+                return { 
+                    success: false, 
+                    message: 'This account already has a different wallet connected. Please use that wallet instead.' 
+                };
             }
-        });
+            
+            // Either the user has no wallet or has this same wallet
+            // Update the user with wallet info
+            await updateDoc(doc(db, 'users', existingUserDoc.id), {
+                wallet: {
+                    address: walletAddress,
+                    publicKey: walletAddress,
+                    network: 'TESTNET' // Could be made dynamic
+                }
+            });
+            
+            return { 
+                success: true, 
+                message: 'Wallet connected successfully',
+                user: {
+                    ...existingUserData,
+                    uid: existingUserDoc.id,
+                    walletConnected: true
+                }
+            };
+        }
         
-        return { success: true, message: 'Wallet connected successfully' };
+        // If we get here, no user with this email exists
+        return { success: false, message: 'No account found with this email. Please register first.' };
         
     } catch (error) {
         console.error('Error connecting wallet to account:', error);

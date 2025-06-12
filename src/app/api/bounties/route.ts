@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { BlockchainError } from '@/utils/error-handler';
 import { BountyService } from '@/lib/bountyService';
 
+// Force dynamic rendering for APIs to work properly in production
 export const dynamic = 'force-dynamic';
 
 /**
@@ -21,7 +22,14 @@ export async function GET(request: NextRequest) {
     const bountyService = new BountyService();
     
     // Get all bounties (the service will combine blockchain and database data)
-    const bounties = await bountyService.getAllBounties();
+    let bounties: any[] = [];
+    try {
+      bounties = await bountyService.getAllBounties();
+    } catch (fetchError) {
+      console.error('Error fetching bounties from service:', fetchError);
+      // Return empty array instead of failing completely
+      bounties = [];
+    }
     
     // Apply filters if needed
     let filteredBounties = bounties;
@@ -42,7 +50,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching bounties:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch bounties' },
+      { error: 'Failed to fetch bounties', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

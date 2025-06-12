@@ -1,5 +1,5 @@
 // Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, Auth, setPersistence, browserLocalPersistence } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
@@ -16,23 +16,44 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Check if any Firebase apps have been initialized
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
+let googleProvider: GoogleAuthProvider;
 
-// Initialize Firebase services
-const auth = getAuth(app);
-// Set auth persistence to local (this helps with handling redirects)
-setPersistence(auth, browserLocalPersistence)
-  .catch((error) => {
-    console.error("Firebase auth persistence error:", error);
-  });
+// Only initialize Firebase on the client side to avoid SSR issues
+if (typeof window !== 'undefined') {
+  // Initialize Firebase
+  app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 
-const db = getFirestore(app);
-const storage = getStorage(app);
-const googleProvider = new GoogleAuthProvider();
+  // Initialize Firebase services
+  auth = getAuth(app);
+  
+  // Set auth persistence to local (this helps with handling redirects)
+  // Only set persistence on the client side
+  setPersistence(auth, browserLocalPersistence)
+    .catch((error) => {
+      console.error("Firebase auth persistence error:", error);
+    });
 
-// Add scopes to Google provider
-googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
-googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+  db = getFirestore(app);
+  storage = getStorage(app);
+  googleProvider = new GoogleAuthProvider();
+
+  // Add scopes to Google provider
+  googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
+  googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
+} else {
+  // Server-side stubs to prevent errors during SSR
+  // @ts-ignore - Temporary type overrides for server context
+  auth = {};
+  // @ts-ignore
+  db = {};
+  // @ts-ignore
+  storage = {};
+  googleProvider = new GoogleAuthProvider();
+}
 
 export { auth, db, storage, googleProvider };

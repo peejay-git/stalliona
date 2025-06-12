@@ -44,6 +44,8 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
         if (isOpen) {
             setAnimationComplete(true);
             document.body.classList.add('overflow-hidden');
+            // Force scroll to top when modal opens
+            window.scrollTo(0, 0);
         } else {
             setAnimationComplete(false);
             document.body.classList.remove('overflow-hidden');
@@ -255,14 +257,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
             
             if (err.code) {
                 console.error(`Firebase error code: ${err.code}`);
-            }
-            
-            if (err.message) {
-                console.error(`Error message: ${err.message}`);
-            }
-
-            // Handle Firebase-specific errors
-            if (err.code) {
+                
                 switch (err.code) {
                     case 'auth/user-not-found':
                         toast.error('No user found with this email. Please check your email address.');
@@ -282,11 +277,22 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                     case 'auth/operation-not-allowed':
                         toast.error('Email/Password login is not enabled. Please contact support.');
                         break;
+                    case 'auth/user-disabled':
+                        toast.error('This account has been disabled. Please contact support.');
+                        break;
+                    case 'auth/invalid-credential':
+                        toast.error('Invalid login credentials. Please check your email and password.');
+                        break;
+                    case 'auth/invalid-login-credentials':
+                        toast.error('Invalid login credentials. Please check your email and password.');
+                        break;
                     default:
-                        toast.error('Login failed. Please check your credentials.');
+                        console.error('Unhandled Firebase error:', err);
+                        toast.error(`Login error: ${err.code}. Please try again or contact support.`);
                         break;
                 }
             } else {
+                console.error('Non-Firebase error during login:', err);
                 toast.error(err.message || 'Login failed. Please try again later.');
             }
         } finally {
@@ -597,24 +603,30 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20">
+                <>
+                    {/* Fixed overlay */}
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
                         onClick={onClose}
                     />
 
-                    <motion.div
-                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                        transition={{ type: "spring", duration: 0.5 }}
-                        className="relative w-full max-w-md mx-auto z-[9999] max-h-[90vh]"
+                    {/* Modal container - absolutely positioned in the viewport */}
+                    <div 
+                        className="fixed inset-0 flex items-start justify-center z-[9999] pt-20"
+                        style={{ position: 'fixed', top: 0, right: 0, bottom: 0, left: 0 }}
                     >
-                        <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl overflow-hidden shadow-2xl">
-                            <div className="relative p-8 overflow-y-auto max-h-[80vh]">
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: -50 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0 }}
+                            transition={{ type: "spring", duration: 0.5 }}
+                            className="backdrop-blur-xl bg-[#070708] border border-white/20 rounded-xl shadow-2xl w-full max-w-md mx-auto z-[10000]"
+                            style={{ maxHeight: '80vh', overflowY: 'auto' }}
+                        >
+                            <div className="p-8 relative">
                                 <motion.button
                                     whileHover={{ rotate: 90 }}
                                     transition={{ duration: 0.2 }}
@@ -693,9 +705,9 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
                                     )}
                                 </AnimatePresence>
                             </div>
-                        </div>
-                    </motion.div>
-                </div>
+                        </motion.div>
+                    </div>
+                </>
             )}
         </AnimatePresence>
     );
