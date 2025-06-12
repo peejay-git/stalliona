@@ -549,27 +549,16 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
             </div>
             
             <motion.button
-                onClick={handleGoogleSignIn}
-                disabled={isGoogleSubmitting}
-                className="mt-6 w-full flex items-center justify-center gap-2 border border-white/20 bg-white/10 hover:bg-white/15 text-white py-3 px-4 rounded-lg transition-colors"
+                disabled={true}
+                className="mt-6 w-full flex items-center justify-center gap-2 border border-white/20 bg-white/10 hover:bg-white/10 text-white py-3 px-4 rounded-lg transition-colors opacity-70 cursor-not-allowed"
                 initial={{ y: 20, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ delay: 0.7 }}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={{ scale: 1 }}
+                whileTap={{ scale: 1 }}
             >
-                {isGoogleSubmitting ? (
-                    <span className="flex gap-2 items-center justify-center">
-                        <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.3s]"></span>
-                        <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.15s]"></span>
-                        <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
-                    </span>
-                ) : (
-                    <>
-                        <FcGoogle className="w-5 h-5" />
-                        <span>Google</span>
-                    </>
-                )}
+                <FcGoogle className="w-5 h-5" />
+                <span>Google Sign-in (Coming Soon)</span>
             </motion.button>
 
             <motion.div 
