@@ -4,12 +4,29 @@ import { getAuth, GoogleAuthProvider, Auth, setPersistence, browserLocalPersiste
 import { getFirestore, Firestore } from "firebase/firestore";
 import { getStorage, FirebaseStorage } from "firebase/storage";
 
+// Function to determine the best authDomain to use
+const getBestAuthDomain = () => {
+  if (typeof window === 'undefined') {
+    return process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "";
+  }
+  
+  const hostname = window.location.hostname;
+  
+  // For production domains, use the current hostname directly
+  if (hostname === 'earnstallions.xyz' || hostname === 'www.earnstallions.xyz' || hostname === 'earnstallions.com') {
+    return hostname;
+  }
+  
+  // For localhost, use the default Firebase authDomain
+  return process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "";
+};
+
 // Your web app's Firebase configuration
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
-  // CRITICAL: Always use the current domain for authDomain to avoid cross-domain issues with authentication iframe
-  authDomain: typeof window !== 'undefined' ? window.location.hostname : (process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || ""),
+  // CRITICAL: Set the authDomain using our custom function
+  authDomain: getBestAuthDomain(),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
@@ -55,9 +72,18 @@ if (typeof window !== 'undefined') {
     googleProvider.addScope('https://www.googleapis.com/auth/userinfo.email');
     googleProvider.addScope('https://www.googleapis.com/auth/userinfo.profile');
     
+    // Set custom parameters to help with domain authorization
+    googleProvider.setCustomParameters({
+      prompt: 'select_account',
+      login_hint: window.location.hostname
+    });
+    
     // Log current domain to help with debugging
     console.log("Current domain for Firebase auth:", window.location.origin);
-    console.log("Auth domain configuration:", auth.config.authDomain);
+    console.log("Auth config:", {
+      authDomain: auth.config.authDomain,
+      apiKey: "[REDACTED]"
+    });
   } catch (error) {
     console.error("Error initializing Firebase:", error);
   }

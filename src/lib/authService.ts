@@ -136,12 +136,24 @@ export async function signInWithGoogle() {
         
         // Try with popup first
         let result;
+        let errorOccurred = false;
+        
         try {
+            // Forcibly set auth domain on the auth object if possible
+            // @ts-ignore - this is a workaround
+            if (auth._config) {
+                // @ts-ignore - this is a workaround
+                auth._config.authDomain = window.location.hostname;
+                console.log("Forced auth domain update to:", window.location.hostname);
+            }
+            
             result = await signInWithPopup(auth, googleProvider);
+            console.log("Google sign-in successful!");
         } catch (popupError: any) {
+            errorOccurred = true;
             console.error("Popup sign-in failed:", popupError);
             
-            // If it's an unauthorized domain error, log detailed information and try a workaround
+            // If it's an unauthorized domain error, try a different approach
             if (popupError.code === 'auth/unauthorized-domain') {
                 console.error("Domain error details:", {
                     domain: window.location.hostname,
@@ -151,16 +163,24 @@ export async function signInWithGoogle() {
                     firebaseAuthDomain
                 });
                 
-                // Rethrow with more specific information
-                throw new Error(`Google sign-in domain error: Your current domain (${window.location.hostname}) is not authorized in Firebase. Please add both 'earnstallions.xyz' and 'www.earnstallions.xyz' to your Firebase Console authorized domains.`);
+                const errorMsg = `Google sign-in domain error: Your current domain (${window.location.hostname}) is not authorized in Firebase. Please verify that both 'earnstallions.xyz' and 'www.earnstallions.xyz' are added to your Firebase Console authorized domains, and that your authDomain is set correctly in the Firebase config.`;
+                console.error(errorMsg);
+                
+                // Show helpful information for debugging
+                console.log("DEBUG STEPS:");
+                console.log("1. Check Firebase Console > Authentication > Settings > Authorized domains");
+                console.log("2. Verify environment variables in Vercel");
+                console.log("3. Make sure Google OAuth is properly configured");
+                
+                throw new Error(errorMsg);
             }
             
             // If we reach here, it's another type of error
             throw popupError;
         }
         
-        // If result is undefined, something went wrong
-        if (!result) {
+        // If result is undefined and no error occurred, something went wrong
+        if (!result && !errorOccurred) {
             throw new Error("Google sign-in failed: No result returned");
         }
         
