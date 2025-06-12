@@ -8,7 +8,8 @@ import { getStorage, FirebaseStorage } from "firebase/storage";
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+  // CRITICAL: Always use the current domain for authDomain to avoid cross-domain issues with authentication iframe
+  authDomain: typeof window !== 'undefined' ? window.location.hostname : (process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || ""),
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "",
@@ -16,20 +17,11 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || ""
 };
 
-// Override authDomain at runtime for specific domains
+// Log Firebase config for debugging (without sensitive data)
 if (typeof window !== 'undefined') {
-  const hostname = window.location.hostname;
-  
-  // For production domains, use the current hostname as authDomain
-  if (hostname === 'earnstallions.xyz' || hostname === 'www.earnstallions.xyz') {
-    console.log(`Using ${hostname} as authDomain instead of ${firebaseConfig.authDomain}`);
-    firebaseConfig.authDomain = hostname;
-  }
-  
-  // Log Firebase config for debugging (without sensitive data)
   console.log("Firebase authDomain:", firebaseConfig.authDomain);
   console.log("Current origin:", window.location.origin);
-  console.log("Current hostname:", hostname);
+  console.log("Current hostname:", window.location.hostname);
 }
 
 // Check if any Firebase apps have been initialized
@@ -65,6 +57,7 @@ if (typeof window !== 'undefined') {
     
     // Log current domain to help with debugging
     console.log("Current domain for Firebase auth:", window.location.origin);
+    console.log("Auth domain configuration:", auth.config.authDomain);
   } catch (error) {
     console.error("Error initializing Firebase:", error);
   }

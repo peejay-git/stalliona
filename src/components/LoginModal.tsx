@@ -126,7 +126,19 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
 5. Add BOTH of these domains:
    - earnstallions.xyz
    - www.earnstallions.xyz
-6. Make sure your .env and Vercel environment variables include:
+
+6. Make sure your authDomain in Firebase config is set to the CURRENT domain:
+   In firebase.ts: authDomain: window.location.hostname
+   
+7. Check Google OAuth redirect URIs:
+   - Go to Google Cloud Console: https://console.cloud.google.com
+   - Navigate to APIs & Services > Credentials
+   - Find your OAuth 2.0 Client ID
+   - Ensure it has these redirect URIs:
+     * https://www.earnstallions.xyz/__/auth/handler
+     * https://earnstallions.xyz/__/auth/handler
+
+8. Make sure your .env and Vercel environment variables include:
    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=earnstallions.xyz
 =====================================================
                 `);
