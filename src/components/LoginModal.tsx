@@ -84,6 +84,10 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
     const handleGoogleSignIn = async () => {
         try {
             setIsGoogleSubmitting(true);
+            
+            // Log attempt
+            console.log("Attempting Google sign-in from:", window.location.hostname);
+            
             const { user, isNewUser } = await signInWithGoogle();
             
             toast.success('Login successful!');
@@ -100,8 +104,19 @@ export default function LoginModal({ isOpen, onClose, onSwitchToRegister }: Prop
             
             // Display more specific error messages based on the error
             if (err.message?.includes('unauthorized-domain')) {
-                console.error('Unauthorized domain error:', window.location.origin);
-                toast.error(`This domain (${window.location.origin}) is not authorized for Google sign-in. Please add it in your Firebase console under Authentication > Settings > Authorized domains.`);
+                console.error('Unauthorized domain error:', {
+                    domain: window.location.hostname,
+                    fullUrl: window.location.href,
+                    message: err.message,
+                    code: err.code
+                });
+                
+                toast.error(`Google sign-in failed: This domain (${window.location.origin}) is not authorized for Google sign-in. Please add it in your Firebase console under Authentication > Settings > Authorized domains.`);
+                
+                // Show instructions
+                console.info("FIREBASE DOMAIN FIX: Add both versions of your domain to Firebase:");
+                console.info(`1. ${window.location.hostname}`);
+                console.info(`2. ${window.location.hostname.startsWith('www.') ? window.location.hostname.substring(4) : 'www.' + window.location.hostname}`);
             } else if (err.message?.includes('popup-closed')) {
                 toast.error('Sign-in popup was closed. Please try again.');
             } else if (err.message?.includes('popup-blocked')) {

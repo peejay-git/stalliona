@@ -16,6 +16,13 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || ""
 };
 
+// Log Firebase config for debugging (without sensitive data)
+if (typeof window !== 'undefined') {
+  console.log("Firebase authDomain:", firebaseConfig.authDomain);
+  console.log("Current origin:", window.location.origin);
+  console.log("Current hostname:", window.location.hostname);
+}
+
 // Check if any Firebase apps have been initialized
 let app: FirebaseApp;
 let auth: Auth;

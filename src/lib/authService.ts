@@ -121,10 +121,43 @@ export async function signInWithGoogle() {
     try {
         // Configure Google provider with custom parameters
         googleProvider.setCustomParameters({
-            prompt: 'select_account'
+            prompt: 'select_account',
+            // Add authorized domains as login_hint to help Firebase recognize them
+            login_hint: window.location.hostname
         });
         
-        const result = await signInWithPopup(auth, googleProvider);
+        // Add hostname to console for debugging
+        console.log("Attempting Google sign-in from domain:", window.location.hostname);
+        
+        // Try with popup first
+        let result;
+        try {
+            result = await signInWithPopup(auth, googleProvider);
+        } catch (popupError: any) {
+            console.error("Popup sign-in failed:", popupError);
+            
+            // If it's an unauthorized domain error, log detailed information
+            if (popupError.code === 'auth/unauthorized-domain') {
+                console.error("Domain error details:", {
+                    domain: window.location.hostname,
+                    fullOrigin: window.location.origin,
+                    code: popupError.code,
+                    message: popupError.message
+                });
+                
+                // Rethrow the error to be caught by the outer catch block
+                throw popupError;
+            }
+            
+            // If we reach here, it's another type of error
+            throw popupError;
+        }
+        
+        // If result is undefined, something went wrong
+        if (!result) {
+            throw new Error("Google sign-in failed: No result returned");
+        }
+        
         const user = result.user;
         
         // Check if user exists in Firestore
