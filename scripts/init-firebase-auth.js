@@ -18,6 +18,12 @@ const { getAuth } = require('firebase-admin/auth');
 // Load service account credentials
 let serviceAccount;
 try {
+  // Skip this check during build processes
+  if (process.env.NODE_ENV === 'production' && process.env.VERCEL) {
+    console.log('Running in Vercel production environment, skipping Firebase admin initialization');
+    process.exit(0);
+  }
+  
   serviceAccount = require('../firebase-service-account.json');
 } catch (error) {
   console.error('Error loading service account file:');
@@ -26,7 +32,13 @@ try {
   console.error('  1. Go to Project Settings > Service accounts');
   console.error('  2. Click "Generate new private key"');
   console.error('  3. Save the file as firebase-service-account.json in the project root');
-  process.exit(1);
+  
+  if (process.env.NODE_ENV === 'production') {
+    console.log('Skipping Firebase admin initialization in production environment');
+    process.exit(0);
+  } else {
+    process.exit(1);
+  }
 }
 
 // Initialize Firebase Admin

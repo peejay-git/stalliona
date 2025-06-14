@@ -21,15 +21,15 @@ const {
   limit
 } = require('firebase/firestore');
 
-// Get Firebase config from your environment variables or directly paste it here
+// Using hardcoded Firebase config instead of environment variables
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  apiKey: "AIzaSyDr9yY-e7k_XN7y6bUFunyhgr8s1tj8UWM",
+  authDomain: "stalliona-c3993.firebaseapp.com",
+  projectId: "stalliona-c3993",
+  storageBucket: "stalliona-c3993.firebasestorage.app",
+  messagingSenderId: "687163256973",
+  appId: "1:687163256973:web:2e76908eb3edac674572c4",
+  measurementId: "G-R37E4G5Y3G"
 };
 
 // Initialize Firebase
