@@ -347,13 +347,22 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
     <div className="min-h-screen py-12 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
         {/* Breadcrumb */}
-        <div className="mb-8">
+        <div className="mb-8 flex justify-between items-center">
           <nav className="text-sm text-gray-300">
             <Link href="/bounties" className="hover:text-white transition-colors">
               Bounties
             </Link>{' '}
             / {bounty.title}
           </nav>
+          <Link 
+            href="/bounties" 
+            className="bg-white/10 backdrop-blur-xl border border-white/20 text-white py-2 px-4 rounded-lg hover:bg-white/20 transition-colors flex items-center gap-2"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Back
+          </Link>
         </div>
 
         {/* Bounty header */}
@@ -626,41 +635,22 @@ export default function BountyDetailPage({ params }: { params: { id: string } })
           </div>
         )}
 
-        {/* Apply section - only show if not the owner */}
-        {!isOwner && (
-          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 text-white">
-            <h2 className="text-xl font-semibold mb-4">Submit Work</h2>
-            {bounty.status.toUpperCase() === BountyStatus.OPEN && userId !== bounty.owner ? (
-              <div>
-                <p className="text-gray-300 mb-6">
-                  To apply for this bounty, you'll need to connect your Stellar wallet and provide details about your submission.
-                </p>
-                <div className="mb-6">
-                  <label htmlFor="submission" className="block text-white font-medium mb-2">
-                    Submission Details
-                  </label>
-                  <textarea
-                    id="submission"
-                    rows={6}
-                    className="input"
-                    placeholder="Explain your approach, provide links to your work, or add any relevant details..."
-                  ></textarea>
-                </div>
-                <button className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors">Submit Work</button>
-              </div>
+        {/* Submit Work section - Show form if open bounty, otherwise show message */}
+        {!isOwner && bounty && (
+          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl mb-8">
+            {bounty.status.toUpperCase() === BountyStatus.OPEN && isConnected ? (
+              <SubmitWorkForm bountyId={Number(bounty.id)} />
             ) : (
-              <p className="text-gray-300">
-                This bounty is {bounty.status.toLowerCase()} and is not accepting submissions at this time.
-              </p>
+              <div className="p-8">
+                <h2 className="text-xl font-semibold mb-4 text-white">Submit Work</h2>
+                <p className="text-gray-300">
+                  {!isConnected 
+                    ? "To submit work, please connect your Stellar wallet first."
+                    : `This bounty is ${bounty.status.toLowerCase()} and is not accepting submissions at this time.`
+                  }
+                </p>
+              </div>
             )}
-          </div>
-        )}
-
-        {/* Submit Work Form */}
-        {isConnected && bounty && (
-          <div className="mt-8">
-            <h2 className="text-2xl font-bold text-white mb-6">Submit Work</h2>
-            <SubmitWorkForm bountyId={Number(bounty.id)} />
           </div>
         )}
       </div>
