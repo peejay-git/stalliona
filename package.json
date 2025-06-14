@@ -10,7 +10,9 @@
     "lint": "next lint",
     "lint:css": "stylelint \"src/**/*.css\"",
     "test": "jest",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "init-firebase": "node scripts/init-firebase.js",
+    "init-firebase-auth": "node scripts/init-firebase-auth.js"
   },
   "keywords": [
     "stellar",
@@ -29,6 +31,7 @@
     "@tsparticles/engine": "^3.8.1",
     "clsx": "^2.1.1",
     "firebase": "^11.6.1",
+    "firebase-admin": "^13.4.0",
     "framer-motion": "^12.9.4",
     "next": "14.0.4",
     "react": "18.2.0",
