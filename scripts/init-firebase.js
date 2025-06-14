@@ -23,13 +23,13 @@ const {
 
 // Using hardcoded Firebase config instead of environment variables
 const firebaseConfig = {
-  apiKey: "AIzaSyDP3SH-y_oqKTNYzSEYr6dGwWIkEHhk2KM",
-  authDomain: "stallion-60f01.firebaseapp.com",
-  projectId: "stallion-60f01",
-  storageBucket: "stallion-60f01.firebasestorage.app",
-  messagingSenderId: "604666604701",
-  appId: "1:604666604701:web:0b4abcf9d05050cdfe7874",
-  measurementId: "G-N24HXYDS9Z"
+  apiKey: "AIzaSyDr9yY-e7k_XN7y6bUFunyhgr8s1tj8UWM",
+  authDomain: "stalliona-c3993.firebaseapp.com",
+  projectId: "stalliona-c3993",
+  storageBucket: "stalliona-c3993.firebasestorage.app",
+  messagingSenderId: "687163256973",
+  appId: "1:687163256973:web:2e76908eb3edac674572c4",
+  measurementId: "G-R37E4G5Y3G"
 };
 
 // Initialize Firebase
