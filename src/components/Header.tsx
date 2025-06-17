@@ -1,16 +1,14 @@
 'use client';
 
-import { useEffect, useState, useCallback, memo } from 'react';
+import { useWallet } from '@/hooks/useWallet';
+import { useUserStore } from '@/lib/stores/useUserStore';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { useWallet } from '@/hooks/useWallet';
-import { IoWalletOutline } from "react-icons/io5";
+import { memo, useCallback, useEffect, useState } from 'react';
+import ChooseRoleModal from './ChooseRoleModal';
 import LoginModal from './LoginModal';
 import RegisterModal from './RegisterModal';
-import ChooseRoleModal from './ChooseRoleModal';
-import { useUserStore } from '@/lib/stores/useUserStore';
-import { FiAward } from 'react-icons/fi';
 
 // Pre-defined nav links to avoid recreation on render
 const navLinks = [
@@ -24,59 +22,71 @@ const createBountyLink = { name: 'Create', href: '/create' };
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const {
-    isConnected, publicKey,
-    connect, disconnect } = useWallet();
+  const { isConnected, publicKey, connect, disconnect } = useWallet();
   const [showRegister, setShowRegister] = useState(false);
   const [isChooseRoleOpen, setChooseRoleOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [isNewUser, setIsNewUser] = useState(false);
   const router = useRouter();
-  const user = useUserStore((state) => state.user);
-  
+  const { user, clearUser } = useUserStore((state) => state);
+
   // Close menu when route changes
   useEffect(() => {
     setIsMenuOpen(false);
   }, [pathname]);
-  
+
   // Synchronize wallet and user state
-  useEffect(() => {
-    // Check if we're in the signup process by looking at the current route
-    const isInSignupProcess = pathname === '/register' || 
-                              pathname.startsWith('/register/') || 
-                              showRegister || 
-                              isChooseRoleOpen;
-    
-    // Only disconnect wallet if user is logged out, wallet is connected, and not in signup
-    if (!user && isConnected && !isInSignupProcess) {
-      disconnect();
-    }
-  }, [user, isConnected, disconnect, pathname, showRegister, isChooseRoleOpen]);
-  
+  // useEffect(() => {
+  //   // Check if we're in the signup process by looking at the current route
+  //   const isInSignupProcess =
+  //     pathname === '/register' ||
+  //     pathname.startsWith('/register/') ||
+  //     showRegister ||
+  //     isChooseRoleOpen;
+
+  //   // Only disconnect wallet if user is logged out, wallet is connected, and not in signup
+  //   if (!user && isConnected && !isInSignupProcess) {
+  //     disconnect();
+  //   }
+  // }, [user, isConnected, disconnect, pathname, showRegister, isChooseRoleOpen]);
+
   // Memoized toggle function
   const toggleMenu = useCallback(() => {
-    setIsMenuOpen(prev => !prev);
+    setIsMenuOpen((prev) => !prev);
   }, []);
-  
+
   // Modal handlers
   const handleLoginClose = useCallback(() => setShowLogin(false), []);
   const handleRegisterClose = useCallback(() => setShowRegister(false), []);
   const handleChooseRoleClose = useCallback(() => setChooseRoleOpen(false), []);
-  
+
   const handleSwitchToRegister = useCallback(() => {
     setShowLogin(false);
     setChooseRoleOpen(true);
   }, []);
-  
-  const handleChooseRole = useCallback((role: string) => {
-    setChooseRoleOpen(false);
-    if (role === 'talent') {
-      setShowRegister(true);
-    } else {
-      router.push('/register/sponsor');
-    }
-  }, [router]);
-  
+
+  const handleChooseRole = useCallback(
+    (role: string) => {
+      setChooseRoleOpen(false);
+      if (role === 'talent') {
+        setShowRegister(true);
+      } else {
+        router.push('/register/sponsor');
+      }
+    },
+    [router]
+  );
+
+  const handleLogout = useCallback(() => {
+    // Confirm logout
+    const confirmLogout = window.confirm('Are you sure you want to log out?');
+    if (!confirmLogout) return;
+
+    clearUser();
+    disconnect();
+    router.push('/');
+  }, [disconnect, clearUser]);
+
   // Only check localStorage once
   useEffect(() => {
     try {
@@ -97,10 +107,7 @@ const Header = () => {
         />
       )}
       {showRegister && (
-        <RegisterModal
-          isOpen={showRegister}
-          onClose={handleRegisterClose}
-        />
+        <RegisterModal isOpen={showRegister} onClose={handleRegisterClose} />
       )}
       {isChooseRoleOpen && (
         <ChooseRoleModal
@@ -109,7 +116,7 @@ const Header = () => {
           onChooseRole={handleChooseRole}
         />
       )}
-      
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         <div className="flex justify-between items-center py-4 md:py-6">
           {/* Logo */}
@@ -124,9 +131,7 @@ const Header = () => {
                   className="rounded-full"
                   priority
                 />
-                <span className="text-xl font-bold text-white">
-                  Stallion
-                </span>
+                <span className="text-xl font-bold text-white">Stallion</span>
               </div>
             </Link>
           </div>
@@ -146,7 +151,7 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
-            
+
             {/* Only show Create link for sponsors */}
             {user && user.role === 'sponsor' && (
               <Link
@@ -160,7 +165,7 @@ const Header = () => {
                 {createBountyLink.name}
               </Link>
             )}
-            
+
             {user && (
               <Link
                 href="/dashboard"
@@ -185,12 +190,17 @@ const Header = () => {
                 Complete Profile
               </button>
             )}
-            
+
             {/* Authentication/Wallet buttons - mutually exclusive states */}
             {user ? (
-              // User is logged in - show dashboard button in nav
-              null
-            ) : isConnected && publicKey ? (
+              // show logout
+              <button
+                onClick={handleLogout}
+                className="bg-white text-black font-medium py-1.5 px-4 rounded-lg hover:bg-white/90"
+              >
+                Logout
+              </button>
+            ) : isConnected && publicKey ? ( // User is logged in - show dashboard button in nav
               // Wallet connected but no user - show disconnect button
               <button
                 onClick={disconnect}
@@ -231,7 +241,11 @@ const Header = () => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d={isMenuOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"}
+                  d={
+                    isMenuOpen
+                      ? 'M6 18L18 6M6 6l12 12'
+                      : 'M4 6h16M4 12h16M4 18h16'
+                  }
                 />
               </svg>
             </button>
@@ -241,7 +255,10 @@ const Header = () => {
 
       {/* Mobile menu */}
       {isMenuOpen && (
-        <div className="md:hidden bg-[#070708]/90 border-t border-white/10" id="mobile-menu">
+        <div
+          className="md:hidden bg-[#070708]/90 border-t border-white/10"
+          id="mobile-menu"
+        >
           <div className="pt-2 pb-4 space-y-1 px-4">
             {navLinks.map((link) => (
               <Link
@@ -257,7 +274,7 @@ const Header = () => {
                 {link.name}
               </Link>
             ))}
-            
+
             {/* Only show Create link for sponsors */}
             {user && user.role === 'sponsor' && (
               <Link
@@ -272,7 +289,7 @@ const Header = () => {
                 {createBountyLink.name}
               </Link>
             )}
-            
+
             {user && (
               <Link
                 href="/dashboard"
@@ -287,13 +304,10 @@ const Header = () => {
               </Link>
             )}
           </div>
-          
+
           <div className="pt-4 pb-3 border-t border-white/10">
             {/* Authentication/Wallet buttons for mobile - mutually exclusive states */}
-            {user ? (
-              // User is logged in - no need for buttons (dashboard link is in nav)
-              null
-            ) : isConnected && publicKey ? (
+            {user ? null : isConnected && publicKey ? ( // User is logged in - no need for buttons (dashboard link is in nav)
               // Wallet connected but no user
               <button
                 onClick={() => {
@@ -323,4 +337,4 @@ const Header = () => {
   );
 };
 
-export default memo(Header); 
+export default memo(Header);

@@ -1,314 +1,169 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext } from 'react';
-import * as freighterApi from '@stellar/freighter-api';
+import { ISupportedWallet } from '@creit.tech/stellar-wallets-kit';
+import { createContext, useContext, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { kit } from '../lib/wallet';
 
 // Wallet context type definition
 interface WalletContextType {
   isConnected: boolean;
   isConnecting: boolean;
-  walletType: string | null;
   publicKey: string | null;
-  connect: (walletType?: string) => Promise<string | null>;
+  networkPassphrase: string | null;
+  connect: ({
+    onWalletSelected,
+    modalTitle,
+    notAvailableText,
+  }: {
+    onWalletSelected?: (address: string) => void;
+    modalTitle?: string;
+    notAvailableText?: string;
+  }) => Promise<string | null>;
   disconnect: () => void;
-  networkPassphrase: string;
 }
 
 // Default context value
 const defaultContext: WalletContextType = {
   isConnected: false,
   isConnecting: false,
-  walletType: null,
   publicKey: null,
+  networkPassphrase: null,
   connect: async () => null,
   disconnect: () => {},
-  networkPassphrase: '',
 };
+
+// Local storage keys
+const WALLET_ID_KEY = 'walletId';
 
 // Create the context
 const WalletContext = createContext<WalletContextType>(defaultContext);
-
-// Local storage key
-const STORAGE_KEY = 'stallionWalletType';
 
 // Provider component
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [walletType, setWalletType] = useState<string | null>(null);
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [networkPassphrase, setNetworkPassphrase] = useState<string>('');
+  const [networkPassphrase, setNetworkPassphrase] = useState<string | null>(
+    null
+  );
+  const [walletId, setWalletId] = useState<string | null>(null);
 
   // Check if wallet is connected on initial load
   useEffect(() => {
-    let isMounted = true;
-    
     const checkConnection = async () => {
       try {
         // Check if browser environment is available
         if (typeof window === 'undefined') return;
-        
-        // Check local storage for saved wallet type
-        const savedWalletType = localStorage.getItem(STORAGE_KEY);
-        if (!savedWalletType) return;
 
-        // Try to reconnect based on wallet type
-        if (savedWalletType === 'freighter') {
-          try {
-            // Ensure Freighter is available
-            if (typeof freighterApi.isConnected !== 'function') {
-              localStorage.removeItem(STORAGE_KEY);
-              return;
-            }
-            
-            const isAvailable = await freighterApi.isConnected();
-            if (!isAvailable) {
-              localStorage.removeItem(STORAGE_KEY);
-              return;
-            }
+        // Try to reconnect using the creit kit
+        try {
+          setIsConnecting(true);
 
-            const hasPermission = await freighterApi.isAllowed();
-            if (!hasPermission) {
-              localStorage.removeItem(STORAGE_KEY);
-              return;
-            }
-
-            const walletPublicKey = await freighterApi.getPublicKey();
-            const network = await freighterApi.getNetwork();
-            
-            // Check if component is still mounted before updating state
-            if (!isMounted) return;
-            
-            setPublicKey(walletPublicKey);
-            setWalletType('freighter');
-            setNetworkPassphrase(
-              network === 'TESTNET' 
-                ? 'Test SDF Network ; September 2015' 
-                : 'Public Global Stellar Network ; September 2015'
-            );
-            setIsConnected(true);
-          } catch (error) {
-            console.error('Error reconnecting to Freighter:', error);
-            localStorage.removeItem(STORAGE_KEY);
+          const storedWalletId = localStorage.getItem(WALLET_ID_KEY);
+          if (storedWalletId) {
+            setWalletId(storedWalletId);
+            kit.setWallet(storedWalletId);
           }
-        }
-        // For other wallet types, don't auto-reconnect as they usually don't support it
-        // or require user interaction
-        else {
-          localStorage.removeItem(STORAGE_KEY);
+
+          // Get the wallet public key
+          const pubKey = (await kit.getAddress()).address;
+
+          setPublicKey(pubKey);
+          setIsConnected(true);
+          setNetworkPassphrase((await kit.getNetwork()).networkPassphrase);
+        } catch (error) {
+          console.error('Error reconnecting to wallet:', error);
         }
       } catch (e) {
         console.error('Error checking wallet connection:', e);
-        localStorage.removeItem(STORAGE_KEY);
+      } finally {
+        setIsConnecting(false);
       }
     };
 
-    // Add a delay to make sure the page has loaded properly
-    const timer = setTimeout(checkConnection, 1000);
-    
-    // Clean up on unmount
-    return () => {
-      isMounted = false;
-      clearTimeout(timer);
-    };
+    checkConnection();
   }, []);
 
   // Connect wallet
-  const connect = async (walletType = 'freighter'): Promise<string | null> => {
+  const connect = async ({
+    onWalletSelected,
+    modalTitle = 'Connect Wallet',
+    notAvailableText = 'No wallets available',
+  }: {
+    onWalletSelected?: (address: string) => void;
+    modalTitle?: string;
+    notAvailableText?: string;
+  }): Promise<string | null> => {
     if (isConnected && publicKey) return publicKey;
-    
+
     setIsConnecting(true);
-    
+
     try {
-      // Handle Freighter connection
-      if (walletType === 'freighter') {
-        try {
-          // Check if Freighter is installed
-          if (typeof freighterApi.isConnected !== 'function') {
-            toast.error('Freighter extension not detected');
-            setIsConnecting(false);
-            return null;
-          }
-          
-          // Check if Freighter is connected to the browser
-          const isAvailable = await freighterApi.isConnected();
-          if (!isAvailable) {
-            toast.error('Freighter not connected to browser');
-            setIsConnecting(false);
-            return null;
-          }
-          
-          // Request permission
-          await freighterApi.setAllowed();
-          
-          // Get public key
-          const walletPublicKey = await freighterApi.getPublicKey();
-          if (!walletPublicKey) {
-            toast.error('Failed to get Freighter public key');
-            setIsConnecting(false);
-            return null;
-          }
-          
-          // Get network information
-          const network = await freighterApi.getNetwork();
-          
-          setPublicKey(walletPublicKey);
-          setWalletType('freighter');
-          setNetworkPassphrase(
-            network === 'TESTNET' 
-              ? 'Test SDF Network ; September 2015' 
-              : 'Public Global Stellar Network ; September 2015'
-          );
+      if (walletId) {
+        kit.setWallet(walletId);
+
+        const address = await kit.getAddress();
+
+        if (address?.address) {
+          const pubKey = address.address;
+          setPublicKey(pubKey);
           setIsConnected(true);
-          
-          // Save wallet type to local storage
-          localStorage.setItem(STORAGE_KEY, 'freighter');
-          
-          return walletPublicKey;
-        } catch (error) {
-          console.error('Error connecting to Freighter:', error);
-          toast.error('Error connecting to Freighter wallet');
-          setIsConnecting(false);
-          return null;
-        }
-      } 
-      // Handle Albedo connection
-      else if (walletType === 'albedo') {
-        try {
-          // Check if albedo object is available (it's only available when imported via script)
-          if (typeof window.albedo === 'undefined') {
-            toast.error('Albedo not available - please wait for the page to fully load');
-            setIsConnecting(false);
-            return null;
-          }
-          
-          // Request public key from Albedo
-          const result = await window.albedo.publicKey({
-            require_existing: false // Don't require a previously connected account
-          });
-          
-          if (result && result.pubkey) {
-            setPublicKey(result.pubkey);
-            setWalletType('albedo');
-            setNetworkPassphrase('Public Global Stellar Network ; September 2015');
-            setIsConnected(true);
-            
-            // Save wallet type to local storage
-            localStorage.setItem(STORAGE_KEY, 'albedo');
-            
-            return result.pubkey;
-          }
-          
-          toast.error('No public key returned from Albedo');
-          setIsConnecting(false);
-          return null;
-        } catch (error) {
-          console.error('Error connecting to Albedo:', error);
-          toast.error('Error connecting to Albedo');
-          setIsConnecting(false);
-          return null;
-        }
-      } 
-      // Handle xBull connection
-      else if (walletType === 'xbull') {
-        try {
-          // Check if xBull is available
-          if (typeof window.xBullSDK === 'undefined') {
-            toast.error('xBull extension not detected');
-            setIsConnecting(false);
-            return null;
-          }
-          
-          // Request connection to xBull
-          const result = await window.xBullSDK.connect();
-          
-          if (result && result.publicKey) {
-            setPublicKey(result.publicKey);
-            setWalletType('xbull');
-            setNetworkPassphrase('Public Global Stellar Network ; September 2015');
-            setIsConnected(true);
-            
-            // Save wallet type to local storage
-            localStorage.setItem(STORAGE_KEY, 'xbull');
-            
-            return result.publicKey;
-          }
-          
-          toast.error('No public key returned from xBull');
-          setIsConnecting(false);
-          return null;
-        } catch (error) {
-          console.error('Error connecting to xBull:', error);
-          toast.error('Error connecting to xBull');
-          setIsConnecting(false);
-          return null;
-        }
-      } 
-      // Handle LOBSTR connection
-      else if (walletType === 'lobstr') {
-        try {
-          // Check if LOBSTR wallet link is available
-          if (typeof window.StellarWalletLinkJSSDK === 'undefined') {
-            toast.error('LOBSTR extension not detected');
-            setIsConnecting(false);
-            return null;
-          }
-          
-          // Initialize LOBSTR wallet link
-          const walletLink = new window.StellarWalletLinkJSSDK.WalletConnect({
-            appName: 'Stallion',
-            appIcon: window.location.origin + '/images/unicorn-logo.svg'
-          });
-          
-          // Request connection
-          const result = await walletLink.connect();
-          
-          if (result && result.publicKey) {
-            setPublicKey(result.publicKey);
-            setWalletType('lobstr');
-            setNetworkPassphrase('Public Global Stellar Network ; September 2015');
-            setIsConnected(true);
-            
-            // Save wallet type to local storage
-            localStorage.setItem(STORAGE_KEY, 'lobstr');
-            
-            return result.publicKey;
-          }
-          
-          toast.error('No public key returned from LOBSTR');
-          setIsConnecting(false);
-          return null;
-        } catch (error) {
-          console.error('Error connecting to LOBSTR:', error);
-          toast.error('Error connecting to LOBSTR');
-          setIsConnecting(false);
-          return null;
+          setNetworkPassphrase((await kit.getNetwork()).networkPassphrase);
+          return pubKey;
         }
       }
-      
-      toast.error('Unsupported wallet type');
-      setIsConnecting(false);
+
+      await kit.openModal({
+        onWalletSelected: async (option: ISupportedWallet) => {
+          kit.setWallet(option.id);
+          setWalletId(option.id);
+          localStorage.setItem(WALLET_ID_KEY, option.id);
+
+          const { address } = await kit.getAddress();
+          setPublicKey(address);
+          onWalletSelected?.(address);
+        },
+        modalTitle,
+        notAvailableText,
+      });
+
+      // Get the public key
+      const pubKey = (await kit.getAddress()).address;
+
+      if (pubKey) {
+        setPublicKey(pubKey);
+        setIsConnected(true);
+        return pubKey;
+      }
+
+      toast.error('No public key returned from wallet');
       return null;
     } catch (e) {
       console.error('Error connecting wallet:', e);
-      toast.error('Error connecting wallet');
-      setIsConnecting(false);
+      if ((e as any).code !== -3) {
+        console.log('WJWII', (e as any).code);
+        toast.error('Error connecting wallet');
+      }
       return null;
+    } finally {
+      setIsConnecting(false);
     }
   };
 
   // Disconnect wallet
   const disconnect = () => {
-    console.log('Wallet disconnect called from:', new Error().stack);
+    try {
+      kit.disconnect();
+    } catch (e) {
+      console.error('Error disconnecting from wallet:', e);
+    }
+
     setIsConnected(false);
-    setWalletType(null);
     setPublicKey(null);
-    setNetworkPassphrase('');
-    
-    // Remove wallet type from local storage
-    localStorage.removeItem(STORAGE_KEY);
-    
+    setWalletId(null);
+    setNetworkPassphrase(null);
+    localStorage.removeItem(WALLET_ID_KEY);
     toast.success('Wallet disconnected');
   };
 
@@ -317,11 +172,10 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       value={{
         isConnected,
         isConnecting,
-        walletType,
         publicKey,
+        networkPassphrase,
         connect,
         disconnect,
-        networkPassphrase,
       }}
     >
       {children}
@@ -331,20 +185,3 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
 // Hook to use the wallet context
 export const useWallet = () => useContext(WalletContext);
-
-// TypeScript declarations for wallet integration
-declare global {
-  interface Window {
-    albedo?: {
-      publicKey: (options: { require_existing: boolean }) => Promise<{ pubkey: string }>;
-    };
-    xBullSDK?: {
-      connect: () => Promise<{ publicKey: string }>;
-    };
-    StellarWalletLinkJSSDK?: {
-      WalletConnect: new (options: { appName: string; appIcon: string }) => {
-        connect: () => Promise<{ publicKey: string }>;
-      };
-    };
-  }
-} 

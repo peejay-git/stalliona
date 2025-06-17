@@ -1,7 +1,15 @@
-import { SorobanService } from './soroban';
+import { Bounty, BountyStatus } from '@/types/bounty';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  setDoc,
+  where,
+} from 'firebase/firestore';
 import { db } from './firebase';
-import { collection, doc, getDoc, setDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
-import { Bounty, BountyStatus, Distribution } from '@/types/bounty';
+import { SorobanService } from './soroban';
 
 // For now we're using Firestore instead of Prisma since that seems to be what's currently set up
 // This service handles the coordination between blockchain and database
@@ -26,7 +34,7 @@ function convertChainStatus(status: any): BountyStatus {
         return BountyStatus.OPEN;
     }
   }
-  
+
   // Fallback to string status if not an object
   return status as BountyStatus;
 }
@@ -56,6 +64,10 @@ export class BountyService {
     }
   ) {
     try {
+      if (!offChainData.extraRequirements) {
+        offChainData.extraRequirements = '';
+      }
+
       // Save to Firestore with the blockchain ID as the document ID
       await setDoc(doc(db, 'bounties', blockchainBountyId.toString()), {
         ...offChainData,
@@ -90,7 +102,7 @@ export class BountyService {
       }
 
       const offChainData = docSnap.data();
-      
+
       // Get creation date either from blockchain or database
       const createdDate = offChainData.createdAt || new Date().toISOString();
 
@@ -104,10 +116,12 @@ export class BountyService {
           amount: onChainBounty.reward.toString(),
           asset: onChainBounty.token,
         },
-        distribution: Array.from(onChainBounty.distribution).map((dist: any) => ({
-          percentage: dist[0],
-          position: dist[1],
-        })),
+        distribution: Array.from(onChainBounty.distribution).map(
+          (dist: any) => ({
+            percentage: dist[0],
+            position: dist[1],
+          })
+        ),
         submissionDeadline: Number(onChainBounty.submission_deadline),
         judgingDeadline: Number(onChainBounty.judging_deadline),
         status: convertChainStatus(onChainBounty.status),
@@ -115,7 +129,9 @@ export class BountyService {
         skills: offChainData.skills,
         created: createdDate,
         updatedAt: offChainData.updatedAt,
-        deadline: new Date(Number(onChainBounty.submission_deadline)).toISOString(),
+        deadline: new Date(
+          Number(onChainBounty.submission_deadline)
+        ).toISOString(),
       };
 
       return combinedBounty;
@@ -132,20 +148,24 @@ export class BountyService {
     try {
       // Get all bounty IDs from blockchain
       const onChainBounties = await this.sorobanService.getBounties();
-      
+
       // Map over each bounty ID and get the complete data
       const bounties = await Promise.all(
         onChainBounties.map(async (bounty: any) => {
           try {
             // Make sure bounty has an id property
-            const bountyId = bounty.id !== undefined ? Number(bounty.id) : 
-                           bounty.bounty_id !== undefined ? Number(bounty.bounty_id) : 0;
-                           
+            const bountyId =
+              bounty.id !== undefined
+                ? Number(bounty.id)
+                : bounty.bounty_id !== undefined
+                ? Number(bounty.bounty_id)
+                : 0;
+
             if (bountyId === 0) {
               console.error('Bounty is missing ID property:', bounty);
               return null;
             }
-            
+
             return await this.getBountyById(bountyId);
           } catch (error) {
             console.error(`Error fetching bounty:`, error);
@@ -194,14 +214,20 @@ export class BountyService {
   async getBountySubmissions(bountyId: number | string) {
     try {
       // Convert to number for blockchain call
-      const numericId = typeof bountyId === 'string' ? parseInt(bountyId) : bountyId;
+      const numericId =
+        typeof bountyId === 'string' ? parseInt(bountyId) : bountyId;
 
       // Get on-chain submissions
-      const onChainSubmissions = await this.sorobanService.getBountySubmissions(numericId);
+      const onChainSubmissions = await this.sorobanService.getBountySubmissions(
+        numericId
+      );
 
       // Get off-chain submission data
       const submissionsRef = collection(db, 'submissions');
-      const q = query(submissionsRef, where('bountyId', '==', bountyId.toString()));
+      const q = query(
+        submissionsRef,
+        where('bountyId', '==', bountyId.toString())
+      );
       const snapshot = await getDocs(q);
 
       // Map the submissions
@@ -211,9 +237,9 @@ export class BountyService {
       }, {} as Record<string, any>);
 
       // Combine the data
-      return onChainSubmissions.map(submission => {
+      return onChainSubmissions.map((submission) => {
         const offChainData = offChainSubmissions[submission.applicant] || {};
-        
+
         return {
           id: submission.applicant, // Using applicant address as ID for now
           bountyId: numericId,
@@ -226,7 +252,10 @@ export class BountyService {
         };
       });
     } catch (error) {
-      console.error(`Error fetching submissions for bounty ${bountyId}:`, error);
+      console.error(
+        `Error fetching submissions for bounty ${bountyId}:`,
+        error
+      );
       throw error;
     }
   }
@@ -234,39 +263,42 @@ export class BountyService {
   /**
    * Get winners for a bounty
    */
-  async getBountyWinners(bountyId: number | string): Promise<{
-    applicantAddress: string;
-    position: number;
-    percentage: number;
-    content: string;
-    rewardAmount: string;
-    rewardAsset: string;
-  }[]> {
+  async getBountyWinners(bountyId: number | string): Promise<
+    {
+      applicantAddress: string;
+      position: number;
+      percentage: number;
+      content: string;
+      rewardAmount: string;
+      rewardAsset: string;
+    }[]
+  > {
     try {
       // Convert to number for blockchain call
-      const numericId = typeof bountyId === 'string' ? parseInt(bountyId) : bountyId;
+      const numericId =
+        typeof bountyId === 'string' ? parseInt(bountyId) : bountyId;
 
       // Get the bounty details first
       const bounty = await this.getBountyById(numericId);
-      
+
       // If the bounty is not completed, it doesn't have winners yet
       if (bounty.status !== 'COMPLETED') {
         return [];
       }
-      
+
       // Get on-chain winners (this would need to be implemented in the smart contract)
       // For now, we'll simulate it with submissions that have rankings
       const submissions = await this.getBountySubmissions(numericId);
-      
+
       // Get the winning submissions sorted by ranking
       const winningSubmissions = submissions
-        .filter(submission => submission.ranking !== null)
+        .filter((submission) => submission.ranking !== null)
         .sort((a, b) => (a.ranking || 0) - (b.ranking || 0));
-      
+
       // Match the winners with the distribution percentages
       return bounty.distribution.map((dist, index) => {
         const winner = winningSubmissions[index] || null;
-        
+
         // If there's no winner for this position, return placeholder data
         if (!winner) {
           return {
@@ -274,18 +306,24 @@ export class BountyService {
             position: dist.position,
             percentage: dist.percentage,
             content: '',
-            rewardAmount: this.calculateRewardAmount(bounty.reward.amount, dist.percentage),
-            rewardAsset: bounty.reward.asset
+            rewardAmount: this.calculateRewardAmount(
+              bounty.reward.amount,
+              dist.percentage
+            ),
+            rewardAsset: bounty.reward.asset,
           };
         }
-        
+
         return {
           applicantAddress: winner.applicant,
           position: dist.position,
           percentage: dist.percentage,
           content: winner.content,
-          rewardAmount: this.calculateRewardAmount(bounty.reward.amount, dist.percentage),
-          rewardAsset: bounty.reward.asset
+          rewardAmount: this.calculateRewardAmount(
+            bounty.reward.amount,
+            dist.percentage
+          ),
+          rewardAsset: bounty.reward.asset,
         };
       });
     } catch (error) {
@@ -305,32 +343,40 @@ export class BountyService {
     try {
       // Get the bounty first to validate ownership
       const bounty = await this.getBountyById(bountyId);
-      
+
       // Verify the caller is the owner
       if (bounty.owner !== userPublicKey) {
         throw new Error('Only the bounty owner can select winners');
       }
-      
+
       // Make sure we have the right number of winners
       if (winnerAddresses.length !== bounty.distribution.length) {
-        throw new Error(`You must select exactly ${bounty.distribution.length} winners`);
+        throw new Error(
+          `You must select exactly ${bounty.distribution.length} winners`
+        );
       }
-      
+
       // Call the blockchain to select winners
       // This would call the smart contract's function to select winners
-      await this.sorobanService.selectWinners(bountyId, userPublicKey, winnerAddresses);
-      
+      await this.sorobanService.selectWinners(
+        bountyId,
+        userPublicKey,
+        winnerAddresses
+      );
+
       // Update the database with the winner selections
       // This would store additional information about the winners
       const submissions = await this.getBountySubmissions(bountyId);
-      
+
       // Match addresses to submissions and assign rankings
       winnerAddresses.forEach((address, index) => {
-        const submission = submissions.find(s => s.applicant === address);
+        const submission = submissions.find((s) => s.applicant === address);
         if (submission) {
           // Update the submission with the ranking in the database
           // This is a simplification - you would need to implement the actual database update
-          console.log(`Updating submission ${submission.id} with ranking ${index + 1}`);
+          console.log(
+            `Updating submission ${submission.id} with ranking ${index + 1}`
+          );
         }
       });
     } catch (error) {
@@ -342,8 +388,11 @@ export class BountyService {
   /**
    * Helper method to calculate reward amount based on percentage
    */
-  private calculateRewardAmount(totalAmount: string, percentage: number): string {
+  private calculateRewardAmount(
+    totalAmount: string,
+    percentage: number
+  ): string {
     const total = parseFloat(totalAmount);
     return ((total * percentage) / 100).toFixed(2);
   }
-} 
+}

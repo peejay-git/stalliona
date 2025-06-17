@@ -4,31 +4,22 @@
 
 export const preloadImages = (imageUrls: string[]) => {
   if (typeof window === 'undefined') return;
-  
-  imageUrls.forEach(url => {
+
+  imageUrls.forEach((url) => {
     const img = new Image();
     img.src = url;
   });
 };
 
-export const preloadWalletLogos = () => {
-  preloadImages([
-    '/images/wallets/freighter.svg',
-    '/images/wallets/albedo.svg',
-    '/images/wallets/xbull.svg',
-    '/images/wallets/lobstr.svg'
-  ]);
-};
-
 export const preloadFonts = () => {
   if (typeof document === 'undefined') return;
-  
+
   // Create a link element for each font file
   const fonts: string[] = [
     // Add your font URLs here if you have specific font files
   ];
-  
-  fonts.forEach(fontUrl => {
+
+  fonts.forEach((fontUrl) => {
     const link = document.createElement('link');
     link.rel = 'preload';
     link.as = 'font';
@@ -43,7 +34,6 @@ export const preloadCriticalAssets = () => {
     '/images/unicorn-logo.svg',
     // Add other critical images here
   ]);
-  preloadWalletLogos();
 };
 
-export default preloadCriticalAssets; 
+export default preloadCriticalAssets;

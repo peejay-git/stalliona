@@ -1,16 +1,18 @@
-import { useState } from 'react';
-import { getPublicKey, isConnected } from '@stellar/freighter-api';
-import { createBountyOnChain } from '@/utils/blockchain';
-import { Distribution } from '@/types/bounty';
-import { FiPlusCircle, FiXCircle } from 'react-icons/fi';
 import { SorobanService } from '@/lib/soroban';
-import { getNetwork } from '@stellar/freighter-api';
+import { Distribution } from '@/types/bounty';
+import { createBountyOnChain } from '@/utils/blockchain';
+import { getNetwork, getPublicKey, isConnected } from '@stellar/freighter-api';
+import { useState } from 'react';
 
 export default function CreateBountyForm() {
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<'form' | 'blockchain' | 'database' | 'complete'>('form');
-  const [blockchainBountyId, setBlockchainBountyId] = useState<number | null>(null);
-  
+  const [step, setStep] = useState<
+    'form' | 'blockchain' | 'database' | 'complete'
+  >('form');
+  const [blockchainBountyId, setBlockchainBountyId] = useState<number | null>(
+    null
+  );
+
   // Form state
   const [formData, setFormData] = useState({
     title: '',
@@ -41,18 +43,42 @@ Any other details that might be helpful for the talent working on this bounty.`,
     distribution: [{ percentage: 100, position: 1 }] as Distribution[],
     winnerCount: 1,
   });
-  
+
   // Available tokens with their details
   const availableTokens = [
-    { symbol: 'USDC', name: 'USD Coin', logo: '/images/tokens/usdc.svg' },
-    { symbol: 'NGNC', name: 'NGNC', logo: '/images/tokens/ngnc.svg' },
-    { symbol: 'KALE', name: 'KALE', logo: '/images/tokens/kale.svg' },
-    { symbol: 'XLM', name: 'Stellar Lumens', logo: '/images/tokens/xlm.svg' },
+    {
+      symbol: 'USDC',
+      name: 'USD Coin',
+      logo: '/images/tokens/usdc.svg',
+      address: 'CA2D2WZ4OFT2XJLAY2IFSQFJJSNMIV4I4FQZOJ6DD6VQNIGOP7N24VZW',
+    },
+    {
+      symbol: 'NGNC',
+      name: 'NGNC',
+      logo: '/images/tokens/ngnc.svg',
+      address: '',
+    },
+    {
+      symbol: 'KALE',
+      name: 'KALE',
+      logo: '/images/tokens/kale.svg',
+      address: '',
+    },
+    {
+      symbol: 'XLM',
+      name: 'Stellar Lumens',
+      logo: '/images/tokens/xlm.svg',
+      address: '',
+    },
   ];
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
-    
+
     if (name === 'winnerCount') {
       const count = parseInt(value);
       if (count >= 1 && count <= 5) {
@@ -60,103 +86,126 @@ Any other details that might be helpful for the talent working on this bounty.`,
         const newDistribution = Array.from({ length: count }, (_, i) => {
           const position = i + 1;
           // For existing positions, keep their percentage if available
-          const existingEntry = formData.distribution.find(d => d.position === position);
+          const existingEntry = formData.distribution.find(
+            (d) => d.position === position
+          );
           return {
             position,
-            percentage: existingEntry?.percentage || calculateDefaultPercentage(count, position)
+            percentage:
+              existingEntry?.percentage ||
+              calculateDefaultPercentage(count, position),
           };
         });
 
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           winnerCount: count,
-          distribution: newDistribution
+          distribution: newDistribution,
         }));
       }
     } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
-  
+
   const handleDistributionChange = (position: number, percentage: number) => {
-    const newDistribution = formData.distribution.map(item => {
+    const newDistribution = formData.distribution.map((item) => {
       if (item.position === position) {
         return { ...item, percentage };
       }
       return item;
     });
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      distribution: newDistribution
+      distribution: newDistribution,
     }));
   };
-  
-  const calculateDefaultPercentage = (totalWinners: number, position: number): number => {
+
+  const calculateDefaultPercentage = (
+    totalWinners: number,
+    position: number
+  ): number => {
     // Default percentage distribution based on position
     switch (totalWinners) {
-      case 1: return 100;
+      case 1:
+        return 100;
       case 2:
         return position === 1 ? 70 : 30;
       case 3:
         return position === 1 ? 50 : position === 2 ? 30 : 20;
       case 4:
-        return position === 1 ? 40 : position === 2 ? 30 : 
-               position === 3 ? 20 : 10;
+        return position === 1
+          ? 40
+          : position === 2
+          ? 30
+          : position === 3
+          ? 20
+          : 10;
       case 5:
-        return position === 1 ? 40 : position === 2 ? 25 : 
-               position === 3 ? 15 : position === 4 ? 10 : 10;
+        return position === 1
+          ? 40
+          : position === 2
+          ? 25
+          : position === 3
+          ? 15
+          : position === 4
+          ? 10
+          : 10;
       default:
         return 100 / totalWinners;
     }
   };
-  
+
   const validateDistribution = (): boolean => {
-    const total = formData.distribution.reduce((sum, item) => sum + item.percentage, 0);
+    const total = formData.distribution.reduce(
+      (sum, item) => sum + item.percentage,
+      0
+    );
     return total === 100;
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate the distribution percentages sum to 100%
     if (!validateDistribution()) {
       alert('The sum of reward distribution percentages must equal 100%');
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       // Step 1: Check if wallet is connected
       const connected = await isConnected();
       if (!connected) {
         throw new Error('Wallet not connected');
       }
-      
+
       // Step 2: Get the user's public key
       const userPublicKey = await getPublicKey();
-      
+
       // Step 3: Update UI state
       setStep('blockchain');
-      
+
       // Step 4: Create bounty on the blockchain
       try {
-      const bountyId = await createBountyOnChain({
-        userPublicKey,
-        title: formData.title,
-        token: formData.token,
-        reward: { 
-          amount: formData.rewardAmount,
-          asset: formData.token
-        },
-        distribution: formData.distribution,
-        submissionDeadline: new Date(formData.submissionDeadline).getTime(),
-        judgingDeadline: new Date(formData.judgingDeadline).getTime(),
-      });
-      
-      // Step 5: Store blockchain bounty ID
-      setBlockchainBountyId(bountyId);
+        const bountyId = await createBountyOnChain({
+          userPublicKey,
+          title: formData.title,
+          token: formData.token,
+          reward: {
+            amount: formData.rewardAmount,
+            asset: formData.token,
+          },
+          distribution: formData.distribution,
+          submissionDeadline: new Date(formData.submissionDeadline).getTime(),
+          judgingDeadline: new Date(formData.judgingDeadline).getTime(),
+        });
+
+        // Step 5: Store blockchain bounty ID
+        setBlockchainBountyId(bountyId);
       } catch (blockchainError) {
         // If there's a blockchain error, we need to handle it appropriately
         console.error('Blockchain error:', blockchainError);
@@ -165,10 +214,10 @@ Any other details that might be helpful for the talent working on this bounty.`,
         setIsLoading(false);
         return; // Exit early so we don't proceed to database step
       }
-      
+
       // Step 6: Update UI state
       setStep('database');
-      
+
       // Step 7: Save off-chain data to the database
       const response = await fetch('/api/bounties', {
         method: 'POST',
@@ -176,19 +225,19 @@ Any other details that might be helpful for the talent working on this bounty.`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          blockchainBountyId: blockchainBountyId,
+          blockchainBountyId: 0,
           description: formData.description,
           category: formData.category,
           skills: formData.skills,
           winnerCount: formData.winnerCount,
         }),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to save bounty data');
       }
-      
+
       // Step 8: Complete
       setStep('complete');
     } catch (error) {
@@ -200,11 +249,11 @@ Any other details that might be helpful for the talent working on this bounty.`,
       setIsLoading(false);
     }
   };
-  
+
   return (
     <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-xl rounded-xl">
       <h2 className="text-2xl font-bold text-white mb-6">Create New Bounty</h2>
-      
+
       {step === 'form' && (
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Title */}
@@ -219,7 +268,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
               required
             />
           </div>
-          
+
           {/* Description */}
           <div>
             <label className="block text-white mb-2">Description</label>
@@ -231,7 +280,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
               required
             />
           </div>
-          
+
           {/* Category */}
           <div>
             <label className="block text-white mb-2">Category</label>
@@ -249,7 +298,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
               <option value="OTHER">Other</option>
             </select>
           </div>
-          
+
           {/* Token and Reward */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -263,26 +312,39 @@ Any other details that might be helpful for the talent working on this bounty.`,
                   required
                 >
                   {availableTokens.map((token) => (
-                    <option key={token.symbol} value={token.symbol}>
+                    <option key={token.symbol} value={token.address}>
                       {token.name} ({token.symbol})
                     </option>
                   ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                  <img 
-                    src={availableTokens.find(t => t.symbol === formData.token)?.logo || '/images/tokens/usdc.svg'} 
-                    alt={formData.token} 
+                  <img
+                    src={
+                      availableTokens.find((t) => t.symbol === formData.token)
+                        ?.logo || '/images/tokens/usdc.svg'
+                    }
+                    alt={formData.token}
                     className="h-5 w-5 rounded-full"
                   />
                 </div>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                  <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                    <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                  <svg
+                    className="h-5 w-5 text-gray-400"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </div>
               </div>
               <p className="text-xs text-gray-400 mt-1">
-                USDC is recommended for best compatibility with the Stellar network.
+                USDC is recommended for best compatibility with the Stellar
+                network.
               </p>
             </div>
             <div>
@@ -303,7 +365,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
               </div>
             </div>
           </div>
-          
+
           {/* Winner Count and Distribution */}
           <div>
             <label className="block text-white mb-2">Number of Winners</label>
@@ -320,7 +382,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
               <option value={5}>5 Winners</option>
             </select>
           </div>
-          
+
           {/* Distribution Percentages */}
           <div>
             <label className="block text-white mb-2">Reward Distribution</label>
@@ -328,37 +390,56 @@ Any other details that might be helpful for the talent working on this bounty.`,
               {formData.distribution.map((dist) => (
                 <div key={dist.position} className="flex items-center gap-3">
                   <div className="w-24 flex-shrink-0">
-                    <span className="text-white">{dist.position === 1 ? '1st Place' : 
-                                                  dist.position === 2 ? '2nd Place' : 
-                                                  dist.position === 3 ? '3rd Place' : 
-                                                  `${dist.position}th Place`}</span>
+                    <span className="text-white">
+                      {dist.position === 1
+                        ? '1st Place'
+                        : dist.position === 2
+                        ? '2nd Place'
+                        : dist.position === 3
+                        ? '3rd Place'
+                        : `${dist.position}th Place`}
+                    </span>
                   </div>
                   <input
                     type="number"
                     min="1"
                     max="100"
                     value={dist.percentage}
-                    onChange={(e) => handleDistributionChange(dist.position, parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleDistributionChange(
+                        dist.position,
+                        parseInt(e.target.value)
+                      )
+                    }
                     className="w-20 bg-white/5 border border-white/20 rounded-lg px-2 py-1 text-white text-center"
                   />
                   <span className="text-white">%</span>
                 </div>
               ))}
-              
+
               <div className="flex items-center justify-between pt-2 border-t border-white/10">
                 <span className="text-white">Total:</span>
-                <span className={`font-medium ${validateDistribution() ? 'text-green-400' : 'text-red-400'}`}>
-                  {formData.distribution.reduce((sum, item) => sum + item.percentage, 0)}%
-                  {!validateDistribution() && ' (Must equal 100%)'}
+                <span
+                  className={`font-medium ${
+                    validateDistribution() ? 'text-green-400' : 'text-red-400'
+                  }`}
+                >
+                  {formData.distribution.reduce(
+                    (sum, item) => sum + item.percentage,
+                    0
+                  )}
+                  %{!validateDistribution() && ' (Must equal 100%)'}
                 </span>
               </div>
             </div>
           </div>
-          
+
           {/* Deadlines */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-white mb-2">Submission Deadline</label>
+              <label className="block text-white mb-2">
+                Submission Deadline
+              </label>
               <input
                 type="datetime-local"
                 name="submissionDeadline"
@@ -380,15 +461,19 @@ Any other details that might be helpful for the talent working on this bounty.`,
               />
             </div>
           </div>
-          
+
           <button
             type="submit"
             disabled={isLoading || !validateDistribution()}
-            className={`w-full font-medium py-3 rounded-lg transition-colors ${validateDistribution() ? 'bg-white text-black hover:bg-white/90' : 'bg-white/50 text-black/70 cursor-not-allowed'}`}
+            className={`w-full font-medium py-3 rounded-lg transition-colors ${
+              validateDistribution()
+                ? 'bg-white text-black hover:bg-white/90'
+                : 'bg-white/50 text-black/70 cursor-not-allowed'
+            }`}
           >
             {isLoading ? 'Creating Bounty...' : 'Create Bounty'}
           </button>
-          
+
           {/* Debug button - visible only in development */}
           {process.env.NODE_ENV === 'development' && (
             <div className="mt-4 text-center">
@@ -401,22 +486,26 @@ Any other details that might be helpful for the talent working on this bounty.`,
                       alert('Wallet not connected');
                       return;
                     }
-                    
+
                     const userPublicKey = await getPublicKey();
                     console.log('Checking contract configuration...');
                     console.log('Public Key:', userPublicKey);
-                    
+
                     // Initialize Soroban service to log configuration
                     const sorobanService = new SorobanService(userPublicKey);
-                    
+
                     // Get network
                     const network = await getNetwork();
                     console.log('Current network:', network);
-                    
-                    alert('Contract configuration checked. Check console for details.');
+
+                    alert(
+                      'Contract configuration checked. Check console for details.'
+                    );
                   } catch (error: any) {
                     console.error('Debug check failed:', error);
-                    alert(`Debug check failed: ${error.message || 'Unknown error'}`);
+                    alert(
+                      `Debug check failed: ${error.message || 'Unknown error'}`
+                    );
                   }
                 }}
                 className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
@@ -427,20 +516,32 @@ Any other details that might be helpful for the talent working on this bounty.`,
           )}
         </form>
       )}
-      
+
       {step === 'blockchain' && (
         <div className="text-center py-10">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
-          <p className="text-white mt-4">Creating bounty on the blockchain...</p>
-          <p className="text-gray-400 mt-2">Please confirm the transaction in your wallet</p>
+          <p className="text-white mt-4">
+            Creating bounty on the blockchain...
+          </p>
+          <p className="text-gray-400 mt-2">
+            Please confirm the transaction in your wallet
+          </p>
           <div className="mt-6 text-gray-400 text-sm max-w-md mx-auto">
-            <p>Your wallet should be prompting you to confirm this transaction.</p>
-            <p className="mt-2">If you don't see a wallet popup, please check your wallet extension.</p>
-            <p className="mt-4">Confirm the transaction to create your bounty on the Stellar blockchain.</p>
+            <p>
+              Your wallet should be prompting you to confirm this transaction.
+            </p>
+            <p className="mt-2">
+              If you don't see a wallet popup, please check your wallet
+              extension.
+            </p>
+            <p className="mt-4">
+              Confirm the transaction to create your bounty on the Stellar
+              blockchain.
+            </p>
           </div>
         </div>
       )}
-      
+
       {step === 'database' && (
         <div className="text-center py-10">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
@@ -448,18 +549,33 @@ Any other details that might be helpful for the talent working on this bounty.`,
           <p className="text-gray-400 mt-2">Bounty ID: {blockchainBountyId}</p>
         </div>
       )}
-      
+
       {step === 'complete' && (
         <div className="text-center py-10">
           <div className="w-12 h-12 rounded-full bg-green-500 mx-auto flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
-          <h3 className="text-white text-xl font-semibold mt-4">Bounty Created!</h3>
+          <h3 className="text-white text-xl font-semibold mt-4">
+            Bounty Created!
+          </h3>
           <p className="text-gray-400 mt-2">Bounty ID: {blockchainBountyId}</p>
           <button
-            onClick={() => window.location.href = `/bounties/${blockchainBountyId}`}
+            onClick={() =>
+              (window.location.href = `/bounties/${blockchainBountyId}`)
+            }
             className="mt-6 bg-white text-black font-medium py-2 px-6 rounded-lg hover:bg-white/90 transition-colors"
           >
             View Bounty
@@ -468,4 +584,4 @@ Any other details that might be helpful for the talent working on this bounty.`,
       )}
     </div>
   );
-} 
+}

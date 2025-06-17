@@ -1,19 +1,30 @@
 import { Distribution } from '@/types/bounty';
 import { BlockchainError } from '@/utils/error-handler';
+import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
 import { getPublicKey, isConnected } from '@stellar/freighter-api';
 import {
   Status as BountyStatus,
   Bounty as ContractBounty,
   Client as SorobanClient,
 } from '../../packages/stallion/src/index';
+import { kit } from './wallet';
 
 // Environment variables with defaults
 const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || '';
-const NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'Test SDF Network ; September 2015';
-const SOROBAN_RPC_URL = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org';
+const NETWORK =
+  process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'Public'
+    ? WalletNetwork.PUBLIC
+    : WalletNetwork.TESTNET;
+
+const SOROBAN_RPC_URL =
+  process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ||
+  'https://soroban-testnet.stellar.org';
 
 // Only throw in development environment, in production we'll show appropriate UI
-if (process.env.NODE_ENV === 'development' && (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL)) {
+if (
+  process.env.NODE_ENV === 'development' &&
+  (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL)
+) {
   console.error('Missing required environment variables for Soroban:', {
     CONTRACT_ID: !!CONTRACT_ID,
     NETWORK: !!NETWORK,
@@ -43,15 +54,15 @@ export class SorobanService {
       console.log(`Network: ${NETWORK}`);
       console.log(`RPC URL: ${SOROBAN_RPC_URL}`);
       console.log(`Public Key: ${publicKey || 'Not provided'}`);
-      
+
       if (!CONTRACT_ID || CONTRACT_ID.length < 10) {
         console.error('Warning: Contract ID appears to be invalid or missing');
       }
-      
+
       if (!NETWORK) {
         console.error('Warning: Network passphrase is missing');
       }
-      
+
       if (!SOROBAN_RPC_URL) {
         console.error('Warning: Soroban RPC URL is missing');
       }
@@ -142,8 +153,16 @@ export class SorobanService {
       console.log(`Token: ${token}`);
       console.log(`Reward: ${reward.amount} ${reward.asset}`);
       console.log(`Distribution: ${JSON.stringify(distribution)}`);
-      console.log(`Submission Deadline: ${new Date(submissionDeadline).toISOString()} (${submissionDeadline})`);
-      console.log(`Judging Deadline: ${new Date(judgingDeadline).toISOString()} (${judgingDeadline})`);
+      console.log(
+        `Submission Deadline: ${new Date(
+          submissionDeadline
+        ).toISOString()} (${submissionDeadline})`
+      );
+      console.log(
+        `Judging Deadline: ${new Date(
+          judgingDeadline
+        ).toISOString()} (${judgingDeadline})`
+      );
       console.log(`Title: ${title}`);
       console.log(`Contract ID: ${this.contractId}`);
       console.log(`Network: ${this.network}`);
@@ -158,7 +177,11 @@ export class SorobanService {
         throw new Error('Invalid token');
       }
 
-      if (!reward.amount || isNaN(Number(reward.amount)) || Number(reward.amount) <= 0) {
+      if (
+        !reward.amount ||
+        isNaN(Number(reward.amount)) ||
+        Number(reward.amount) <= 0
+      ) {
         throw new Error('Invalid reward amount');
       }
 
@@ -177,59 +200,77 @@ export class SorobanService {
       try {
         // Prepare transaction
         console.log('Preparing transaction...');
-      const tx = await this.sorobanClient.create_bounty({
-        owner: owner,
-        token: token,
-        reward: BigInt(reward.amount),
-        distribution: distribution.map((dist) => [
-          dist.percentage,
-          dist.position,
-        ]),
-        submission_deadline: BigInt(submissionDeadline),
-        judging_deadline: BigInt(judgingDeadline),
-        title: title,
-      });
+        const tx = await this.sorobanClient.create_bounty({
+          owner: owner,
+          token: 'CA2D2WZ4OFT2XJLAY2IFSQFJJSNMIV4I4FQZOJ6DD6VQNIGOP7N24VZW',
+          reward: BigInt(reward.amount),
+          distribution: distribution.map((dist) => [
+            dist.position,
+            dist.percentage,
+          ]),
+          submission_deadline: BigInt(submissionDeadline),
+          judging_deadline: BigInt(judgingDeadline),
+          title: title,
+        });
 
         console.log('Transaction prepared, simulating...');
-        
+
         // Simulate to ensure transaction is valid
         try {
-      const result = await tx.simulate();
+          const result = await tx.simulate();
           console.log('Simulation result:', JSON.stringify(result, null, 2));
-          
+
           // The result object might contain errors in various formats
           // Using type assertion since the exact structure can vary
           const resultAny = result as any;
           if (resultAny.simulationError || resultAny.error) {
             const errorDetails = resultAny.simulationError || resultAny.error;
             console.error('Simulation failed:', errorDetails);
-            throw new Error(`Simulation error: ${JSON.stringify(errorDetails)}`);
+            throw new Error(
+              `Simulation error: ${JSON.stringify(errorDetails)}`
+            );
           }
-          
+
           // Sign and send the transaction to the blockchain
           console.log('Sending transaction to wallet for approval...');
-      const sentTx = await result.signAndSend();
+          const sentTx = await result.signAndSend({
+            signTransaction: (transaction) => {
+              return kit.signTransaction(transaction);
+            },
+          });
           console.log('Transaction sent, waiting for result...');
-          console.log('Transaction result:', JSON.stringify(sentTx, null, 2));
 
-      // await confirmation
-      if (sentTx.result.isOk()) {
+          // await confirmation
+          if (sentTx.result.isOk()) {
             const bountyId = Number(sentTx.result.unwrap().toString());
             console.log(`Bounty created successfully with ID: ${bountyId}`);
             return bountyId;
           }
 
           // If we get here, there was a problem
-          const errorMsg = sentTx.result.isErr() ? sentTx.result.unwrapErr() : 'Unknown error';
+          const errorMsg = sentTx.result.isErr()
+            ? sentTx.result.unwrapErr()
+            : 'Unknown error';
           console.error('Transaction failed:', errorMsg);
-          throw new BlockchainError(`Transaction failed: ${JSON.stringify(errorMsg)}`, 'CONTRACT_ERROR');
+          throw new BlockchainError(
+            `Transaction failed: ${JSON.stringify(errorMsg)}`,
+            'CONTRACT_ERROR'
+          );
         } catch (simulateError: any) {
           console.error('Simulation failed:', simulateError);
-          throw new Error(`Failed to simulate transaction: ${simulateError?.message || JSON.stringify(simulateError)}`);
+          throw new Error(
+            `Failed to simulate transaction: ${
+              simulateError?.message || JSON.stringify(simulateError)
+            }`
+          );
         }
       } catch (contractError: any) {
         console.error('Contract interaction failed:', contractError);
-        throw new Error(`Contract error: ${contractError?.message || JSON.stringify(contractError)}`);
+        throw new Error(
+          `Contract error: ${
+            contractError?.message || JSON.stringify(contractError)
+          }`
+        );
       }
     } catch (error) {
       console.error('Error creating bounty:', error);
@@ -237,7 +278,7 @@ export class SorobanService {
         throw error;
       }
       throw new BlockchainError(
-        error instanceof Error ? error.message : 'Failed to create bounty', 
+        error instanceof Error ? error.message : 'Failed to create bounty',
         'TRANSACTION_ERROR'
       );
     }
@@ -481,7 +522,7 @@ export class SorobanService {
    * Update a bounty
    */
   async updateBounty(
-    bountyId: number, 
+    bountyId: number,
     updates: {
       title?: string;
       distribution?: Array<readonly [number, number]>;
@@ -500,7 +541,9 @@ export class SorobanService {
         bounty_id: bountyId,
         new_title: updates.title ? updates.title : undefined,
         new_distribution: updates.distribution || [],
-        new_submission_deadline: updates.submissionDeadline ? BigInt(updates.submissionDeadline) : undefined,
+        new_submission_deadline: updates.submissionDeadline
+          ? BigInt(updates.submissionDeadline)
+          : undefined,
       });
 
       const result = await tx.simulate();
@@ -579,7 +622,10 @@ export class SorobanService {
       throw new BlockchainError('Failed to select winners', 'CONTRACT_ERROR');
     } catch (error) {
       console.error('Error selecting winners:', error);
-      throw new BlockchainError('Failed to select winners', 'TRANSACTION_ERROR');
+      throw new BlockchainError(
+        'Failed to select winners',
+        'TRANSACTION_ERROR'
+      );
     }
   }
 }

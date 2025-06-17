@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { BlockchainError } from '@/utils/error-handler';
 import { BountyService } from '@/lib/bountyService';
+import { BlockchainError } from '@/utils/error-handler';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Force dynamic rendering for APIs to work properly in production
 export const dynamic = 'force-dynamic';
@@ -17,10 +17,10 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const token = searchParams.get('token');
     const owner = searchParams.get('owner');
-    
+
     // Create service instance
     const bountyService = new BountyService();
-    
+
     // Get all bounties (the service will combine blockchain and database data)
     let bounties: any[] = [];
     try {
@@ -30,27 +30,32 @@ export async function GET(request: NextRequest) {
       // Return empty array instead of failing completely
       bounties = [];
     }
-    
+
     // Apply filters if needed
     let filteredBounties = bounties;
-    
+
     if (status) {
-      filteredBounties = filteredBounties.filter(b => b.status === status);
+      filteredBounties = filteredBounties.filter((b) => b.status === status);
     }
-    
+
     if (token) {
-      filteredBounties = filteredBounties.filter(b => b.reward.asset === token);
+      filteredBounties = filteredBounties.filter(
+        (b) => b.reward.asset === token
+      );
     }
-    
+
     if (owner) {
-      filteredBounties = filteredBounties.filter(b => b.owner === owner);
+      filteredBounties = filteredBounties.filter((b) => b.owner === owner);
     }
-    
+
     return NextResponse.json(filteredBounties);
   } catch (error) {
     console.error('Error fetching bounties:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch bounties', details: error instanceof Error ? error.message : 'Unknown error' },
+      {
+        error: 'Failed to fetch bounties',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }
@@ -73,7 +78,8 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (
-      !blockchainBountyId ||
+      blockchainBountyId === null ||
+      blockchainBountyId === undefined ||
       !description ||
       !category ||
       !skills
@@ -86,22 +92,19 @@ export async function POST(request: NextRequest) {
 
     // Create bounty service
     const bountyService = new BountyService();
-    
-    // Save to database using the blockchain-generated ID
-    await bountyService.saveBountyToDatabase(
-      blockchainBountyId,
-      {
-        description,
-        category,
-        skills,
-        extraRequirements
-      }
-    );
 
-    return NextResponse.json({ 
-      success: true, 
+    // Save to database using the blockchain-generated ID
+    await bountyService.saveBountyToDatabase(blockchainBountyId, {
+      description,
+      category,
+      skills,
+      extraRequirements,
+    });
+
+    return NextResponse.json({
+      success: true,
       id: blockchainBountyId,
-      message: 'Bounty saved successfully'
+      message: 'Bounty saved successfully',
     });
   } catch (error) {
     console.error('Error creating bounty:', error);

@@ -23,6 +23,7 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
+    "@creit.tech/stellar-wallets-kit": "^1.7.5",
     "@prisma/client": "^6.9.0",
     "@stellar/freighter-api": "1.7.1",
     "@stellar/stellar-base": "^13.1.0",
@@ -30,9 +31,9 @@
     "@stellar/typescript-wallet-sdk-soroban": "^1.9.0",
     "@tsparticles/engine": "^3.8.1",
     "clsx": "^2.1.1",
-    "firebase": "^11.6.1",
+    "firebase": "^11.9.1",
     "firebase-admin": "^13.4.0",
-    "framer-motion": "^12.9.4",
+    "framer-motion": "^12.18.1",
     "next": "14.0.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",
@@ -43,7 +44,7 @@
     "stellar-sdk": "10.4.1",
     "tsparticles-engine": "^2.12.0",
     "tsparticles-slim": "^2.12.0",
-    "zustand": "^5.0.4"
+    "zustand": "^5.0.5"
   },
   "devDependencies": {
     "@types/jest": "29.5.11",

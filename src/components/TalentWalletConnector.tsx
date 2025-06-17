@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { connectWallet } from '@/lib/authService';
 import { useUserStore } from '@/lib/stores/useUserStore';
+import { useState } from 'react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function TalentWalletConnector({ onSuccess }: Props) {
-  const { connect } = useWallet();
+  const { connect, networkPassphrase } = useWallet();
   const [isConnecting, setIsConnecting] = useState(false);
   const user = useUserStore((state) => state.user);
   const fetchUser = useUserStore((state) => state.fetchUserFromFirestore);
@@ -19,20 +19,20 @@ export default function TalentWalletConnector({ onSuccess }: Props) {
   const handleConnectWallet = async () => {
     try {
       setIsConnecting(true);
-      const publicKey = await connect();
-      
+      const publicKey = await connect({});
+
       if (publicKey && user?.uid) {
         // Save the wallet to the user's account
         await connectWallet({
           address: publicKey,
           publicKey: publicKey,
-          network: 'TESTNET'
+          network: networkPassphrase!,
         });
-        
+
         // Update user data in store
         await fetchUser();
         toast.success('Wallet connected successfully!');
-        
+
         // Call the success callback if provided
         if (onSuccess) {
           onSuccess();
@@ -54,9 +54,10 @@ export default function TalentWalletConnector({ onSuccess }: Props) {
     <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 text-center text-white">
       <h2 className="text-xl font-semibold mb-4">Connect Your Wallet</h2>
       <p className="text-gray-300 mb-6">
-        Connect your Stellar wallet to access all features and manage your bounties.
+        Connect your Stellar wallet to access all features and manage your
+        bounties.
       </p>
-      <button 
+      <button
         onClick={handleConnectWallet}
         disabled={isConnecting}
         className="bg-white text-black font-medium py-3 px-6 rounded-lg hover:bg-white/90 transition-colors"
@@ -73,4 +74,4 @@ export default function TalentWalletConnector({ onSuccess }: Props) {
       </button>
     </div>
   );
-} 
+}
