@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getPublicKey, isConnected } from '@stellar/freighter-api';
+import freighterApi from '@stellar/freighter-api';
 import { Bounty, Submission } from '@/types/bounty';
 import { FiAward, FiUser, FiArrowRight, FiCheck } from 'react-icons/fi';
 
@@ -79,13 +79,13 @@ export default function SelectWinnersForm({
       setIsSubmitting(true);
       
       // Check if wallet is connected
-      const connected = await isConnected();
+      const connected = await freighterApi.isConnected();
       if (!connected) {
         throw new Error('Wallet not connected');
       }
       
       // Get user's public key
-      const userPublicKey = await getPublicKey();
+      const userPublicKey = await freighterApi.getPublicKey();
       
       // Convert selected winners to array format for API
       const winnerAddresses = distributions

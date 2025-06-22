@@ -1,7 +1,7 @@
 import { Distribution } from '@/types/bounty';
 import { BlockchainError } from '@/utils/error-handler';
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
-import { getPublicKey, isConnected } from '@stellar/freighter-api';
+import freighterApi from '@stellar/freighter-api';
 import {
   Status as BountyStatus,
   Bounty as ContractBounty,
@@ -77,9 +77,9 @@ export class SorobanService {
 
       // Initialize wallet connection if no public key provided
       if (!this.publicKey) {
-        isConnected().then((connected) => {
+        freighterApi.isConnected().then((connected) => {
           if (connected) {
-            getPublicKey().then((publicKey) => {
+            freighterApi.getPublicKey().then((publicKey) => {
               this.publicKey = publicKey;
             });
           }
@@ -200,9 +200,10 @@ export class SorobanService {
       try {
         // Prepare transaction
         console.log('Preparing transaction...');
+        console.log('Using token address:', token); // Log the token address being used
         const tx = await this.sorobanClient.create_bounty({
           owner: owner,
-          token: 'CA2D2WZ4OFT2XJLAY2IFSQFJJSNMIV4I4FQZOJ6DD6VQNIGOP7N24VZW',
+          token: token, // Use the token address passed in as a parameter
           reward: BigInt(reward.amount),
           distribution: distribution.map((dist) => [
             dist.position,
@@ -468,13 +469,22 @@ export class SorobanService {
       const result = await tx.simulate();
       const submissions = result.result;
 
-      const submissionsList = Array.from(submissions.entries()).map(
-        ([applicant, submission]) => ({
+      // Convert the Map to an array of objects
+      if (submissions && typeof submissions === 'object') {
+        const submissionsList: { applicant: string; submission: string }[] = [];
+        
+        // Handle the case where submissions might be a Map-like object
+        for (const [applicant, submission] of Object.entries(submissions)) {
+          submissionsList.push({
           applicant,
-          submission,
-        })
-      );
+            submission: String(submission),
+          });
+        }
+        
       return submissionsList;
+      }
+      
+      return [];
     } catch (error) {
       console.error('Error getting bounty submissions:', error);
       throw new BlockchainError(
