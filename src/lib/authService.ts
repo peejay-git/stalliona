@@ -304,6 +304,23 @@ export async function connectWallet(walletData: WalletData) {
   const user = auth.currentUser;
   if (!user) throw new Error('User not logged in');
 
+  // Check if this wallet is already connected to another account
+  const usersRef = collection(db, 'users');
+  const q = query(
+    usersRef, 
+    where('wallet.publicKey', '==', walletData.publicKey),
+    where('uid', '!=', user.uid)
+  );
+  const querySnapshot = await getDocs(q);
+
+  // If wallet is already connected to another account
+  if (!querySnapshot.empty) {
+    const existingUser = querySnapshot.docs[0].data();
+    const userRole = existingUser.role;
+    
+    throw new Error(`This wallet is already connected to another ${userRole} account. Please use a different wallet.`);
+  }
+
   const userRef = doc(db, 'users', user.uid);
   await updateDoc(userRef, {
     wallet: walletData,
@@ -465,3 +482,57 @@ export async function forgotPassword(email: string) {
   }
 }
 // #endregion
+
+// Find user by wallet address and authenticate them
+export async function findUserByWalletAddress(walletAddress: string) {
+  try {
+    // Search for users with this wallet address
+    const usersRef = collection(db, 'users');
+    const q = query(
+      usersRef, 
+      where('wallet.publicKey', '==', walletAddress)
+    );
+    const querySnapshot = await getDocs(q);
+
+    // If no user found with this wallet address
+    if (querySnapshot.empty) {
+      return {
+        success: false,
+        message: 'No account found with this wallet address. Please register first.'
+      };
+    }
+
+    // Get the user data
+    const userDoc = querySnapshot.docs[0];
+    const userData = userDoc.data();
+    
+    // Set the user in the store
+    const userProfile = {
+      uid: userDoc.id,
+      ...userData.profileData,
+      role: userData.role,
+      walletConnected: true,
+      email: userData.email
+    };
+    
+    useUserStore.getState().setUser(userProfile);
+    localStorage.setItem('user', JSON.stringify(userProfile));
+    
+    // Update last login timestamp
+    await updateDoc(doc(db, 'users', userDoc.id), {
+      lastLogin: new Date().toISOString(),
+    });
+    
+    return {
+      success: true,
+      message: 'Login successful',
+      user: userProfile
+    };
+  } catch (error) {
+    console.error('Error finding user by wallet address:', error);
+    return {
+      success: false,
+      message: 'An error occurred while trying to log in with wallet'
+    };
+  }
+}

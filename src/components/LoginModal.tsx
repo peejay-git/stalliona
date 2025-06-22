@@ -5,6 +5,7 @@ import {
   forgotPassword,
   signInWithGoogle,
   walletToAccount,
+  findUserByWalletAddress,
 } from '@/lib/authService';
 import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/lib/stores/useUserStore';
@@ -16,9 +17,11 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { FcGoogle } from 'react-icons/fc';
-import { FiLock, FiMail } from 'react-icons/fi';
+import { FiLock, FiMail, FiEye, FiEyeOff } from 'react-icons/fi';
 import { IoClose } from 'react-icons/io5';
 import { SiBlockchaindotcom } from 'react-icons/si';
+import PasswordInput from './PasswordInput';
+import WalletLoginButton from './WalletLoginButton';
 
 type Props = {
   isOpen: boolean;
@@ -50,6 +53,7 @@ export default function LoginModal({
   const [animationComplete, setAnimationComplete] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -179,11 +183,53 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
 
   const handleWalletConnect = async () => {
     if (isConnected) {
-      setCurrentView('wallet-email');
+      // First try to find user by wallet address
+      if (publicKey) {
+        try {
+          setIsWalletSubmitting(true);
+          const result = await findUserByWalletAddress(publicKey);
+          
+          if (result.success) {
+            toast.success('Login successful!');
+            onClose();
+            router.push('/dashboard');
+            return;
+          }
+          
+          // If no user found with this wallet, proceed to ask for email
+          setCurrentView('wallet-email');
+        } catch (error) {
+          console.error('Error with wallet login:', error);
+          setCurrentView('wallet-email');
+        } finally {
+          setIsWalletSubmitting(false);
+        }
+      } else {
+        setCurrentView('wallet-email');
+      }
     } else {
       await connect({
         onWalletSelected: async (address: string) => {
-          handleWalletSelected(address);
+          try {
+            // Try to find user by wallet address first
+            setIsWalletSubmitting(true);
+            const result = await findUserByWalletAddress(address);
+            
+            if (result.success) {
+              toast.success('Login successful!');
+              onClose();
+              router.push('/dashboard');
+              return;
+            }
+            
+            // If no user found, proceed to ask for email
+            handleWalletSelected(address);
+          } catch (error) {
+            console.error('Error with wallet login:', error);
+            handleWalletSelected(address);
+          } finally {
+            setIsWalletSubmitting(false);
+          }
         },
       });
     }
@@ -502,101 +548,101 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
 
   // Main content
   const renderMainContent = () => (
-    <>
-      <motion.button
-        onClick={handleWalletConnect}
-        disabled={isWalletSubmitting}
-        className="w-full flex items-center justify-center gap-2 bg-black/40 text-white py-3 px-4 rounded-lg mb-6 hover:bg-black/60 transition-colors border border-white/10"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        {isConnected ? (
-          <>
-            <SiBlockchaindotcom className="w-5 h-5" />
-            {publicKey?.substring(0, 6)}...
-            {publicKey?.substring(publicKey?.length - 6)}
-          </>
-        ) : (
-          <>
-            <SiBlockchaindotcom className="w-5 h-5" />
-            Connect Wallet
-          </>
-        )}
-      </motion.button>
-
-      <div className="relative flex items-center justify-center mb-6">
-        <div className="absolute left-0 w-full border-t border-white/10"></div>
-        <div className="relative bg-[#070708] px-4 text-sm text-gray-300">
-          or
-        </div>
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <motion.div
-          className="mb-6"
-          initial={{ x: -30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.4 }}
-        >
-          <div className="relative">
-            <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-300" />
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.2 }}
+      className="space-y-6"
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-300"
+          >
+            Email
+          </label>
+          <div className="mt-1 relative rounded-md shadow-sm">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiMail className="h-5 w-5 text-gray-400" />
+            </div>
             <input
-              name="email"
               type="email"
-              placeholder="Email"
-              className="input w-full pl-10 transition-all border-white/20 bg-white/10 backdrop-blur-xl text-white"
+              name="email"
+              id="email"
+              className={`bg-white/5 border ${
+                fieldErrors.email
+                  ? 'border-red-500'
+                  : 'border-white/10 focus:border-white/30'
+              } rounded-lg block w-full pl-10 pr-3 py-3 placeholder-gray-500 text-white focus:outline-none focus:ring-0 sm:text-sm`}
+              placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
             />
           </div>
           {fieldErrors.email && (
-            <p className="text-sm text-red-300 mt-1">{fieldErrors.email}</p>
+            <p className="mt-1 text-sm text-red-500">{fieldErrors.email}</p>
           )}
-        </motion.div>
+        </div>
 
-        <motion.div
-          className="mb-8"
-          initial={{ x: -30, opacity: 0 }}
-          animate={{ x: 0, opacity: 1 }}
-          transition={{ delay: 0.5 }}
-        >
-          <div className="relative">
-            <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-300" />
+        <div>
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-300"
+          >
+            Password
+          </label>
+          <div className="mt-1 relative rounded-md shadow-sm">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <FiLock className="h-5 w-5 text-gray-400" />
+            </div>
             <input
+              type={showPassword ? 'text' : 'password'}
               name="password"
-              type="password"
-              placeholder="Password"
-              className="input w-full pl-10 transition-all border-white/20 bg-white/10 backdrop-blur-xl text-white"
+              id="password"
+              className={`bg-white/5 border ${
+                fieldErrors.password
+                  ? 'border-red-500'
+                  : 'border-white/10 focus:border-white/30'
+              } rounded-lg block w-full pl-10 pr-10 py-3 placeholder-gray-500 text-white focus:outline-none focus:ring-0 sm:text-sm`}
+              placeholder="••••••••"
               value={formData.password}
               onChange={handleChange}
             />
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="text-gray-400 hover:text-gray-300 focus:outline-none"
+              >
+                {showPassword ? (
+                  <FiEyeOff className="h-5 w-5" />
+                ) : (
+                  <FiEye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           </div>
           {fieldErrors.password && (
-            <p className="text-sm text-red-300 mt-1">{fieldErrors.password}</p>
+            <p className="mt-1 text-sm text-red-500">{fieldErrors.password}</p>
           )}
-          <div className="flex justify-end mt-2">
-            <button
-              type="button"
-              onClick={() => setCurrentView('forgot-password')}
-              className="text-sm text-gray-300 hover:text-white transition-colors"
-            >
-              Forgot password?
-            </button>
-          </div>
-        </motion.div>
+        </div>
 
-        <motion.button
+        <div className="flex items-center justify-end">
+          <button
+            type="button"
+            onClick={() => setCurrentView('forgot-password')}
+            className="text-sm text-gray-300 hover:text-white focus:outline-none"
+          >
+            Forgot your password?
+          </button>
+        </div>
+
+        <button
           type="submit"
-          className="bg-white text-black font-medium py-3 px-4 rounded-lg hover:bg-white/90 transition-colors w-full"
           disabled={isSubmitting}
-          initial={{ y: 20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.98 }}
+          className="w-full bg-white text-black font-medium py-3 px-4 rounded-lg hover:bg-white/90 transition-colors flex items-center justify-center"
         >
           {isSubmitting ? (
             <span className="flex gap-2 items-center justify-center">
@@ -607,56 +653,61 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
           ) : (
             'Sign In'
           )}
-        </motion.button>
+        </button>
       </form>
 
-      <div className="mt-6 relative flex items-center justify-center">
-        <div className="absolute left-0 w-full border-t border-white/10"></div>
-        <div className="relative bg-[#070708] px-4 text-sm text-gray-300">
-          or continue with
+      <div className="relative">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-gray-600"></div>
+        </div>
+        <div className="relative flex justify-center text-sm">
+          <span className="px-2 bg-[#070708] text-gray-400">Or continue with</span>
         </div>
       </div>
 
-      <motion.div
-        className="mt-6 relative"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.7 }}
-      >
-        <span className="absolute -top-2 right-0 text-xs bg-white/20 text-white px-2 py-0.5 rounded-full">
-          Coming Soon
-        </span>
-        <motion.button
-          disabled={true}
-          className="w-full flex items-center justify-center gap-2 border border-white/20 bg-white/10 hover:bg-white/10 text-white py-3 px-4 rounded-lg transition-colors opacity-70 cursor-not-allowed"
-          whileHover={{ scale: 1 }}
-          whileTap={{ scale: 1 }}
+      <div className="space-y-3">
+        <button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isGoogleSubmitting}
+          className="w-full bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-3 px-4 rounded-lg hover:bg-white/20 transition-colors flex items-center justify-center gap-2"
         >
-          <FcGoogle className="w-5 h-5" />
-          <span>Google Sign-in</span>
-        </motion.button>
-      </motion.div>
+          {isGoogleSubmitting ? (
+            <span className="flex gap-2 items-center justify-center">
+              <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.3s]"></span>
+              <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.15s]"></span>
+              <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
+            </span>
+          ) : (
+            <>
+              <FcGoogle className="h-5 w-5" />
+              Sign in with Google
+            </>
+          )}
+        </button>
 
-      <motion.div
-        className="mt-6 text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.8 }}
-      >
-        <p className="text-gray-300">
+        <WalletLoginButton 
+          onSuccess={() => {
+            onClose();
+            router.push('/dashboard');
+          }}
+          className="w-full"
+        />
+      </div>
+
+      <div className="text-center">
+        <p className="text-sm text-gray-400">
           Don't have an account?{' '}
           <button
-            onClick={() => {
-              onClose();
-              onSwitchToRegister?.();
-            }}
-            className="text-white hover:underline font-medium"
+            type="button"
+            onClick={onSwitchToRegister}
+            className="font-medium text-white hover:underline focus:outline-none"
           >
-            Register
+            Sign up
           </button>
         </p>
-      </motion.div>
-    </>
+      </div>
+    </motion.div>
   );
 
   // Add new render function for forgot password view

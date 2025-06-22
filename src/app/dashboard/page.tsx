@@ -3,6 +3,7 @@
 import { assetSymbols } from '@/components/BountyCard';
 import Layout from '@/components/Layout';
 import TalentWalletConnector from '@/components/TalentWalletConnector';
+import SimpleWalletConnector from '@/components/SimpleWalletConnector';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import { useWallet } from '@/hooks/useWallet';
 import { getAllBounties } from '@/lib/adminService';
@@ -28,6 +29,16 @@ export default function DashboardPage() {
   const [isLoadingWallet, setIsLoadingWallet] = useState(false);
   const user = useUserStore((state) => state.user);
   const fetchUser = useUserStore((state) => state.fetchUserFromFirestore);
+  const [userSubmissions, setUserSubmissions] = useState<any[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  
+  // Determine if user is a sponsor or talent
+  const isSponsor = user?.role === 'sponsor';
+  const isTalent = user?.role === 'talent';
+  
+  // Determine if sponsor needs to connect wallet
+  const sponsorNeedsWallet = isSponsor && !isConnected && !user?.walletConnected;
 
   // Fetch user data including wallet info
   useEffect(() => {
@@ -38,18 +49,35 @@ export default function DashboardPage() {
       }
 
       try {
-        // Check if user has a wallet in Firestore but it's not connected in the UI
-        if (user.walletConnected && !isConnected) {
+        // Only try to connect wallet if:
+        // 1. User has a wallet in Firestore
+        // 2. Wallet is not already connected in UI
+        // 3. We're not already trying to connect
+        if (user.walletConnected && !isConnected && !isLoadingWallet) {
           const userDoc = doc(db, 'users', user.uid);
           const userSnap = await getDoc(userDoc);
 
           if (userSnap.exists()) {
             const userData = userSnap.data();
             if (userData.wallet?.address) {
-              // Try to automatically connect the wallet
+              // Store the wallet address in local state for use in the app
+              // without requiring a reconnection
+              setWalletAddress(userData.wallet.address);
+              
+              // If user is a sponsor, automatically trigger wallet connection
+              if (isSponsor) {
               setIsLoadingWallet(true);
+                try {
               await connect({});
+                } catch (err) {
+                  console.error('Error auto-connecting sponsor wallet:', err);
+                } finally {
+                  setIsLoadingWallet(false);
+                }
+              } else {
+                // For non-sponsors, just store the address
               setIsLoadingWallet(false);
+              }
             }
           }
         }
@@ -60,29 +88,105 @@ export default function DashboardPage() {
     };
 
     loadUserData();
-  }, [user, fetchUser, isConnected, connect]);
+  }, [user, fetchUser, isConnected, isLoadingWallet, isSponsor, connect]);
+
+  // Set the default active tab based on user role
+  useEffect(() => {
+    if (isSponsor) {
+      setActiveTab('created');
+    } else if (isTalent) {
+      setActiveTab('submissions');
+    }
+  }, [isSponsor, isTalent]);
 
   // Fetch bounties
   useEffect(() => {
     const fetchData = async () => {
       try {
-        if (!user?.uid) return;
+        if (!user?.uid && !publicKey) return;
 
-        console.log('Fetching bounties for:', user.uid);
-        const data = await getBountiesByOwner(user.uid);
-        setBounty(data);
-        console.log('Bounties fetched:', data);
+        console.log('Fetching bounties for user:', user?.uid);
+        console.log('User public key:', publicKey);
+        
+        // Try to fetch bounties using both user.uid and publicKey
+        let data: any[] = [];
+        
+        if (user?.uid) {
+          console.log('Fetching bounties by user.uid:', user.uid);
+          const uidBounties = await getBountiesByOwner(user.uid);
+          data = [...uidBounties];
+        }
+        
+        if (publicKey && publicKey !== user?.uid) {
+          console.log('Fetching bounties by publicKey:', publicKey);
+          const keyBounties = await getBountiesByOwner(publicKey);
+          // Combine results, avoiding duplicates
+          keyBounties.forEach(bounty => {
+            if (!data.some(b => b.id === bounty.id)) {
+              data.push(bounty);
+            }
+          });
+        }
+        
+        console.log('All bounties fetched:', JSON.stringify(data, null, 2));
+        
+        // Ensure each bounty has required fields
+        const processedBounties = data.map(bounty => ({
+          ...bounty,
+          title: bounty.title || 'Untitled Bounty',
+          reward: bounty.reward || { amount: '0', asset: 'USDC' },
+          status: bounty.status || 'OPEN',
+          deadline: bounty.deadline || new Date().toISOString()
+        }));
+        
+        setBounty(processedBounties);
       } catch (err: any) {
+        console.error('Error fetching bounties:', err);
         setError(err.message || 'Error fetching bounty');
       } finally {
         setLoading(false);
       }
     };
 
+    fetchData();
+  }, [user?.uid, publicKey]);
+
+  // Fetch user submissions
+  useEffect(() => {
+    const fetchUserSubmissions = async () => {
+      try {
+        if (!user?.uid && !publicKey) return;
+        
+        setLoadingSubmissions(true);
+        
+        // Build query parameters
+        const queryParams = new URLSearchParams();
     if (user?.uid) {
-      fetchData();
+          queryParams.append('userId', user.uid);
+        }
+        if (publicKey) {
+          queryParams.append('walletAddress', publicKey);
+        }
+        
+        // Fetch submissions from API
+        const response = await fetch(`/api/user/submissions?${queryParams.toString()}`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch submissions');
     }
-  }, [user?.uid]);
+        
+        const data = await response.json();
+        console.log('User submissions:', data);
+        setUserSubmissions(data);
+      } catch (err: any) {
+        console.error('Error fetching user submissions:', err);
+      } finally {
+        setLoadingSubmissions(false);
+      }
+    };
+    
+    fetchUserSubmissions();
+  }, [user?.uid, publicKey]);
 
   // Filter bounties to simulate user's created bounties (in a real app, this would fetch from contract)
   const userCreatedBounties = mockBounties.filter(
@@ -90,13 +194,13 @@ export default function DashboardPage() {
   );
 
   // Mock user submissions (in a real app, this would come from the contract)
-  const userSubmissions: {
-    id: string;
-    bountyId: string;
-    bountyTitle: string;
-    status: string;
-    submitted: string;
-  }[] = [];
+  // const userSubmissions: {
+  //   id: string;
+  //   bountyId: string;
+  //   bountyTitle: string;
+  //   status: string;
+  //   submitted: string;
+  // }[] = [];
 
   // Format date to be more readable
   const formatDate = (dateString: string) => {
@@ -128,7 +232,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (!isConnected && (!user || !user.walletConnected)) {
+  if (sponsorNeedsWallet || (!isConnected && (!user || !user.walletConnected))) {
     return (
       <Layout>
         <div className="min-h-screen py-12 px-4 sm:px-6">
@@ -138,12 +242,23 @@ export default function DashboardPage() {
               Welcome {user?.username || user?.firstName || '...'}
             </h1>
 
+            {isSponsor ? (
+              // For sponsors, use SimpleWalletConnector with autoOpen=true
+              <div className="mt-8">
+                <SimpleWalletConnector 
+                  autoOpen={true} 
+                  onSuccess={() => window.location.reload()}
+                />
+              </div>
+            ) : (
+              // For talents, use the regular TalentWalletConnector
             <TalentWalletConnector
               onSuccess={() => {
                 // Refresh the page after successful wallet connection
-                // window.location.reload();
+                  window.location.reload();
               }}
             />
+            )}
           </div>
         </div>
       </Layout>
@@ -190,12 +305,15 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="flex gap-3">
+                  {/* Only show Create Bounty button for sponsors */}
+                  {isSponsor && (
                   <Link
                     href="/create"
                     className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors"
                   >
                     Create Bounty
                   </Link>
+                  )}
                   <Link
                     href="/bounties"
                     className="bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-2 px-4 rounded-lg hover:bg-white/20 transition-colors"
@@ -212,7 +330,9 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-600">
+            <div className={`grid grid-cols-1 ${isSponsor || isTalent ? 'sm:grid-cols-2' : ''} divide-y sm:divide-y-0 sm:divide-x divide-gray-600`}>
+              {/* Only show Bounties Created for sponsors */}
+              {isSponsor && (
               <div className="p-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center mx-auto mb-2">
                   <svg
@@ -235,6 +355,10 @@ export default function DashboardPage() {
                   {bounty.length}
                 </p>
               </div>
+              )}
+
+              {/* Only show Submissions Made for talents */}
+              {isTalent && (
               <div className="p-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-2">
                   <svg
@@ -254,9 +378,16 @@ export default function DashboardPage() {
                 </div>
                 <p className="text-gray-300 text-sm mb-1">Submissions Made</p>
                 <p className="text-2xl font-semibold text-white">
-                  {userSubmissions.length}
+                    {loadingSubmissions ? (
+                      <span className="inline-block w-6 h-6 rounded-full border-2 border-green-300 border-t-transparent animate-spin"></span>
+                    ) : (
+                      userSubmissions.length
+                    )}
                 </p>
               </div>
+              )}
+
+              {/* Always show Total Spent/Earned */}
               <div className="p-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-2">
                   <svg
@@ -274,7 +405,10 @@ export default function DashboardPage() {
                     />
                   </svg>
                 </div>
-                <p className="text-gray-300 text-sm mb-1">Total Earned</p>
+                {/* Show different text based on user role */}
+                <p className="text-gray-300 text-sm mb-1">
+                  {isSponsor ? "Total Spent" : "Total Earned"}
+                </p>
                 <p className="text-2xl font-semibold text-white">$0 USDC</p>
               </div>
             </div>
@@ -282,30 +416,26 @@ export default function DashboardPage() {
 
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl overflow-hidden">
             <div className="flex border-b border-gray-600">
+              {/* Only show Your Bounties tab for sponsors */}
+              {isSponsor && (
               <button
-                className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 ${
-                  activeTab === 'created'
-                    ? 'text-white border-b-2 border-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                onClick={() => setActiveTab('created')}
+                  className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 text-white border-b-2 border-white`}
               >
                 Your Bounties
               </button>
+              )}
+              {/* Only show Your Submissions tab for talents */}
+              {isTalent && (
               <button
-                className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 ${
-                  activeTab === 'submissions'
-                    ? 'text-white border-b-2 border-white'
-                    : 'text-gray-400 hover:text-white'
-                }`}
-                onClick={() => setActiveTab('submissions')}
+                  className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 text-white border-b-2 border-white`}
               >
                 Your Submissions
               </button>
+              )}
             </div>
 
             <div className="p-6">
-              {activeTab === 'created' && (
+              {isSponsor && (
                 <div>
                   <h3 className="text-lg font-semibold mb-4 text-white">
                     Bounties You've Created
@@ -395,13 +525,25 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {activeTab === 'submissions' && (
+              {isTalent && (
                 <div>
                   <h3 className="text-lg font-semibold mb-4 text-white">
                     Your Submissions
                   </h3>
 
-                  {userSubmissions.length === 0 ? (
+                  {loadingSubmissions ? (
+                    // Skeleton loader for submissions
+                    <div className="space-y-4">
+                      {[...Array(3)].map((_, i) => (
+                        <div key={i} className="animate-pulse flex space-x-4">
+                          <div className="w-1/4 h-5 bg-white/10 rounded" />
+                          <div className="w-1/4 h-5 bg-white/10 rounded" />
+                          <div className="w-1/4 h-5 bg-white/10 rounded" />
+                          <div className="w-1/4 h-5 bg-white/10 rounded" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : userSubmissions.length === 0 ? (
                     <p className="text-gray-300">
                       You haven't submitted any work yet.
                     </p>
