@@ -1,36 +1,59 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SorobanService } from '@/lib/soroban';
 import { BlockchainError } from '@/utils/error-handler';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export const dynamic = 'force-dynamic';
 
-// Initialize the Soroban service
-// TODO: Pass in the publicKey of the currently signed in user
-const sorobanService = new SorobanService();
-
 /**
- * GET /api/bounties/[id]/submissions/[user]
+ * GET /api/bounties/[id]/submissions/[submissionId]
  * Get a specific submission for a bounty
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; user: string } }
+  { params }: { params: { id: string; submissionId: string } }
 ) {
   try {
-    const { id, user } = params;
-    if (!id || !user) {
+    const { id, submissionId } = params;
+    if (!id || !submissionId) {
       return NextResponse.json(
         { error: 'Bounty ID and Submission ID are required' },
         { status: 400 }
       );
     }
 
-    // TODO: Fetch these from the database instead
-    const submission = await sorobanService.getSubmission(Number(id), user);
+    console.log(`Fetching submission ${submissionId} for bounty ${id}`);
+
+    // Fetch from the database instead of blockchain
+    const submissionRef = doc(db, 'submissions', submissionId);
+    const submissionSnap = await getDoc(submissionRef);
+
+    if (!submissionSnap.exists()) {
+      return NextResponse.json(
+        { error: 'Submission not found' },
+        { status: 404 }
+      );
+    }
+
+    const data = submissionSnap.data();
+    console.log(`Found submission data:`, data);
+
+    // Format the submission data
+    const submission = {
+      id: submissionId,
+      bountyId: parseInt(id),
+      applicant: data.applicantAddress,
+      content: data.content || '',
+      details: data.content || '',
+      links: data.links || '',
+      created: data.createdAt || new Date().toISOString(),
+      status: data.status || 'PENDING',
+      ranking: data.ranking || null,
+    };
 
     return NextResponse.json({ submission });
   } catch (error) {
-    console.error(`Error fetching submission for user ${params.user}:`, error);
+    console.error(`Error fetching submission for bounty ${params.id}:`, error);
     if (error instanceof BlockchainError) {
       return NextResponse.json(
         { error: error.message, code: error.code },
@@ -69,12 +92,33 @@ export async function PATCH(
 
     // Check if it's a ranking update
     if (action === 'rank' && ranking !== undefined) {
-      // Use the applicant's address as the winner
-      await sorobanService.selectWinners(
-        Number(id),
-        senderPublicKey,
-        [submissionId]
-      );
+      console.log(`Ranking submission ${submissionId} as ${ranking}`);
+      
+      // Update the ranking in the database
+      const submissionRef = doc(db, 'submissions', submissionId);
+      const submissionSnap = await getDoc(submissionRef);
+      
+      if (!submissionSnap.exists()) {
+        return NextResponse.json(
+          { error: 'Submission not found' },
+          { status: 404 }
+        );
+      }
+      
+      // Update the ranking in the database
+      await updateDoc(submissionRef, { 
+        ranking: ranking,
+        updatedAt: new Date().toISOString()
+      });
+      
+      console.log(`Updated submission ${submissionId} ranking to ${ranking}`);
+      
+      // In a production app, we would also call the blockchain here
+      // await sorobanService.selectWinners(
+      //   Number(id),
+      //   senderPublicKey,
+      //   [submissionId]
+      // );
       
       return NextResponse.json({
         success: true,
@@ -85,28 +129,29 @@ export async function PATCH(
       });
     }
 
-    // Handle accept and rank actions only, removing reject functionality
-    if (
-      !action ||
-      (!['accept'].includes(action) &&
-        !(action === 'rank' && ranking !== undefined))
-    ) {
-      return NextResponse.json(
-        { error: 'Valid action (accept or rank) is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!senderPublicKey) {
-      return NextResponse.json(
-        { error: 'Sender public key is required' },
-        { status: 400 }
-      );
-    }
-
-    // Note: The acceptSubmission method doesn't exist in SorobanService
-    // For now, we'll just return a success message
+    // Handle accept action
     if (action === 'accept') {
+      console.log(`Accepting submission ${submissionId}`);
+      
+      // Update the status in the database
+      const submissionRef = doc(db, 'submissions', submissionId);
+      const submissionSnap = await getDoc(submissionRef);
+      
+      if (!submissionSnap.exists()) {
+        return NextResponse.json(
+          { error: 'Submission not found' },
+          { status: 404 }
+        );
+      }
+      
+      // Update the status in the database
+      await updateDoc(submissionRef, { 
+        status: 'ACCEPTED',
+        updatedAt: new Date().toISOString()
+      });
+      
+      console.log(`Updated submission ${submissionId} status to ACCEPTED`);
+      
       return NextResponse.json({
         success: true,
         message: 'Submission accepted successfully',
@@ -115,6 +160,11 @@ export async function PATCH(
         status: 'ACCEPTED',
       });
     }
+    
+    return NextResponse.json(
+      { error: 'Valid action (accept or rank) is required' },
+      { status: 400 }
+    );
   } catch (error) {
     console.error(
       `Error processing submission ${params.submissionId} for bounty ${params.id}:`,

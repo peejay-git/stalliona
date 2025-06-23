@@ -1,3 +1,5 @@
+'use client';
+
 import { Distribution } from '@/types/bounty';
 import { BlockchainError } from '@/utils/error-handler';
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
@@ -8,6 +10,9 @@ import {
   Client as SorobanClient,
 } from '../../packages/stallion/src/index';
 import { kit } from './wallet';
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
 // Environment variables with defaults
 const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || '';
@@ -22,6 +27,7 @@ const SOROBAN_RPC_URL =
 
 // Only throw in development environment, in production we'll show appropriate UI
 if (
+  isBrowser &&
   process.env.NODE_ENV === 'development' &&
   (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL)
 ) {

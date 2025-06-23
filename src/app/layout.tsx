@@ -1,9 +1,9 @@
 import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { WalletProvider } from '@/hooks/useWallet';
 import AppClientWrapper from '@/components/AppClientWrapper';
 import Script from 'next/script';
+import dynamic from 'next/dynamic';
 
 // Use font with subset to reduce bundle size
 const inter = Inter({ 
@@ -11,6 +11,12 @@ const inter = Inter({
   display: 'swap', // Improves perceived loading time
   preload: true,
 });
+
+// Import WalletProvider dynamically with SSR disabled
+const ClientWalletProvider = dynamic(
+  () => import('@/components/ClientWalletProvider'),
+  { ssr: false }
+);
 
 export const metadata: Metadata = {
   title: 'Stallion',
@@ -47,11 +53,11 @@ export default function RootLayout({
         />
       </head>
       <body className={`${inter.className} bg-[#070708]`}>
-        <WalletProvider>
+        <ClientWalletProvider>
           <AppClientWrapper>
             {children}
           </AppClientWrapper>
-        </WalletProvider>
+        </ClientWalletProvider>
       </body>
     </html>
   );
