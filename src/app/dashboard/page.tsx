@@ -3,7 +3,6 @@
 import { assetSymbols } from '@/components/BountyCard';
 import Layout from '@/components/Layout';
 import TalentWalletConnector from '@/components/TalentWalletConnector';
-import SimpleWalletConnector from '@/components/SimpleWalletConnector';
 import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import { useWallet } from '@/hooks/useWallet';
 import { getAllBounties } from '@/lib/adminService';
@@ -36,9 +35,6 @@ export default function DashboardPage() {
   // Determine if user is a sponsor or talent
   const isSponsor = user?.role === 'sponsor';
   const isTalent = user?.role === 'talent';
-  
-  // Determine if sponsor needs to connect wallet
-  const sponsorNeedsWallet = isSponsor && !isConnected && !user?.walletConnected;
 
   // Fetch user data including wallet info
   useEffect(() => {
@@ -64,20 +60,9 @@ export default function DashboardPage() {
               // without requiring a reconnection
               setWalletAddress(userData.wallet.address);
               
-              // If user is a sponsor, automatically trigger wallet connection
-              if (isSponsor) {
-              setIsLoadingWallet(true);
-                try {
-              await connect({});
-                } catch (err) {
-                  console.error('Error auto-connecting sponsor wallet:', err);
-                } finally {
-                  setIsLoadingWallet(false);
-                }
-              } else {
-                // For non-sponsors, just store the address
+              // We don't need to automatically connect the wallet anymore
+              // The stored wallet address is sufficient for most operations
               setIsLoadingWallet(false);
-              }
             }
           }
         }
@@ -88,7 +73,7 @@ export default function DashboardPage() {
     };
 
     loadUserData();
-  }, [user, fetchUser, isConnected, isLoadingWallet, isSponsor, connect]);
+  }, [user, fetchUser, isConnected, isLoadingWallet]);
 
   // Set the default active tab based on user role
   useEffect(() => {
@@ -232,7 +217,7 @@ export default function DashboardPage() {
     }
   };
 
-  if (sponsorNeedsWallet || (!isConnected && (!user || !user.walletConnected))) {
+  if (!isConnected && (!user || !user.walletConnected)) {
     return (
       <Layout>
         <div className="min-h-screen py-12 px-4 sm:px-6">
@@ -242,23 +227,12 @@ export default function DashboardPage() {
               Welcome {user?.username || user?.firstName || '...'}
             </h1>
 
-            {isSponsor ? (
-              // For sponsors, use SimpleWalletConnector with autoOpen=true
-              <div className="mt-8">
-                <SimpleWalletConnector 
-                  autoOpen={true} 
-                  onSuccess={() => window.location.reload()}
-                />
-              </div>
-            ) : (
-              // For talents, use the regular TalentWalletConnector
             <TalentWalletConnector
               onSuccess={() => {
                 // Refresh the page after successful wallet connection
-                  window.location.reload();
+                // window.location.reload();
               }}
             />
-            )}
           </div>
         </div>
       </Layout>

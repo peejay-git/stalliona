@@ -3,10 +3,13 @@
 import { assetSymbols } from '@/components/BountyCard';
 import BountyDetailSkeleton from '@/components/BountyDetailSkeleton';
 import SubmitWorkForm from '@/components/SubmitWorkForm';
+import SubmissionDetailsModal from '@/components/SubmissionDetailsModal';
 import { useWallet } from '@/hooks/useWallet';
 import { bountyHasSubmissions, getBountyById } from '@/lib/bounties';
 import { Bounty, BountyStatus, Submission } from '@/types/bounty';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -31,6 +34,10 @@ export default function BountyDetailPage({
   const { isConnected } = useWallet();
   const [winners, setWinners] = useState<any[]>([]);
   const [loadingWinners, setLoadingWinners] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSponsor, setIsSponsor] = useState(false);
+  const [userWalletConnected, setUserWalletConnected] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -71,15 +78,48 @@ export default function BountyDetailPage({
   // Fetch submissions when bounty and userId are available
   useEffect(() => {
     const fetchSubmissions = async () => {
-      if (!bounty || !userId || bounty.owner !== userId) return;
+      if (!bounty || !userId) return;
+
+      // Only fetch submissions if user is the bounty owner or has sponsor role
+      const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      
+      if (!userSnap.exists()) {
+        console.log('User document not found when fetching submissions');
+        return;
+      }
+      
+      const userData = userSnap.data();
+      const isSponsorRole = userData.role === 'sponsor';
+      const isOwnerRole = bounty.owner === userId;
+      
+      console.log('Submission access check:', {
+        userId,
+        bountyOwner: bounty.owner,
+        isOwner: isOwnerRole,
+        isSponsor: isSponsorRole,
+        userRole: userData.role
+      });
+      
+      if (!isOwnerRole && !isSponsorRole) {
+        console.log('User is neither owner nor sponsor, not fetching submissions');
+        return;
+      }
 
       setLoadingSubmissions(true);
       try {
+        console.log(`Fetching submissions for bounty ${params.id}`);
         const response = await fetch(`/api/bounties/${params.id}/submissions`);
-        if (!response.ok) throw new Error('Failed to fetch submissions');
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('API error response:', errorText);
+          throw new Error('Failed to fetch submissions');
+        }
 
         const data = await response.json();
-        setSubmissions(data.submissions || []);
+        console.log('Submissions data received:', data);
+        setSubmissions(data || []);
       } catch (err: any) {
         console.error('Error fetching submissions:', err);
         toast.error('Failed to load submissions');
@@ -138,6 +178,59 @@ export default function BountyDetailPage({
       checkEditPermission();
     }
   }, [bounty, userId, params.id]);
+
+  // Check if user is a sponsor
+  useEffect(() => {
+    const checkSponsorStatus = async () => {
+      if (!userId) return;
+      
+      try {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setIsSponsor(userData.role === 'sponsor');
+        }
+      } catch (err) {
+        console.error('Error checking sponsor status:', err);
+      }
+    };
+    
+    checkSponsorStatus();
+  }, [userId]);
+
+  // Check if user has a wallet connected or stored in their profile
+  useEffect(() => {
+    const checkUserWallet = async () => {
+      if (!userId) {
+        setUserWalletConnected(false);
+        return;
+      }
+      
+      try {
+        // First check if wallet is connected in the current session
+        if (isConnected) {
+          setUserWalletConnected(true);
+          return;
+        }
+        
+        // If not connected in session, check if user has a wallet in their profile
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userRef);
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          setUserWalletConnected(!!userData.wallet?.publicKey);
+        }
+      } catch (err) {
+        console.error('Error checking user wallet:', err);
+        setUserWalletConnected(false);
+      }
+    };
+    
+    checkUserWallet();
+  }, [userId, isConnected]);
 
   console.log('User ID:', userId); // Log the user ID to the console
   const formatDate = (dateString: string) => {
@@ -356,10 +449,25 @@ export default function BountyDetailPage({
     }
   };
 
+  // Open submission details modal
+  const openSubmissionModal = (submission: Submission) => {
+    setSelectedSubmission(submission);
+    setIsModalOpen(true);
+  };
+
   if (loading) return <BountyDetailSkeleton />;
   if (!bounty) return <div className="text-center py-12">Bounty not found</div>;
 
   const isOwner = userId === bounty.owner;
+  
+  // Debug log for render values
+  console.log('Render values:', {
+    userId,
+    bountyOwner: bounty.owner,
+    isOwner,
+    isSponsor,
+    submissions: submissions.length
+  });
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6">
@@ -540,12 +648,13 @@ export default function BountyDetailPage({
           </div>
         )}
 
-        {/* Submissions section (only visible to bounty owner) */}
-        {isOwner && (
+        {/* Submissions section (only visible to bounty owner or sponsor) */}
+        {(isOwner || isSponsor) && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Submissions</h2>
               {submissions.length > 0 &&
+                isOwner && 
                 submissions.some((sub) => sub.ranking) &&
                 !rankingsApproved && (
                   <button
@@ -595,8 +704,8 @@ export default function BountyDetailPage({
                     {submissions.map((submission) => (
                       <tr key={submission.id}>
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">
-                          {submission.applicant.slice(0, 6)}...
-                          {submission.applicant.slice(-4)}
+                          {(submission.walletAddress || submission.applicant).slice(0, 6)}...
+                          {(submission.walletAddress || submission.applicant).slice(-4)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">
                           {formatDate(submission.created)}
@@ -623,7 +732,7 @@ export default function BountyDetailPage({
                                 ? '2nd Place 🥈'
                                 : '3rd Place 🥉'}
                             </span>
-                          ) : !rankingsApproved ? (
+                          ) : !rankingsApproved && isOwner ? (
                             <div className="flex space-x-2">
                               <button
                                 onClick={() =>
@@ -668,16 +777,13 @@ export default function BountyDetailPage({
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
-                            onClick={() => {
-                              // Show submission details modal or expand row
-                              alert(submission.content);
-                            }}
+                            onClick={() => openSubmissionModal(submission)}
                             className="text-gray-300 hover:text-white mr-4"
                           >
                             View
                           </button>
 
-                          {submission.status.toString() === 'PENDING' && (
+                          {isOwner && submission.status.toString() === 'PENDING' && (
                             <button
                               onClick={() =>
                                 handleAcceptSubmission(submission.id)
@@ -691,7 +797,7 @@ export default function BountyDetailPage({
                             </button>
                           )}
 
-                          {submission.ranking && !rankingsApproved && (
+                          {isOwner && submission.ranking && !rankingsApproved && (
                             <button
                               onClick={() =>
                                 handleRankSubmission(submission.id, null)
@@ -713,10 +819,9 @@ export default function BountyDetailPage({
         )}
 
         {/* Submit Work section - Show form if open bounty, otherwise show message */}
-        {!isOwner && bounty && (
+        {!isOwner && !isSponsor && bounty && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl mb-8">
-            {bounty.status.toUpperCase() === BountyStatus.OPEN &&
-            isConnected ? (
+            {bounty.status.toUpperCase() === BountyStatus.OPEN ? (
               <SubmitWorkForm bountyId={Number(bounty.id)} />
             ) : (
               <div className="p-8">
@@ -724,13 +829,26 @@ export default function BountyDetailPage({
                   Submit Work
                 </h2>
                 <p className="text-gray-300">
-                  {!isConnected
-                    ? 'To submit work, please connect your Stellar wallet first.'
-                    : `This bounty is ${bounty.status.toLowerCase()} and is not accepting submissions at this time.`}
+                  This bounty is {bounty.status.toLowerCase()} and is not accepting submissions at this time.
                 </p>
               </div>
             )}
           </div>
+        )}
+
+        {/* Submission Details Modal */}
+        {selectedSubmission && (
+          <SubmissionDetailsModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            submission={selectedSubmission}
+            isOwner={isOwner}
+            isSponsor={isSponsor}
+            onAccept={handleAcceptSubmission}
+            onRank={handleRankSubmission}
+            rankingsApproved={rankingsApproved}
+            otherSubmissions={submissions}
+          />
         )}
       </div>
     </div>

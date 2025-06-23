@@ -1,49 +1,65 @@
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { findUserByWalletAddress } from '@/lib/authService';
-import { useState } from 'react';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
+import { SiBlockchaindotcom } from 'react-icons/si';
 
-interface Props {
+interface WalletLoginButtonProps {
   onSuccess?: () => void;
   className?: string;
 }
 
-export default function WalletLoginButton({ onSuccess, className }: Props) {
-  const { connect } = useWallet();
-  const [isLoading, setIsLoading] = useState(false);
+export default function WalletLoginButton({ 
+  onSuccess, 
+  className = "bg-white text-black font-medium py-3 px-4 rounded-lg hover:bg-white/90 transition-colors w-full flex items-center justify-center gap-2"
+}: WalletLoginButtonProps) {
   const router = useRouter();
+  const { connect, isConnected, publicKey } = useWallet();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleWalletLogin = async () => {
     try {
       setIsLoading(true);
-      const publicKey = await connect({});
 
-      if (!publicKey) {
-        toast.error('Could not connect wallet');
+      // If wallet is already connected, try to log in with it
+      if (isConnected && publicKey) {
+        const result = await findUserByWalletAddress(publicKey);
+        
+        if (result.success) {
+          toast.success('Login successful!');
+          onSuccess?.();
+          router.push('/dashboard');
+          return;
+        } else {
+          toast.error(result.message || 'No account found with this wallet');
+          return;
+        }
+      }
+
+      // If not connected, connect wallet first
+      const walletAddress = await connect({});
+      
+      if (!walletAddress) {
+        toast.error('Failed to connect wallet');
         return;
       }
 
-      // Try to find and authenticate user by wallet address
-      const result = await findUserByWalletAddress(publicKey);
-
+      // Try to find user by wallet address
+      const result = await findUserByWalletAddress(walletAddress);
+      
       if (result.success) {
         toast.success('Login successful!');
-        
-        // Call success callback or redirect to dashboard
-        if (onSuccess) {
-          onSuccess();
-        } else {
-          router.push('/dashboard');
-        }
+        onSuccess?.();
+        router.push('/dashboard');
       } else {
-        toast.error(result.message);
+        toast.error(result.message || 'No account found with this wallet');
       }
-    } catch (err) {
-      console.error('Error logging in with wallet:', err);
-      toast.error('Failed to login with wallet');
+    } catch (error) {
+      console.error('Error logging in with wallet:', error);
+      toast.error('Failed to log in with wallet');
     } finally {
       setIsLoading(false);
     }
@@ -53,16 +69,19 @@ export default function WalletLoginButton({ onSuccess, className }: Props) {
     <button
       onClick={handleWalletLogin}
       disabled={isLoading}
-      className={`bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-2 px-4 rounded-lg hover:bg-white/20 transition-colors ${className || ''}`}
+      className={className}
     >
       {isLoading ? (
         <span className="flex gap-2 items-center justify-center">
-          <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.3s]"></span>
-          <span className="w-2 h-2 rounded-full bg-white animate-bounce [animation-delay:-0.15s]"></span>
-          <span className="w-2 h-2 rounded-full bg-white animate-bounce"></span>
+          <span className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:-0.3s]"></span>
+          <span className="w-2 h-2 rounded-full bg-current animate-bounce [animation-delay:-0.15s]"></span>
+          <span className="w-2 h-2 rounded-full bg-current animate-bounce"></span>
         </span>
       ) : (
-        'Login with Wallet'
+        <>
+          <SiBlockchaindotcom className="h-5 w-5" />
+          Login with Wallet
+        </>
       )}
     </button>
   );
