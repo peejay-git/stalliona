@@ -126,8 +126,8 @@ export default function SubmissionDetailsModal({
               <div className="mb-4">
                 <h4 className="text-sm text-gray-300 mb-1">Applicant</h4>
                 <p className="font-medium text-white">
-                  {(submission.walletAddress || submission.applicant).slice(0, 8)}...
-                  {(submission.walletAddress || submission.applicant).slice(-8)}
+                  {submission.applicant.slice(0, 8)}...
+                  {submission.applicant.slice(-8)}
                 </p>
               </div>
 
