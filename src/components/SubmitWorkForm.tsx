@@ -83,15 +83,25 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         const userRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userRef);
         
-        if (userDoc.exists() && userDoc.data().wallet?.publicKey) {
-          // Use wallet from profile
-          setUserWalletAddress(userDoc.data().wallet.publicKey);
-          return;
+        if (userDoc.exists()) {
+          // Check for wallet in different possible locations in the user profile
+          if (userDoc.data().wallet?.publicKey) {
+            // Use wallet from profile
+            setUserWalletAddress(userDoc.data().wallet.publicKey);
+            console.log("Using wallet from user profile:", userDoc.data().wallet.publicKey);
+            return;
+          } else if (userDoc.data().walletAddress) {
+            // Alternative wallet field
+            setUserWalletAddress(userDoc.data().walletAddress);
+            console.log("Using walletAddress from user profile:", userDoc.data().walletAddress);
+            return;
+          }
         }
         
         // If no wallet in profile but one is connected in session, use that
         if (isConnected && publicKey) {
           setUserWalletAddress(publicKey);
+          console.log("Using connected wallet:", publicKey);
           
           // Also save this wallet to the user's profile for future use
           if (user.uid) {
@@ -105,6 +115,7 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         }
         
         // No wallet available
+        console.log("No wallet found for user");
         setUserWalletAddress(null);
       } catch (err) {
         console.error('Error fetching user wallet:', err);
@@ -276,16 +287,27 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
       <div className="p-8">
         <h2 className="text-xl font-semibold mb-4 text-white">Submit Work</h2>
         <div className="bg-yellow-900/30 border border-yellow-700/30 rounded-lg p-4 mb-6">
-          <p className="text-yellow-200">
-            You need to connect a wallet to your account before submitting work.
+          <p className="text-yellow-200 font-medium mb-2">
+            Wallet Connection Required
+          </p>
+          <p className="text-yellow-200 text-sm">
+            To submit work for this bounty, you need to connect a Stellar wallet to your account. This wallet will be used to receive payments if your submission is selected.
           </p>
         </div>
-        <button
-          onClick={() => window.location.href = '/connect-wallet'}
-          className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors"
-        >
-          Connect Wallet in Profile
-        </button>
+        <div className="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
+          <button
+            onClick={() => window.location.href = `/connect-wallet?returnUrl=/bounties/${bountyId}`}
+            className="bg-white text-black font-medium py-2 px-4 rounded-lg hover:bg-white/90 transition-colors"
+          >
+            Connect Wallet
+          </button>
+          <button
+            onClick={() => window.location.href = '/bounties'}
+            className="bg-white/10 backdrop-blur-xl border border-white/20 text-white py-2 px-4 rounded-lg hover:bg-white/20 transition-colors"
+          >
+            Back to Bounties
+          </button>
+        </div>
       </div>
     );
   }
