@@ -7,10 +7,55 @@ import Layout from '@/components/Layout';
 import { useEffect, useState } from 'react';
 import { getAllBounties, getFilteredBounties } from '@/lib/bounties';
 import { BountyCardSkeleton } from '@/components/BountyCardSkeleton';
-import { BountyCategory, BountyStatus } from '@/types/bounty';
+import { BountyCategory, BountyStatus, Bounty } from '@/types/bounty';
+
+// Define a type that matches the actual shape of bounties returned from the API
+interface ApiBounty {
+  id: string;
+  title?: string;
+  description?: string;
+  category?: string;
+  skills?: string[];
+  reward?: {
+    amount: string;
+    asset: string;
+  };
+  status?: string;
+  deadline?: string;
+  owner?: string;
+  createdAt?: {
+    seconds: number;
+    nanoseconds: number;
+  } | string;
+  updatedAt?: any;
+}
+
+// Convert API bounty to the format expected by BountyCard
+const adaptBounty = (apiBounty: ApiBounty): Bounty => {
+  return {
+    id: parseInt(apiBounty.id) || 0,
+    owner: apiBounty.owner || '',
+    title: apiBounty.title || '',
+    description: apiBounty.description || '',
+    reward: apiBounty.reward || { amount: '0', asset: 'USDC' },
+    distribution: [],
+    submissionDeadline: 0,
+    judgingDeadline: 0,
+    status: (apiBounty.status as BountyStatus) || BountyStatus.OPEN,
+    category: (apiBounty.category as BountyCategory) || BountyCategory.OTHER,
+    skills: apiBounty.skills || [],
+    created: typeof apiBounty.createdAt === 'string' 
+      ? apiBounty.createdAt 
+      : new Date().toISOString(),
+    updatedAt: typeof apiBounty.updatedAt === 'string' 
+      ? apiBounty.updatedAt 
+      : new Date().toISOString(),
+    deadline: apiBounty.deadline || new Date().toISOString()
+  };
+};
 
 export default function BountiesPage() {
-  const [bounties, setBounties] = useState<any[]>([]);
+  const [bounties, setBounties] = useState<ApiBounty[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilters, setStatusFilters] = useState<BountyStatus[]>([
     BountyStatus.OPEN,
@@ -21,11 +66,9 @@ export default function BountiesPage() {
   const [skills, setSkills] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('newest');
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
-  const itemsPerPage = 2; // you can adjust this number
 
   // Handle window resize and initial client-side mounted state
   useEffect(() => {
@@ -43,6 +86,7 @@ export default function BountiesPage() {
   const applyFilters = async () => {
     setLoading(true);
 
+    try {
     const filtered = await getFilteredBounties({
       statusFilters: statusFilters.map((status) => status as 'OPEN' | 'CLOSE'),
       categoryFilters,
@@ -53,19 +97,20 @@ export default function BountiesPage() {
       skills,
     });
     setBounties(filtered);
+    } catch (error) {
+      console.error('Error applying filters:', error);
+    } finally {
     setLoading(false);
+    }
   };
-
-  // useEffect(() => {
-  //   applyFilters();
-  // }, []);
 
   const onReset = () => {
     setLoading(true);
     getAllBounties()
       .then(setBounties)
       .finally(() => setLoading(false));
-  }
+  };
+  
   useEffect(() => {
     getAllBounties()
       .then(setBounties)
@@ -73,21 +118,34 @@ export default function BountiesPage() {
   }, []);
 
   const filteredAndSorted = [...bounties]
-    .filter((bounty) =>
-      bounty.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      bounty.description.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    .filter((bounty) => {
+      const title = bounty.title || '';
+      const description = bounty.description || '';
+      const term = searchTerm.toLowerCase();
+      
+      return title.toLowerCase().includes(term) || 
+             description.toLowerCase().includes(term);
+    })
     .sort((a, b) => {
       switch (sortBy) {
         case 'reward-high':
-          return Number(b.rewardAmount) - Number(a.rewardAmount);
+          return Number(b.reward?.amount || 0) - Number(a.reward?.amount || 0);
         case 'reward-low':
-          return Number(a.rewardAmount) - Number(b.rewardAmount);
+          return Number(a.reward?.amount || 0) - Number(b.reward?.amount || 0);
         case 'deadline':
-          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+          return new Date(a.deadline || Date.now()).getTime() - new Date(b.deadline || Date.now()).getTime();
         case 'newest':
         default:
-          return new Date(b.createdAt.seconds * 1000).getTime() - new Date(a.createdAt.seconds * 1000).getTime();
+          // Handle potential missing createdAt field or different formats
+          const getCreatedTimestamp = (bounty: ApiBounty) => {
+            if (!bounty.createdAt) return 0;
+            if (typeof bounty.createdAt === 'object' && bounty.createdAt.seconds) 
+              return bounty.createdAt.seconds * 1000;
+            if (typeof bounty.createdAt === 'string') 
+              return new Date(bounty.createdAt).getTime();
+            return 0;
+          };
+          return getCreatedTimestamp(b) - getCreatedTimestamp(a);
       }
     });
 
@@ -143,25 +201,29 @@ export default function BountiesPage() {
 
           {/* Search and filter section */}
           <div className="flex flex-col lg:flex-row gap-8 mb-8">
-            {/* Filter sidebar */}
+            {/* Filter sidebar - make it fixed on desktop */}
             <div className={`lg:w-1/4 ${showFilters || (isMounted && windowWidth >= 1024) ? 'block' : 'hidden'}`}>
-              <BountyFilter statusFilters={statusFilters}
-                categoryFilters={categoryFilters}
-                rewardRange={rewardRange}
-                skills={skills}
-                setStatusFilters={setStatusFilters}
-                setCategoryFilters={setCategoryFilters}
-                setRewardRange={setRewardRange}
-                setSkills={setSkills}
-                onApply={() => {
-                  applyFilters();
-                  if (isMounted && windowWidth < 1024) setShowFilters(false);
-                }} 
-                onReset={onReset} />
+              <div className="lg:sticky lg:top-8">
+                <BountyFilter 
+                  statusFilters={statusFilters}
+                  categoryFilters={categoryFilters}
+                  rewardRange={rewardRange}
+                  skills={skills}
+                  setStatusFilters={setStatusFilters}
+                  setCategoryFilters={setCategoryFilters}
+                  setRewardRange={setRewardRange}
+                  setSkills={setSkills}
+                  onApply={() => {
+                    applyFilters();
+                    if (isMounted && windowWidth < 1024) setShowFilters(false);
+                  }} 
+                  onReset={onReset} 
+                />
+              </div>
             </div>
 
-            {/* Bounty listing */}
-            <div className="lg:w-3/4">
+            {/* Bounty listing - make it scrollable */}
+            <div className="lg:w-3/4 max-h-screen overflow-y-auto">
               {/* Search bar and desktop sorting options */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                 <div className="relative flex-grow max-w-md">
@@ -206,7 +268,7 @@ export default function BountiesPage() {
               {/* Bounty count */}
               <div className="mb-6">
                 <p className="text-gray-300">
-                  Showing <span className="font-medium text-white">{bounties.length}</span> bounties
+                  Showing <span className="font-medium text-white">{filteredAndSorted.length}</span> bounties
                 </p>
               </div>
 
@@ -216,28 +278,11 @@ export default function BountiesPage() {
                   ? Array.from({ length: 3 }).map((_, i) => <BountyCardSkeleton key={i} />)
                   : bounties.length === 0 ? (
                     <p className="text-center text-white">No bounties found</p>
-                  ) : filteredAndSorted
-                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                    .map((bounty) => <BountyCard key={bounty.id} bounty={bounty} />)
+                  ) : filteredAndSorted.map((bounty) => (
+                    <BountyCard key={bounty.id} bounty={adaptBounty(bounty)} />
+                  ))
                 }
               </div>
-              {filteredAndSorted.length > itemsPerPage && (
-                <div className="flex justify-center mt-8 space-x-2">
-                  {Array.from({ length: Math.ceil(filteredAndSorted.length / itemsPerPage) }, (_, i) => (
-                    <button
-                      key={i + 1}
-                      className={`px-3 py-1 rounded-lg text-sm ${currentPage === i + 1
-                        ? 'bg-white text-black'
-                        : 'bg-white/10 text-white hover:bg-white/20'
-                        }`}
-                      onClick={() => setCurrentPage(i + 1)}
-                    >
-                      {i + 1}
-                    </button>
-                  ))}
-
-                </div>
-              )}
 
               {/* Create bounty CTA */}
               <div className="mt-12 pt-8 border-t border-gray-600">
