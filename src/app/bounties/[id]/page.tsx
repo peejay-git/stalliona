@@ -704,8 +704,8 @@ export default function BountyDetailPage({
                     {submissions.map((submission) => (
                       <tr key={submission.id}>
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">
-                          {(submission.walletAddress || submission.applicant).slice(0, 6)}...
-                          {(submission.walletAddress || submission.applicant).slice(-4)}
+                          {submission.applicant.slice(0, 6)}...
+                          {submission.applicant.slice(-4)}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">
                           {formatDate(submission.created)}
