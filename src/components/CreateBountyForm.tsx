@@ -593,7 +593,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
                     console.log('Public Key:', userPublicKey);
 
                     // Initialize Soroban service to log configuration
-                    const sorobanService = new SorobanService(userPublicKey);
+                    const sorobanService = new SorobanService();
 
                     // Get network
                     const network = await freighterApi.getNetwork();

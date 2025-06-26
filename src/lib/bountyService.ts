@@ -47,7 +47,7 @@ export class BountyService {
 
   constructor(publicKey?: string) {
     // Initialize with user's public key if available
-    this.sorobanService = new SorobanService(publicKey || '');
+    this.sorobanService = new SorobanService();
   }
 
   // Add token address mapping

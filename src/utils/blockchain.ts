@@ -98,7 +98,7 @@ export async function createBountyOnChain({
     console.log('Current network:', network);
 
     // Initialize Soroban service with the user's public key
-    const sorobanService = new SorobanService(userPublicKey);
+    const sorobanService = new SorobanService();
 
     // Update toast with more specific message
     toast.loading('Requesting wallet approval for transaction...', {
@@ -276,7 +276,7 @@ export async function updateBountyOnChain({
 }): Promise<void> {
   try {
     // Initialize Soroban service with the user's public key
-    const sorobanService = new SorobanService(userPublicKey);
+    const sorobanService = new SorobanService();
 
     // Convert distribution to the format expected by the smart contract
     const formattedDistribution = distribution
@@ -307,7 +307,7 @@ export async function deleteBountyOnChain({
 }): Promise<void> {
   try {
     // Initialize Soroban service with the user's public key
-    const sorobanService = new SorobanService(userPublicKey);
+    const sorobanService = new SorobanService();
 
     // Delete the bounty on the blockchain
     await sorobanService.deleteBounty(bountyId);

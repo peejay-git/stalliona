@@ -8,7 +8,6 @@ import {
 } from '@/lib/authService';
 import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/lib/stores/useUserStore';
-import { kit } from '@/lib/wallet';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';

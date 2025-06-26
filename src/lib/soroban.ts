@@ -1,20 +1,30 @@
 import { Distribution } from '@/types/bounty';
 import { BlockchainError } from '@/utils/error-handler';
-import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
 import freighterApi from '@stellar/freighter-api';
 import {
   Status as BountyStatus,
   Bounty as ContractBounty,
   Client as SorobanClient,
 } from '../../packages/stallion/src/index';
-import { kit } from './wallet';
+import { getWalletKit } from './wallet';
+import { importWalletKit } from './wallet-imports';
 
 // Environment variables with defaults
 const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || '';
-const NETWORK =
-  process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'Public'
-    ? WalletNetwork.PUBLIC
-    : WalletNetwork.TESTNET;
+let NETWORK = '';
+
+// Initialize network value
+if (typeof window === 'undefined') {
+  NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'Public'
+    ? 'Public Global Stellar Network ; September 2015'
+    : 'Test SDF Network ; September 2015';
+} else {
+  importWalletKit().then(({ WalletNetwork }) => {
+    NETWORK = process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'Public'
+      ? WalletNetwork.PUBLIC
+      : WalletNetwork.TESTNET;
+  });
+}
 
 const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ||
@@ -37,65 +47,38 @@ if (
  * Soroban service for interacting with the bounty contract
  */
 export class SorobanService {
-  private contractId: string;
-  private network: string;
-  private sorobanClient: SorobanClient;
-  private publicKey: string | null;
+  private client: SorobanClient;
+  private publicKey: string | null = null;
 
-  constructor(publicKey?: string) {
-    this.contractId = CONTRACT_ID;
-    this.network = NETWORK;
-    this.publicKey = publicKey || null;
+  constructor() {
+    this.client = new SorobanClient({
+      contractId: CONTRACT_ID,
+      networkPassphrase: NETWORK,
+      rpcUrl: SOROBAN_RPC_URL,
+    });
 
-    try {
-      // Log environment variables and configuration
-      console.log('=== SOROBAN SERVICE CONFIGURATION ===');
-      console.log(`Contract ID: ${CONTRACT_ID}`);
-      console.log(`Network: ${NETWORK}`);
-      console.log(`RPC URL: ${SOROBAN_RPC_URL}`);
-      console.log(`Public Key: ${publicKey || 'Not provided'}`);
-
-      if (!CONTRACT_ID || CONTRACT_ID.length < 10) {
-        console.error('Warning: Contract ID appears to be invalid or missing');
-      }
-
-      if (!NETWORK) {
-        console.error('Warning: Network passphrase is missing');
-      }
-
-      if (!SOROBAN_RPC_URL) {
-        console.error('Warning: Soroban RPC URL is missing');
-      }
-
-      // Initialize the Soroban client for contract interactions
-      this.sorobanClient = new SorobanClient({
-        contractId: this.contractId,
-        networkPassphrase: this.network,
-        rpcUrl: SOROBAN_RPC_URL,
-        publicKey: this.publicKey || '',
+    // Initialize wallet connection
+    if (typeof window !== 'undefined') {
+      freighterApi.isConnected().then((connected) => {
+        if (connected) {
+          freighterApi.getPublicKey().then((publicKey) => {
+            this.publicKey = publicKey;
+          });
+        }
       });
-
-      // Initialize wallet connection if no public key provided
-      if (!this.publicKey) {
-        freighterApi.isConnected().then((connected) => {
-          if (connected) {
-            freighterApi.getPublicKey().then((publicKey) => {
-              this.publicKey = publicKey;
-            });
-          }
-        });
-      }
-
-      console.log(
-        `Initialized Soroban service with contract: ${this.contractId} on network: ${this.network}`
-      );
-    } catch (error) {
-      console.error('Error initializing Soroban client:', error);
-      throw new BlockchainError(
-        'Failed to initialize Soroban client',
-        'CONNECTION_ERROR'
-      );
     }
+
+    console.log('=== SOROBAN SERVICE CONFIGURATION ===');
+    console.log('Contract ID:', CONTRACT_ID);
+    console.log('Network:', NETWORK);
+    console.log('RPC URL:', SOROBAN_RPC_URL);
+    console.log('Public Key:', this.publicKey || 'Not provided');
+    console.log(
+      'Initialized Soroban service with contract:',
+      CONTRACT_ID,
+      'on network:',
+      NETWORK
+    );
   }
 
   /**
@@ -103,7 +86,7 @@ export class SorobanService {
    */
   async getSubmission(bountyId: number, user: string): Promise<string> {
     try {
-      const tx = await this.sorobanClient.get_submission({
+      const tx = await this.client.get_submission({
         bounty_id: bountyId,
         user,
       });
@@ -166,8 +149,8 @@ export class SorobanService {
         ).toISOString()} (${calculatedJudgingDeadline})`
       );
       console.log(`Title: ${title}`);
-      console.log(`Contract ID: ${this.contractId}`);
-      console.log(`Network: ${this.network}`);
+      console.log(`Contract ID: ${CONTRACT_ID}`);
+      console.log(`Network: ${NETWORK}`);
       console.log(`Wallet: ${this.publicKey}`);
 
       // Validate parameters before sending to the blockchain
@@ -203,7 +186,7 @@ export class SorobanService {
         // Prepare transaction
         console.log('Preparing transaction...');
         console.log('Using token address:', token); // Log the token address being used
-        const tx = await this.sorobanClient.create_bounty({
+        const tx = await this.client.create_bounty({
           owner: owner,
           token: token, // Use the token address passed in as a parameter
           reward: BigInt(reward.amount),
@@ -236,11 +219,7 @@ export class SorobanService {
 
           // Sign and send the transaction to the blockchain
           console.log('Sending transaction to wallet for approval...');
-          const sentTx = await result.signAndSend({
-            signTransaction: (transaction) => {
-              return kit.signTransaction(transaction);
-            },
-          });
+          const sentTx = await this.signAndSendTransaction(result);
           console.log('Transaction sent, waiting for result...');
 
           // await confirmation
@@ -292,7 +271,7 @@ export class SorobanService {
    */
   async getBounties(): Promise<ContractBounty[]> {
     try {
-      const tx = await this.sorobanClient.get_bounties();
+      const tx = await this.client.get_bounties();
       const result = await tx.simulate();
       const bountyIds = result.result;
       const bounties = await Promise.all(
@@ -312,7 +291,7 @@ export class SorobanService {
    */
   async getUserBounties(user: string): Promise<ContractBounty[]> {
     try {
-      const tx = await this.sorobanClient.get_user_bounties({
+      const tx = await this.client.get_user_bounties({
         user,
       });
 
@@ -340,7 +319,7 @@ export class SorobanService {
    */
   async getOwnerBounties(owner: string): Promise<ContractBounty[]> {
     try {
-      const tx = await this.sorobanClient.get_owner_bounties({
+      const tx = await this.client.get_owner_bounties({
         owner,
       });
       const result = await tx.simulate();
@@ -365,7 +344,7 @@ export class SorobanService {
    */
   async getBountiesByStatus(status: BountyStatus): Promise<ContractBounty[]> {
     try {
-      const tx = await this.sorobanClient.get_bounties_by_status({
+      const tx = await this.client.get_bounties_by_status({
         status,
       });
       const result = await tx.simulate();
@@ -390,7 +369,7 @@ export class SorobanService {
    */
   async getBountiesByToken(token: string): Promise<ContractBounty[]> {
     try {
-      const tx = await this.sorobanClient.get_bounties_by_token({
+      const tx = await this.client.get_bounties_by_token({
         token,
       });
       const result = await tx.simulate();
@@ -415,7 +394,7 @@ export class SorobanService {
    */
   async getActiveBounties(): Promise<ContractBounty[]> {
     try {
-      const tx = await this.sorobanClient.get_active_bounties();
+      const tx = await this.client.get_active_bounties();
       const result = await tx.simulate();
       const bountyIds = result.result;
 
@@ -440,7 +419,7 @@ export class SorobanService {
    */
   async getBounty(bountyId: number): Promise<ContractBounty> {
     try {
-      const tx = await this.sorobanClient.get_bounty({
+      const tx = await this.client.get_bounty({
         bounty_id: bountyId,
       });
       const result = await tx.simulate();
@@ -465,7 +444,7 @@ export class SorobanService {
     bountyId: number
   ): Promise<{ applicant: string; submission: string }[]> {
     try {
-      const tx = await this.sorobanClient.get_bounty_submissions({
+      const tx = await this.client.get_bounty_submissions({
         bounty_id: bountyId,
       });
       const result = await tx.simulate();
@@ -509,7 +488,7 @@ export class SorobanService {
         throw new Error('Wallet not connected');
       }
 
-      const tx = await this.sorobanClient.apply_to_bounty({
+      const tx = await this.client.apply_to_bounty({
         applicant: senderPublicKey,
         bounty_id: bountyId,
         submission_link: content,
@@ -548,7 +527,7 @@ export class SorobanService {
 
       // Create the transaction for updating the bounty
       // Matching contract method signature
-      const tx = await this.sorobanClient.update_bounty({
+      const tx = await this.client.update_bounty({
         owner: this.publicKey,
         bounty_id: bountyId,
         new_title: updates.title ? updates.title : undefined,
@@ -583,7 +562,7 @@ export class SorobanService {
       }
 
       // Create the transaction for deleting the bounty
-      const tx = await this.sorobanClient.delete_bounty({
+      const tx = await this.client.delete_bounty({
         owner: this.publicKey,
         bounty_id: bountyId,
       });
@@ -616,62 +595,49 @@ export class SorobanService {
         throw new Error('Wallet not connected');
       }
 
-      console.log('Selecting winners:', {
-        bountyId,
-        owner,
-        winners,
-        publicKey: this.publicKey
-      });
-
       // Create the transaction for selecting winners
-      const tx = await this.sorobanClient.select_winners({
+      const tx = await this.client.select_winners({
         owner,
         bounty_id: bountyId,
         winners,
       });
 
-      // Simulate the transaction first
       const result = await tx.simulate();
-      console.log('Simulation result:', result);
+      const sentTx = await result.signAndSend();
 
-      // Check for simulation errors
-      const resultAny = result as any;
-      if (resultAny.simulationError || resultAny.error) {
-        const errorDetails = resultAny.simulationError || resultAny.error;
-        console.error('Simulation failed:', errorDetails);
-        throw new Error(`Simulation error: ${JSON.stringify(errorDetails)}`);
-      }
-
-      // Sign and send the transaction
-      console.log('Sending transaction to wallet for approval...');
-      const sentTx = await result.signAndSend({
-        signTransaction: (transaction) => {
-          return kit.signTransaction(transaction);
-        },
-      });
-      console.log('Transaction sent, waiting for result...');
-
-      // Check the result
+      // await confirmation
       if (sentTx.result.isOk()) {
-        console.log('Winners selected successfully');
         return;
       }
 
-      // If we get here, there was a problem
-      const errorMsg = sentTx.result.isErr()
-        ? sentTx.result.unwrapErr()
-        : 'Unknown error';
-      console.error('Transaction failed:', errorMsg);
-      throw new BlockchainError(
-        `Transaction failed: ${JSON.stringify(errorMsg)}`,
-        'CONTRACT_ERROR'
-      );
+      throw new BlockchainError('Failed to select winners', 'CONTRACT_ERROR');
     } catch (error) {
       console.error('Error selecting winners:', error);
       throw new BlockchainError(
-        error instanceof Error ? error.message : 'Failed to select winners',
+        'Failed to select winners',
         'TRANSACTION_ERROR'
       );
+    }
+  }
+
+  private async signAndSendTransaction(result: any) {
+    try {
+      const kit = getWalletKit();
+      if (!kit) {
+        throw new BlockchainError('Wallet not initialized');
+      }
+
+      const sentTx = await result.signAndSend({
+        signTransaction: async (transaction: string) => {
+          const response = await kit.signTransaction(transaction);
+          return response.signedTxXdr;
+        },
+      });
+
+      return sentTx;
+    } catch (error) {
+      console.error('Error signing and sending transaction:', error);
+      throw error;
     }
   }
 }
