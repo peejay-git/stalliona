@@ -21,9 +21,9 @@ export const initializeWallet = async () => {
     return null;
   }
 
-  if (!process.env.NEXT_PUBLIC_APP_URL) {
-    throw new Error('Missing required environment variable NEXT_PUBLIC_APP_URL');
-  }
+  // Get the app URL with fallback logic
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || 
+                 (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
 
   if (!process.env.NEXT_PUBLIC_STELLAR_NETWORK) {
     throw new Error(
@@ -57,12 +57,12 @@ export const initializeWallet = async () => {
         modules: [
           ...allowAllModules(),
           new TrezorModule({
-            appUrl: process.env.NEXT_PUBLIC_APP_URL,
+            appUrl,
             email: process.env.NEXT_PUBLIC_TREZOR_CONTACT_EMAIL,
           }),
           new WalletConnectModule({
-            url: process.env.NEXT_PUBLIC_APP_URL,
-            projectId: process.env.NEXT_PUBLIC_APP_URL,
+            url: appUrl,
+            projectId: appUrl,
             method: WalletConnectAllowedMethods.SIGN,
             description:
               'Stallion is a decentralized bounty platform built on the Stellar network',
