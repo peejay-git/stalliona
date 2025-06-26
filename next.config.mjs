@@ -8,7 +8,9 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_STELLAR_NETWORK: process.env.STELLAR_NETWORK || 'Test SDF Network ; September 2015',
     NEXT_PUBLIC_SOROBAN_RPC_URL: process.env.SOROBAN_RPC_URL || 'https://soroban-testnet.stellar.org',
-    NEXT_PUBLIC_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "earnstallions.xyz", 
+    NEXT_PUBLIC_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "earnstallions.xyz",
+    NEXT_PUBLIC_APP_URL: process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000',
+    NEXT_PUBLIC_TREZOR_CONTACT_EMAIL: process.env.NEXT_PUBLIC_TREZOR_CONTACT_EMAIL || 'support@earnstallions.xyz'
   },
   experimental: {
     serverComponentsExternalPackages: [
