@@ -43,13 +43,11 @@ function convertChainStatus(status: any): BountyStatus {
  * BountyService class that coordinates blockchain and database operations
  */
 export class BountyService {
-  private sorobanService: SorobanService | null = null;
+  private sorobanService: SorobanService;
 
   constructor(publicKey?: string) {
-    // Only initialize Soroban service if we're in the browser or if we have all required environment variables
-    if (typeof window !== 'undefined' || process.env.NEXT_PUBLIC_APP_URL) {
-      this.sorobanService = new SorobanService();
-    }
+    // Initialize with user's public key if available
+    this.sorobanService = new SorobanService(publicKey || '');
   }
 
   // Add token address mapping
@@ -128,16 +126,8 @@ export class BountyService {
       // Convert to number for blockchain call
       const numericId = typeof id === 'string' ? parseInt(id) : id;
 
-      let onChainBounty;
-      
-      // Only try to get on-chain data if Soroban service is initialized
-      if (this.sorobanService) {
-        try {
-          onChainBounty = await this.sorobanService.getBounty(numericId);
-        } catch (error) {
-          console.error('Failed to get on-chain bounty data:', error);
-        }
-      }
+      // Get on-chain data
+      const onChainBounty = await this.sorobanService.getBounty(numericId);
 
       // Get off-chain data from Firestore
       const docRef = doc(db, 'bounties', id.toString());
@@ -152,28 +142,8 @@ export class BountyService {
       // Get creation date either from blockchain or database
       const createdDate = offChainData.createdAt || new Date().toISOString();
 
-      // If we don't have on-chain data, return off-chain data only
-      if (!onChainBounty) {
-        return {
-          id: numericId,
-          owner: offChainData.owner || '',
-          title: offChainData.title || '',
-          description: offChainData.description || '',
-          reward: offChainData.reward || { amount: '0', asset: 'XLM' },
-          distribution: offChainData.distribution || [],
-          submissionDeadline: offChainData.submissionDeadline || 0,
-          judgingDeadline: offChainData.judgingDeadline || 0,
-          status: offChainData.status || 'OPEN',
-          category: offChainData.category || '',
-          skills: offChainData.skills || [],
-          created: createdDate,
-          updatedAt: offChainData.updatedAt,
-          deadline: offChainData.deadline || new Date().toISOString(),
-        };
-      }
-
-      // Combine the data if we have both
-      return {
+      // Combine the data
+      const combinedBounty: Bounty = {
         id: numericId,
         owner: onChainBounty.owner,
         title: onChainBounty.title,
@@ -199,6 +169,8 @@ export class BountyService {
           Number(onChainBounty.submission_deadline)
         ).toISOString(),
       };
+
+      return combinedBounty;
     } catch (error) {
       console.error(`Error fetching complete bounty ${id}:`, error);
       throw error;
@@ -211,14 +183,7 @@ export class BountyService {
   async getAllBounties(filters?: any): Promise<Bounty[]> {
     try {
       // Get all bounty IDs from blockchain
-      let onChainBounties: any[] = [];
-      if (this.sorobanService) {
-        try {
-          onChainBounties = await this.sorobanService.getBounties();
-        } catch (error) {
-          console.error('Failed to get on-chain bounties:', error);
-        }
-      }
+      const onChainBounties = await this.sorobanService.getBounties();
 
       // Map over each bounty ID and get the complete data
       const bounties = await Promise.all(
@@ -293,16 +258,9 @@ export class BountyService {
         typeof bountyId === 'string' ? parseInt(bountyId) : bountyId;
 
       // Get on-chain submissions
-      let onChainSubmissions: any[] = [];
-      if (this.sorobanService) {
-        try {
-          onChainSubmissions = await this.sorobanService.getBountySubmissions(
-            numericId
-          );
-        } catch (error) {
-          console.error('Failed to get on-chain submissions:', error);
-        }
-      }
+      const onChainSubmissions = await this.sorobanService.getBountySubmissions(
+        numericId
+      );
 
       // Get off-chain submission data
       const submissionsRef = collection(db, 'submissions');
@@ -423,10 +381,6 @@ export class BountyService {
     userPublicKey: string
   ): Promise<void> {
     try {
-      if (!this.sorobanService) {
-        throw new Error('Blockchain service not initialized');
-      }
-
       // Get the bounty first to validate ownership
       const bounty = await this.getBountyById(bountyId);
 
@@ -478,9 +432,6 @@ export class BountyService {
     totalAmount: string,
     percentage: number
   ): string {
-    if (!this.sorobanService) {
-      return '0';
-    }
     const total = parseFloat(totalAmount);
     return ((total * percentage) / 100).toFixed(2);
   }

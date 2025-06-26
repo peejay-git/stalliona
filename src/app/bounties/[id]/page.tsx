@@ -530,7 +530,7 @@ export default function BountyDetailPage({
         winnerAddresses,
         userPublicKey: publicKey
       });
-
+      
       // Call the API to select winners and process payments on the blockchain
       const response = await fetch(`/api/bounties/${params.id}/winners`, {
         method: 'POST',
