@@ -30,9 +30,10 @@ const SOROBAN_RPC_URL =
   process.env.NEXT_PUBLIC_SOROBAN_RPC_URL ||
   'https://soroban-testnet.stellar.org';
 
-// Only throw in development environment, in production we'll show appropriate UI
+// Only throw in development environment and client-side
 if (
   process.env.NODE_ENV === 'development' &&
+  typeof window !== 'undefined' &&
   (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL)
 ) {
   console.error('Missing required environment variables for Soroban:', {
