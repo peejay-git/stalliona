@@ -1,3 +1,5 @@
+'use client';
+
 // lib/stores/useUserStore.ts
 import { create } from 'zustand';
 import { onAuthStateChanged } from 'firebase/auth';
