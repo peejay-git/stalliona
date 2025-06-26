@@ -68,13 +68,42 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    console.log("API route - POST /api/bounties - Request received");
+    
+    const requestBody = await request.json();
+    console.log("Request body:", JSON.stringify(requestBody, null, 2));
+    
     const {
       blockchainBountyId, // This comes from the frontend after blockchain creation
       description,
       category,
       skills,
       extraRequirements,
-    } = await request.json();
+      owner, // Owner address
+      title, // Bounty title
+      reward, // Reward amount and token type
+      deadline, // Submission deadline
+      submissionDeadline, // Explicit submission deadline
+      judgingDeadline, // Judging deadline
+      status, // Bounty status
+      sponsorName, // Sponsor company name
+    } = requestBody;
+
+    console.log("Extracted values:", {
+      blockchainBountyId,
+      description: description?.substring(0, 50) + "...",
+      category,
+      skills,
+      extraRequirements: extraRequirements || "(empty)",
+      owner: owner || "(missing)",
+      title: title || "(missing)",
+      reward: reward || "(missing)",
+      deadline: deadline || "(missing)",
+      submissionDeadline: submissionDeadline || "(missing)",
+      judgingDeadline: judgingDeadline || "(missing)",
+      status: status || "(missing)",
+      sponsorName: sponsorName || "(missing)",
+    });
 
     // Validate required fields
     if (
@@ -82,10 +111,28 @@ export async function POST(request: NextRequest) {
       blockchainBountyId === undefined ||
       !description ||
       !category ||
-      !skills
+      !skills ||
+      !owner // Validate owner field
     ) {
+      console.error("Validation failed:", { 
+        blockchainBountyId: blockchainBountyId === null || blockchainBountyId === undefined,
+        description: !description,
+        category: !category,
+        skills: !skills,
+        owner: !owner
+      });
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Ensure blockchainBountyId is a number
+    const numericBountyId = Number(blockchainBountyId);
+    if (isNaN(numericBountyId)) {
+      console.error("Invalid blockchainBountyId:", blockchainBountyId);
+      return NextResponse.json(
+        { error: 'Invalid blockchainBountyId format' },
         { status: 400 }
       );
     }
@@ -94,11 +141,19 @@ export async function POST(request: NextRequest) {
     const bountyService = new BountyService();
 
     // Save to database using the blockchain-generated ID
-    await bountyService.saveBountyToDatabase(blockchainBountyId, {
-      description,
-      category,
-      skills,
-      extraRequirements,
+    await bountyService.saveBountyToDatabase(numericBountyId, {
+      description: description || '',
+      category: category || '',
+      skills: Array.isArray(skills) ? skills : [],
+      extraRequirements: extraRequirements || '',
+      owner: owner || '',
+      title: title || '',
+      reward: typeof reward === 'object' ? JSON.stringify(reward) : reward || '',
+      deadline: deadline || new Date().toISOString(),
+      submissionDeadline: submissionDeadline || deadline || new Date().toISOString(),
+      judgingDeadline: judgingDeadline || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      status: status || 'OPEN',
+      updatedAt: new Date().toISOString()
     });
 
     return NextResponse.json({

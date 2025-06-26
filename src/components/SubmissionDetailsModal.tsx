@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FiX, FiExternalLink } from 'react-icons/fi';
+import { FiX, FiExternalLink, FiAward, FiCheck } from 'react-icons/fi';
 
 interface SubmissionDetailsModalProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ export default function SubmissionDetailsModal({
   if (!isOpen) return null;
   
   // Log submission data for debugging
-  console.log('Modal submission data:', submission);
+  console.log('DEBUG: Modal submission data:', JSON.stringify(submission, null, 2), { isOwner, isSponsor });
 
   // Format date to be more readable
   const formatDate = (dateString: string) => {
@@ -92,6 +92,17 @@ export default function SubmissionDetailsModal({
     return 'No details provided.';
   };
 
+  // Get the applicant address to display
+  const getApplicantAddress = () => {
+    // Use walletAddress first if available, then applicant
+    const address = submission.walletAddress || submission.applicant;
+    if (!address) {
+      console.error('ERROR: No applicant address found in submission:', submission.id);
+      return 'Unknown applicant';
+    }
+    return `${address.slice(0, 8)}...${address.slice(-8)}`;
+  };
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
@@ -126,9 +137,9 @@ export default function SubmissionDetailsModal({
               <div className="mb-4">
                 <h4 className="text-sm text-gray-300 mb-1">Applicant</h4>
                 <p className="font-medium text-white">
-                  {submission.applicant.slice(0, 8)}...
-                  {submission.applicant.slice(-8)}
+                  {getApplicantAddress()}
                 </p>
+                <span className="text-xs text-gray-400">(Talent's wallet address)</span>
               </div>
 
               {submission.ranking && (
@@ -211,60 +222,79 @@ export default function SubmissionDetailsModal({
           </div>
 
           {(isOwner || isSponsor) && (
-            <div className="px-6 py-4 bg-black/30 flex justify-between">
-              <div>
-                {!rankingsApproved && isOwner && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => onRank?.(submission.id, 1)}
-                      className={`px-3 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded text-sm hover:bg-yellow-900/60 ${
-                        isRankingTaken(1) && 'opacity-50 cursor-not-allowed'
-                      }`}
-                      disabled={isRankingTaken(1)}
-                    >
-                      1st Place
-                    </button>
-                    <button
-                      onClick={() => onRank?.(submission.id, 2)}
-                      className={`px-3 py-1 bg-gray-700/40 text-gray-300 border border-gray-600/30 rounded text-sm hover:bg-gray-700/60 ${
-                        isRankingTaken(2) && 'opacity-50 cursor-not-allowed'
-                      }`}
-                      disabled={isRankingTaken(2)}
-                    >
-                      2nd Place
-                    </button>
-                    <button
-                      onClick={() => onRank?.(submission.id, 3)}
-                      className={`px-3 py-1 bg-amber-900/40 text-amber-300 border border-amber-700/30 rounded text-sm hover:bg-amber-900/60 ${
-                        isRankingTaken(3) && 'opacity-50 cursor-not-allowed'
-                      }`}
-                      disabled={isRankingTaken(3)}
-                    >
-                      3rd Place
-                    </button>
-                  </div>
-                )}
-              </div>
+            <div className="px-6 py-4 bg-black/30">
+              <div className="flex flex-col sm:flex-row justify-between gap-4">
+                <div>
+                  {!rankingsApproved && isOwner && !isSponsor && (
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        onClick={() => onRank?.(submission.id, 1)}
+                        className={`px-3 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded text-sm hover:bg-yellow-900/60 flex items-center gap-1 ${
+                          isRankingTaken(1) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        disabled={isRankingTaken(1)}
+                      >
+                        <FiAward /> 1st Place
+                      </button>
+                      <button
+                        onClick={() => onRank?.(submission.id, 2)}
+                        className={`px-3 py-1 bg-gray-700/40 text-gray-300 border border-gray-600/30 rounded text-sm hover:bg-gray-700/60 flex items-center gap-1 ${
+                          isRankingTaken(2) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        disabled={isRankingTaken(2)}
+                      >
+                        <FiAward /> 2nd Place
+                      </button>
+                      <button
+                        onClick={() => onRank?.(submission.id, 3)}
+                        className={`px-3 py-1 bg-amber-900/40 text-amber-300 border border-amber-700/30 rounded text-sm hover:bg-amber-900/60 flex items-center gap-1 ${
+                          isRankingTaken(3) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                        disabled={isRankingTaken(3)}
+                      >
+                        <FiAward /> 3rd Place
+                      </button>
+                    </div>
+                  )}
+                  
+                  {isSponsor && (
+                    <div className="text-gray-400 text-sm italic">
+                      As a sponsor, you can view submissions but only the bounty owner can rank them.
+                    </div>
+                  )}
+                </div>
 
-              <div className="flex gap-2">
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20"
-                >
-                  Close
-                </button>
-                {isOwner && submission.status === 'PENDING' && (
+                <div className="flex gap-2">
                   <button
-                    onClick={() => {
-                      onAccept?.(submission.id);
-                      onClose();
-                    }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    onClick={onClose}
+                    className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20"
                   >
-                    Accept Submission
+                    Close
                   </button>
-                )}
+                  {isOwner && !isSponsor && submission.status === 'PENDING' && (
+                    <button
+                      onClick={() => {
+                        onAccept?.(submission.id);
+                        onClose();
+                      }}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1"
+                    >
+                      <FiCheck /> Accept Submission
+                    </button>
+                  )}
+                </div>
               </div>
+              
+              {isOwner && !isSponsor && submission.ranking && !rankingsApproved && (
+                <div className="mt-4 pt-4 border-t border-gray-700">
+                  <button
+                    onClick={() => onRank?.(submission.id, null)}
+                    className="text-red-300 hover:text-red-200 text-sm flex items-center gap-1"
+                  >
+                    <FiX /> Remove ranking
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -272,3 +302,6 @@ export default function SubmissionDetailsModal({
     </div>
   );
 } 
+ 
+ 
+ 

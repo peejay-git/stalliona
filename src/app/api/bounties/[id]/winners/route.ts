@@ -45,15 +45,19 @@ export async function GET(
 
 /**
  * POST /api/bounties/[id]/winners
- * Select winners for a bounty
+ * Select winners for a bounty and process payments
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    console.log('POST /api/bounties/[id]/winners - Request received');
+    console.log('Params:', params);
+
     const { id } = params;
     if (!id) {
+      console.log('Error: Bounty ID is missing');
       return NextResponse.json(
         { error: 'Bounty ID is required' },
         { status: 400 }
@@ -61,30 +65,55 @@ export async function POST(
     }
 
     // Parse the request body
-    const { winnerAddresses, userPublicKey } = await request.json();
+    const body = await request.json();
+    console.log('Request body:', body);
+    const { winnerAddresses, userPublicKey } = body;
 
     // Validate required fields
     if (!winnerAddresses || !Array.isArray(winnerAddresses) || !userPublicKey) {
+      console.log('Error: Invalid request body', { winnerAddresses, userPublicKey });
       return NextResponse.json(
         { error: 'Winner addresses and user public key are required' },
         { status: 400 }
       );
     }
 
-    // Create bounty service
+    console.log('Selecting winners for bounty:', {
+      bountyId: id,
+      userPublicKey,
+      winnerAddresses
+    });
+
+    // Create bounty service with the user's public key
     const bountyService = new BountyService(userPublicKey);
     
-    // Select winners for the bounty
-    await bountyService.selectBountyWinners(
-      parseInt(id),
-      winnerAddresses,
-      userPublicKey
-    );
+    try {
+      // Select winners for the bounty - this will call the blockchain to process payments
+      await bountyService.selectBountyWinners(
+        parseInt(id),
+        winnerAddresses,
+        userPublicKey
+      );
 
-    return NextResponse.json({
-      success: true,
-      message: 'Winners selected successfully',
-    });
+      console.log('Winners selected successfully');
+      return NextResponse.json({
+        success: true,
+        message: 'Winners selected and payments are being processed',
+        winnerAddresses
+      });
+    } catch (error: any) {
+      console.error('Error selecting winners:', error);
+      
+      // Return a more specific error message
+      if (error.message?.includes('Only the bounty owner')) {
+        return NextResponse.json(
+          { error: 'Only the bounty owner can select winners' },
+          { status: 403 }
+        );
+      }
+      
+      throw error;
+    }
   } catch (error) {
     console.error(`Error selecting winners for bounty ${params.id}:`, error);
     if (error instanceof BlockchainError) {

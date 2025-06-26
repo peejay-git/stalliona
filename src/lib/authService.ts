@@ -305,18 +305,31 @@ export async function connectWallet(walletData: WalletData) {
   if (!user) throw new Error('User not logged in');
 
   const userRef = doc(db, 'users', user.uid);
+  const userDoc = await getDoc(userRef);
+  
+  if (!userDoc.exists()) {
+    throw new Error('User document not found');
+  }
+  
+  const userData = userDoc.data();
+  
+  // Prevent talents from overriding their stored wallet address
+  if (userData.role === 'talent' && userData.wallet && userData.wallet.address) {
+    throw new Error('Talents cannot change their wallet address after signup. Please use your original wallet address.');
+  }
+  
   await updateDoc(userRef, {
     wallet: walletData,
   });
 
   // Update user store
-  const userDoc = await getDoc(userRef);
-  if (userDoc.exists()) {
-    const userData = userDoc.data();
+  const updatedUserDoc = await getDoc(userRef);
+  if (updatedUserDoc.exists()) {
+    const updatedUserData = updatedUserDoc.data();
     const userProfile = {
       uid: user.uid,
-      ...userData.profileData,
-      role: userData.role,
+      ...updatedUserData.profileData,
+      role: updatedUserData.role,
       walletConnected: true,
     };
 
@@ -465,59 +478,3 @@ export async function forgotPassword(email: string) {
   }
 }
 // #endregion
-
-// Find user by wallet address and authenticate them
-export async function findUserByWalletAddress(walletAddress: string) {
-  try {
-    // Search for users with this wallet address
-    const usersRef = collection(db, 'users');
-    const q = query(
-      usersRef, 
-      where('wallet.publicKey', '==', walletAddress)
-    );
-    const querySnapshot = await getDocs(q);
-
-    // If no user found with this wallet address
-    if (querySnapshot.empty) {
-      return {
-        success: false,
-        message: 'No account found with this wallet address. Please register first.',
-      };
-    }
-
-    // User found with this wallet address
-    const userDoc = querySnapshot.docs[0];
-    const userData = userDoc.data();
-
-    // If user has an email, we need to sign them in
-    if (userData.email) {
-      // We can't directly sign in with wallet, but we can update the user store
-      // to reflect that the user is authenticated
-      const userProfile = {
-        uid: userDoc.id,
-        ...userData.profileData,
-        email: userData.email,
-        role: userData.role,
-        walletConnected: true,
-      };
-
-      // Update user store
-      useUserStore.getState().setUser(userProfile);
-      localStorage.setItem('user', JSON.stringify(userProfile));
-
-      return {
-        success: true,
-        message: 'Wallet authentication successful',
-        user: userProfile,
-      };
-    }
-
-    return {
-      success: false,
-      message: 'Account found but missing email. Please contact support.',
-    };
-  } catch (error) {
-    console.error('Error finding user by wallet address:', error);
-    throw error;
-  }
-}

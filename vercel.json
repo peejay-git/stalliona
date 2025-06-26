@@ -1,0 +1,19 @@
+{
+  "buildCommand": "prisma generate && next build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "framework": "nextjs",
+  "regions": ["all"],
+  "functions": {
+    "api/**/*": {
+      "memory": 1024,
+      "maxDuration": 10
+    }
+  },
+  "env": {
+    "NEXT_PUBLIC_APP_URL": "@app_url",
+    "NEXT_PUBLIC_TREZOR_CONTACT_EMAIL": "@trezor_contact_email",
+    "NEXT_PUBLIC_STELLAR_NETWORK": "@stellar_network",
+    "NEXT_PUBLIC_SOROBAN_RPC_URL": "@soroban_rpc_url",
+    "NEXT_PUBLIC_AUTH_DOMAIN": "@auth_domain"
+  }
+} 

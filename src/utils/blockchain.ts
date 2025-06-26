@@ -11,10 +11,10 @@ import toast from 'react-hot-toast';
 // Using the actual token contract addresses on the Stellar network
 const TOKEN_ADDRESSES: Record<string, string> = {
   // These are asset contract IDs for the Stellar testnet
-  USDC: 'CCW67TSZV3SSS2HXMBQ5JFGCKJNXKZM7UQUWUZPUTHXSTZLEO7SJMI75',
+  USDC: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
   NGNC: 'CBYFV4W2LTMXYZ3XWFX5BK2BY255DU2DSXNAE4FJ5A5VYUWGIBJDOIGG',
   KALE: 'CB23WRDQWGSP6YPMY4UV5C4OW5CBTXKYN3XEATG7KJEZCXMJBYEHOUOV',
-  XLM: 'CAS3J7GYLGXMF6TDJBBYYSE3HQ6BBSMLNUQ34T6TZMYMW2EVH34XOWMA',
+  XLM: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
 };
 
 // Max retries for blockchain operations
@@ -61,7 +61,6 @@ export async function createBountyOnChain({
   reward,
   distribution,
   submissionDeadline,
-  judgingDeadline,
 }: {
   userPublicKey: string;
   title: string;
@@ -69,7 +68,6 @@ export async function createBountyOnChain({
   reward: { amount: string; asset: string };
   distribution: Distribution[];
   submissionDeadline: number;
-  judgingDeadline: number;
 }): Promise<number> {
   try {
     // Display clear message to user
@@ -86,17 +84,11 @@ export async function createBountyOnChain({
       throw new Error('Wallet public key is missing');
     }
 
-    // Get the token address from the mapping
-    const tokenAddress = TOKEN_ADDRESSES[token];
-    if (!tokenAddress) {
-      toast.error(
-        `Token ${token} is not supported. Please select a different token.`,
-        { id: 'wallet-transaction' }
-      );
-      throw new Error(`Unsupported token: ${token}`);
-    }
+    // The token parameter is now already the address,
+    // so we don't need to look it up in the mapping
+    const tokenAddress = token;
 
-    console.log(`Using token address for ${token}: ${tokenAddress}`);
+    console.log(`Using token address: ${tokenAddress}`);
 
     // Get the network to confirm we're on the right one
     const network = await getNetwork().catch((error) => {
@@ -106,7 +98,7 @@ export async function createBountyOnChain({
     console.log('Current network:', network);
 
     // Initialize Soroban service with the user's public key
-    const sorobanService = new SorobanService(userPublicKey);
+    const sorobanService = new SorobanService();
 
     // Update toast with more specific message
     toast.loading('Requesting wallet approval for transaction...', {
@@ -118,13 +110,12 @@ export async function createBountyOnChain({
       // Use retry logic for blockchain operations
       const bountyId = await retryOperation(async () => {
         return await sorobanService.createBounty({
+          title,
           owner: userPublicKey,
           token: tokenAddress, // Use the resolved token address
-          reward: { amount: reward.amount, asset: reward.asset },
+          reward: { amount: reward.amount, asset: token }, // Use the token symbol
           distribution,
           submissionDeadline,
-          judgingDeadline,
-          title,
         });
       });
 
@@ -240,7 +231,7 @@ export async function createBountyOnChain({
 }
 
 /**
- * Submit work to a bounty on the blockchain
+ * Submit work to a bounty (database only approach)
  * @returns The submission ID
  */
 export async function submitWorkOnChain({
@@ -253,19 +244,16 @@ export async function submitWorkOnChain({
   content: string;
 }): Promise<string> {
   try {
-    // Initialize Soroban service with the user's public key
-    const sorobanService = new SorobanService(userPublicKey);
-
-    // Submit work to the bounty
-    await sorobanService.applyToBounty(userPublicKey, bountyId, content);
-
-    // For now, we'll use a combination of user address and bounty ID as the submission ID
-    // In a real implementation, the blockchain would return a unique ID
-    const submissionId = `${userPublicKey}-${bountyId}`;
+    // Generate a unique submission ID using user's address, bounty ID and timestamp
+    // This replaces the blockchain transaction
+    const timestamp = Date.now();
+    const submissionId = `${userPublicKey.substring(0, 8)}-${bountyId}-${timestamp}`;
+    
+    console.log(`Generated submission ID: ${submissionId} (database-only approach)`);
 
     return submissionId;
   } catch (error) {
-    console.error('Error submitting work on blockchain:', error);
+    console.error('Error generating submission ID:', error);
     throw error;
   }
 }
@@ -288,7 +276,7 @@ export async function updateBountyOnChain({
 }): Promise<void> {
   try {
     // Initialize Soroban service with the user's public key
-    const sorobanService = new SorobanService(userPublicKey);
+    const sorobanService = new SorobanService();
 
     // Convert distribution to the format expected by the smart contract
     const formattedDistribution = distribution
@@ -319,7 +307,7 @@ export async function deleteBountyOnChain({
 }): Promise<void> {
   try {
     // Initialize Soroban service with the user's public key
-    const sorobanService = new SorobanService(userPublicKey);
+    const sorobanService = new SorobanService();
 
     // Delete the bounty on the blockchain
     await sorobanService.deleteBounty(bountyId);

@@ -3,7 +3,7 @@
 import { ISupportedWallet } from '@creit.tech/stellar-wallets-kit';
 import { createContext, useContext, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { kit } from '../lib/wallet';
+import { initializeWallet, getWalletKit } from '../lib/wallet';
 
 // Wallet context type definition
 interface WalletContextType {
@@ -44,10 +44,13 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [networkPassphrase, setNetworkPassphrase] = useState<string | null>(
-    null
-  );
+  const [networkPassphrase, setNetworkPassphrase] = useState<string | null>(null);
   const [walletId, setWalletId] = useState<string | null>(null);
+
+  // Initialize wallet on mount
+  useEffect(() => {
+    initializeWallet();
+  }, []);
 
   // Check if wallet is connected on initial load
   useEffect(() => {
@@ -55,6 +58,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         // Check if browser environment is available
         if (typeof window === 'undefined') return;
+
+        const kit = getWalletKit();
+        if (!kit) return;
 
         // Try to reconnect using the creit kit
         try {
@@ -96,6 +102,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
     notAvailableText?: string;
   }): Promise<string | null> => {
     if (isConnected && publicKey) return publicKey;
+
+    const kit = getWalletKit();
+    if (!kit) return null;
 
     setIsConnecting(true);
 
@@ -153,6 +162,9 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Disconnect wallet
   const disconnect = () => {
+    const kit = getWalletKit();
+    if (!kit) return;
+
     try {
       kit.disconnect();
     } catch (e) {

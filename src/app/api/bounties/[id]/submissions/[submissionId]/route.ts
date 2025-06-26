@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { SorobanService } from '@/lib/soroban';
 import { BlockchainError } from '@/utils/error-handler';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 export const dynamic = 'force-dynamic';
+
+// Initialize the Soroban service
+// TODO: Pass in the publicKey of the currently signed in user
+const sorobanService = new SorobanService();
 
 /**
  * GET /api/bounties/[id]/submissions/[submissionId]
@@ -138,12 +143,12 @@ export async function PATCH(
       const submissionSnap = await getDoc(submissionRef);
       
       if (!submissionSnap.exists()) {
-        return NextResponse.json(
+      return NextResponse.json(
           { error: 'Submission not found' },
           { status: 404 }
-        );
-      }
-      
+      );
+    }
+
       // Update the status in the database
       await updateDoc(submissionRef, { 
         status: 'ACCEPTED',

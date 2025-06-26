@@ -30,7 +30,6 @@ export default function DashboardPage() {
   const fetchUser = useUserStore((state) => state.fetchUserFromFirestore);
   const [userSubmissions, setUserSubmissions] = useState<any[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
   
   // Determine if user is a sponsor or talent
   const isSponsor = user?.role === 'sponsor';
@@ -45,23 +44,17 @@ export default function DashboardPage() {
       }
 
       try {
-        // Only try to connect wallet if:
-        // 1. User has a wallet in Firestore
-        // 2. Wallet is not already connected in UI
-        // 3. We're not already trying to connect
-        if (user.walletConnected && !isConnected && !isLoadingWallet) {
+        // Check if user has a wallet in Firestore but it's not connected in the UI
+        if (user.walletConnected && !isConnected) {
           const userDoc = doc(db, 'users', user.uid);
           const userSnap = await getDoc(userDoc);
 
           if (userSnap.exists()) {
             const userData = userSnap.data();
             if (userData.wallet?.address) {
-              // Store the wallet address in local state for use in the app
-              // without requiring a reconnection
-              setWalletAddress(userData.wallet.address);
-              
-              // We don't need to automatically connect the wallet anymore
-              // The stored wallet address is sufficient for most operations
+              // Try to automatically connect the wallet
+              setIsLoadingWallet(true);
+              await connect({});
               setIsLoadingWallet(false);
             }
           }
@@ -73,16 +66,7 @@ export default function DashboardPage() {
     };
 
     loadUserData();
-  }, [user, fetchUser, isConnected, isLoadingWallet]);
-
-  // Set the default active tab based on user role
-  useEffect(() => {
-    if (isSponsor) {
-      setActiveTab('created');
-    } else if (isTalent) {
-      setActiveTab('submissions');
-    }
-  }, [isSponsor, isTalent]);
+  }, [user, fetchUser, isConnected, connect]);
 
   // Fetch bounties
   useEffect(() => {
@@ -304,7 +288,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className={`grid grid-cols-1 ${isSponsor || isTalent ? 'sm:grid-cols-2' : ''} divide-y sm:divide-y-0 sm:divide-x divide-gray-600`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-600">
               {/* Only show Bounties Created for sponsors */}
               {isSponsor && (
               <div className="p-6 text-center">
@@ -361,7 +345,6 @@ export default function DashboardPage() {
               </div>
               )}
 
-              {/* Always show Total Spent/Earned */}
               <div className="p-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mx-auto mb-2">
                   <svg
@@ -393,23 +376,30 @@ export default function DashboardPage() {
               {/* Only show Your Bounties tab for sponsors */}
               {isSponsor && (
               <button
-                  className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 text-white border-b-2 border-white`}
+                className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 ${
+                  activeTab === 'created'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={() => setActiveTab('created')}
               >
                 Your Bounties
               </button>
               )}
-              {/* Only show Your Submissions tab for talents */}
-              {isTalent && (
               <button
-                  className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 text-white border-b-2 border-white`}
+                className={`px-6 py-4 font-medium text-sm focus:outline-none transition-all duration-300 ${
+                  activeTab === 'submissions'
+                    ? 'text-white border-b-2 border-white'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                onClick={() => setActiveTab('submissions')}
               >
                 Your Submissions
               </button>
-              )}
             </div>
 
             <div className="p-6">
-              {isSponsor && (
+              {activeTab === 'created' && isSponsor && (
                 <div>
                   <h3 className="text-lg font-semibold mb-4 text-white">
                     Bounties You've Created
@@ -499,7 +489,7 @@ export default function DashboardPage() {
                 </div>
               )}
 
-              {isTalent && (
+              {(activeTab === 'submissions' || isTalent) && (
                 <div>
                   <h3 className="text-lg font-semibold mb-4 text-white">
                     Your Submissions

@@ -1,0 +1,4 @@
+import freighterApi from '@stellar/freighter-api';
+const { isConnected, requestAccess, getAddress, signTransaction, signAuthEntry, signMessage, getNetwork } = freighterApi;
+import { WalletNetwork } from '../types/index.js';
+import { WalletModuleInterface } from '../interfaces/index.js'; 

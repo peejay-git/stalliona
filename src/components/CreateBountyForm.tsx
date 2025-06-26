@@ -36,7 +36,7 @@ Briefly describe what this bounty is about.
 Any other details that might be helpful for the talent working on this bounty.`,
     category: 'DEVELOPMENT',
     skills: [] as string[],
-    token: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5', // Default to USDC address
+    token: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA', // Correct USDC contract address
     tokenSymbol: 'USDC', // Track the token symbol separately for display
     rewardAmount: '',
     submissionDeadline: '',
@@ -51,7 +51,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
       symbol: 'USDC',
       name: 'USD Coin',
       logo: '/images/tokens/usdc.svg',
-      address: 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5',
+      address: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
     },
     {
       symbol: 'NGNC',
@@ -242,7 +242,6 @@ Any other details that might be helpful for the talent working on this bounty.`,
           },
           distribution: formData.distribution,
           submissionDeadline: new Date(formData.submissionDeadline).getTime(),
-          judgingDeadline: new Date(formData.judgingDeadline).getTime(),
         });
 
         // Step 5: Store blockchain bounty ID
@@ -322,8 +321,8 @@ Any other details that might be helpful for the talent working on this bounty.`,
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6 bg-white/10 backdrop-blur-xl rounded-xl">
-      <h2 className="text-2xl font-bold text-white mb-6">Create New Bounty</h2>
+    <div className="bg-white/10 backdrop-blur-xl rounded-xl p-6">
+      <h2 className="text-2xl font-bold text-white mb-6">Bounty Details</h2>
 
       {step === 'form' && (
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -347,9 +346,14 @@ Any other details that might be helpful for the talent working on this bounty.`,
               name="description"
               value={formData.description}
               onChange={handleChange}
-              className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white h-32"
+              rows={12}
+              className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white resize-vertical"
+              placeholder="Use the template format for better structure..."
               required
             />
+            <p className="text-xs text-gray-400 mt-1">
+              Edit the template above to describe your bounty requirements, deliverables, and timeline.
+            </p>
           </div>
 
           {/* Category */}
@@ -589,7 +593,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
                     console.log('Public Key:', userPublicKey);
 
                     // Initialize Soroban service to log configuration
-                    const sorobanService = new SorobanService(userPublicKey);
+                    const sorobanService = new SorobanService();
 
                     // Get network
                     const network = await freighterApi.getNetwork();

@@ -52,7 +52,7 @@ export function BountyFilter({
 
   // Reset all filters
   const resetFilters = () => {
-    setStatusFilters([BountyStatus.OPEN, BountyStatus.IN_PROGRESS]);
+    setStatusFilters([BountyStatus.OPEN]);
     setCategoryFilters([]);
     setRewardRange({ min: 0, max: null });
     onReset();
@@ -78,17 +78,9 @@ export function BountyFilter({
         return baseStyle + (isActive 
           ? "bg-green-900/40 text-green-300 border-green-700/30"
           : "bg-white/5 text-gray-400 border-transparent hover:bg-white/10");
-      case BountyStatus.IN_PROGRESS:
-        return baseStyle + (isActive 
-          ? "bg-blue-900/40 text-blue-300 border-blue-700/30"
-          : "bg-white/5 text-gray-400 border-transparent hover:bg-white/10");
       case BountyStatus.COMPLETED:
         return baseStyle + (isActive 
           ? "bg-purple-900/40 text-purple-300 border-purple-700/30"
-          : "bg-white/5 text-gray-400 border-transparent hover:bg-white/10");
-      case BountyStatus.CANCELLED:
-        return baseStyle + (isActive 
-          ? "bg-red-900/40 text-red-300 border-red-700/30"
           : "bg-white/5 text-gray-400 border-transparent hover:bg-white/10");
       default:
         return baseStyle + (isActive 
@@ -102,19 +94,15 @@ export function BountyFilter({
     switch (status) {
       case BountyStatus.OPEN:
         return "Active";
-      case BountyStatus.IN_PROGRESS:
-        return "In Progress";
       case BountyStatus.COMPLETED:
         return "Completed";
-      case BountyStatus.CANCELLED:
-        return "Cancelled";
       default:
         return status;
     }
   };
 
   // Only display selected status filters for UI simplicity
-  const mainStatusFilters = [BountyStatus.OPEN, BountyStatus.IN_PROGRESS, BountyStatus.COMPLETED];
+  const mainStatusFilters = [BountyStatus.OPEN, BountyStatus.COMPLETED];
 
   return (
     <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl overflow-hidden text-white">

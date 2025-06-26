@@ -7,11 +7,9 @@ import {
   query,
   setDoc,
   where,
-  updateDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { SorobanService } from './soroban';
-import { BlockchainError } from '@/utils/error-handler';
 
 // For now we're using Firestore instead of Prisma since that seems to be what's currently set up
 // This service handles the coordination between blockchain and database
@@ -49,7 +47,20 @@ export class BountyService {
 
   constructor(publicKey?: string) {
     // Initialize with user's public key if available
-    this.sorobanService = new SorobanService(publicKey || '');
+    this.sorobanService = new SorobanService();
+  }
+
+  // Add token address mapping
+  private getTokenAddress(asset: string): string {
+    // Token address mapping for blockchain contract integration
+    const TOKEN_ADDRESSES: Record<string, string> = {
+      USDC: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
+      NGNC: 'CBYFV4W2LTMXYZ3XWFX5BK2BY255DU2DSXNAE4FJ5A5VYUWGIBJDOIGG',
+      KALE: 'CB23WRDQWGSP6YPMY4UV5C4OW5CBTXKYN3XEATG7KJEZCXMJBYEHOUOV',
+      XLM: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
+    };
+    
+    return TOKEN_ADDRESSES[asset] || asset;
   }
 
   /**
@@ -63,13 +74,14 @@ export class BountyService {
       category: string;
       skills: string[];
       extraRequirements?: string;
-      owner?: string;
-      title?: string;
-      reward?: { amount: string; asset: string };
-      deadline?: string;
-      submissionDeadline?: number;
-      judgingDeadline?: number;
-      status?: string;
+      owner: string;
+      title: string;
+      reward: string | { amount: string; asset: string };
+      deadline: string;
+      submissionDeadline: string;
+      judgingDeadline: string;
+      status: string;
+      updatedAt?: string;
     }
   ) {
     try {
@@ -77,59 +89,26 @@ export class BountyService {
         offChainData.extraRequirements = '';
       }
 
-      // Get on-chain data to include title and other essential fields
-      let onChainData: {
-        title?: string;
-        owner?: string;
-        reward?: { amount: string; asset: string };
-        submissionDeadline?: number;
-        judgingDeadline?: number;
-        status?: string;
-        deadline?: string;
-      } = {};
-      try {
-        const bounty = await this.sorobanService.getBounty(blockchainBountyId);
-        onChainData = {
-          title: bounty.title,
-          owner: bounty.owner,
-          reward: {
-            amount: bounty.reward.toString(),
-            asset: bounty.token
-          },
-          submissionDeadline: Number(bounty.submission_deadline),
-          judgingDeadline: Number(bounty.judging_deadline),
-          status: convertChainStatus(bounty.status),
-          deadline: new Date(Number(bounty.submission_deadline)).toISOString(),
-        };
-      } catch (error) {
-        console.error('Failed to fetch on-chain data, using placeholder data:', error);
-        // Use placeholder data if we can't fetch from blockchain
-        onChainData = {
-          title: 'Untitled Bounty',
-          owner: '',
-          reward: { amount: '0', asset: 'USDC' },
-          submissionDeadline: Date.now() + 7 * 24 * 60 * 60 * 1000, // 1 week from now
-          judgingDeadline: Date.now() + 14 * 24 * 60 * 60 * 1000, // 2 weeks from now
-          status: 'OPEN',
-          deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        };
+      if (!offChainData.updatedAt) {
+        offChainData.updatedAt = new Date().toISOString();
+      }
+
+      // Parse reward if it's a string
+      let reward = offChainData.reward;
+      if (typeof reward === 'string') {
+        try {
+          reward = JSON.parse(reward);
+        } catch (e) {
+          console.warn('Failed to parse reward string:', e);
+          reward = { amount: '0', asset: 'USDC' };
+        }
       }
 
       // Save to Firestore with the blockchain ID as the document ID
       await setDoc(doc(db, 'bounties', blockchainBountyId.toString()), {
         ...offChainData,
-        ...onChainData,
-        // Explicitly store all required fields in the database
-        // Prioritize data from the request over blockchain data
-        owner: offChainData.owner || onChainData.owner || '',
-        title: offChainData.title || onChainData.title || 'Untitled Bounty',
-        reward: offChainData.reward || onChainData.reward || { amount: '0', asset: 'USDC' },
-        submissionDeadline: onChainData.submissionDeadline || Date.now() + 7 * 24 * 60 * 60 * 1000,
-        judgingDeadline: onChainData.judgingDeadline || Date.now() + 14 * 24 * 60 * 60 * 1000,
-        status: onChainData.status || BountyStatus.OPEN,
-        deadline: offChainData.deadline || onChainData.deadline || new Date().toISOString(),
+        reward,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
       });
 
       return blockchainBountyId;
@@ -140,18 +119,15 @@ export class BountyService {
   }
 
   /**
-   * Get bounty details
+   * Get a complete bounty by combining blockchain and database data
    */
   async getBountyById(id: string | number): Promise<Bounty> {
     try {
       // Convert to number for blockchain call
       const numericId = typeof id === 'string' ? parseInt(id) : id;
-      console.log(`Fetching bounty with ID: ${numericId}`);
 
       // Get on-chain data
-      try {
       const onChainBounty = await this.sorobanService.getBounty(numericId);
-        console.log(`Successfully fetched on-chain bounty data: ${JSON.stringify(onChainBounty, null, 2)}`);
 
       // Get off-chain data from Firestore
       const docRef = doc(db, 'bounties', id.toString());
@@ -162,49 +138,39 @@ export class BountyService {
       }
 
       const offChainData = docSnap.data();
-        console.log(`Successfully fetched off-chain bounty data: ${JSON.stringify(offChainData, null, 2)}`);
 
       // Get creation date either from blockchain or database
       const createdDate = offChainData.createdAt || new Date().toISOString();
 
-        // Get status from either source, prioritizing blockchain
-        const status = convertChainStatus(onChainBounty.status) || offChainData.status || BountyStatus.OPEN;
-
       // Combine the data
       const combinedBounty: Bounty = {
         id: numericId,
-          // Prioritize blockchain data for critical fields
-          owner: onChainBounty.owner || offChainData.owner || '',
-          title: onChainBounty.title || offChainData.title || '',
-          description: offChainData.description || '',
+        owner: onChainBounty.owner,
+        title: onChainBounty.title,
+        description: offChainData.description,
         reward: {
-            amount: onChainBounty.reward?.toString() || offChainData.reward?.amount || '0',
-            asset: onChainBounty.token || offChainData.reward?.asset || 'USDC',
+          amount: onChainBounty.reward.toString(),
+          asset: onChainBounty.token,
         },
-          distribution: Array.from(onChainBounty.distribution || []).map(
+        distribution: Array.from(onChainBounty.distribution).map(
           (dist: any) => ({
             percentage: dist[0],
             position: dist[1],
           })
         ),
-          // Prioritize blockchain data for deadlines but fall back to database
-          submissionDeadline: Number(onChainBounty.submission_deadline) || offChainData.submissionDeadline || 0,
-          judgingDeadline: Number(onChainBounty.judging_deadline) || offChainData.judgingDeadline || 0,
-          status: status,
-          category: offChainData.category || '',
-          skills: offChainData.skills || [],
+        submissionDeadline: Number(onChainBounty.submission_deadline),
+        judgingDeadline: Number(onChainBounty.judging_deadline),
+        status: convertChainStatus(onChainBounty.status),
+        category: offChainData.category,
+        skills: offChainData.skills,
         created: createdDate,
-          updatedAt: offChainData.updatedAt || createdDate,
+        updatedAt: offChainData.updatedAt,
         deadline: new Date(
-            Number(onChainBounty.submission_deadline) || offChainData.submissionDeadline || Date.now()
+          Number(onChainBounty.submission_deadline)
         ).toISOString(),
       };
 
       return combinedBounty;
-      } catch (error) {
-        console.error(`Error fetching on-chain data for bounty ${id}:`, error);
-        throw error;
-      }
     } catch (error) {
       console.error(`Error fetching complete bounty ${id}:`, error);
       throw error;
@@ -236,42 +202,9 @@ export class BountyService {
               return null;
             }
 
-            // Get full bounty details with both on-chain and off-chain data
             return await this.getBountyById(bountyId);
           } catch (error) {
             console.error(`Error fetching bounty:`, error);
-            
-            // If we can't get the full details, try to return partial data
-            try {
-              // Try to get off-chain data at minimum
-              const docRef = doc(db, 'bounties', bounty.id.toString());
-              const docSnap = await getDoc(docRef);
-              
-              if (docSnap.exists()) {
-                const offChainData = docSnap.data();
-                
-                // Return partial bounty with at least the off-chain data
-                return {
-                  id: Number(bounty.id),
-                  owner: offChainData.owner || '',
-                  title: offChainData.title || 'Untitled Bounty',
-                  description: offChainData.description || '',
-                  reward: offChainData.reward || { amount: '0', asset: 'USDC' },
-                  distribution: [],
-                  submissionDeadline: offChainData.submissionDeadline || 0,
-                  judgingDeadline: offChainData.judgingDeadline || 0,
-                  status: offChainData.status || BountyStatus.OPEN,
-                  category: offChainData.category || '',
-                  skills: offChainData.skills || [],
-                  created: offChainData.createdAt || new Date().toISOString(),
-                  updatedAt: offChainData.updatedAt || new Date().toISOString(),
-                  deadline: offChainData.deadline || new Date().toISOString(),
-                } as Bounty;
-              }
-            } catch (dbError) {
-              console.error(`Failed to get off-chain data for bounty ${bounty.id}:`, dbError);
-            }
-            
             return null;
           }
         })
@@ -294,16 +227,16 @@ export class BountyService {
     content: string,
     submissionId: string,
     links?: string,
-    userId?: string | null
+    userId?: string
   ) {
     try {
       // Save to Firestore
       await setDoc(doc(db, 'submissions', submissionId), {
         bountyId: blockchainBountyId.toString(),
         applicantAddress,
-        userId: userId || null,
         content,
         links: links || '',
+        userId: userId || null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       });
@@ -316,15 +249,20 @@ export class BountyService {
   }
 
   /**
-   * Get all submissions for a bounty (database-only approach)
+   * Get all submissions for a bounty
    */
   async getBountySubmissions(bountyId: number | string) {
     try {
-      // Convert to number for consistency
+      // Convert to number for blockchain call
       const numericId =
         typeof bountyId === 'string' ? parseInt(bountyId) : bountyId;
 
-      // Get off-chain submission data from the database
+      // Get on-chain submissions
+      const onChainSubmissions = await this.sorobanService.getBountySubmissions(
+        numericId
+      );
+
+      // Get off-chain submission data
       const submissionsRef = collection(db, 'submissions');
       const q = query(
         submissionsRef,
@@ -332,27 +270,25 @@ export class BountyService {
       );
       const snapshot = await getDocs(q);
 
-      // If there are no submissions in the database, return empty array
-      if (snapshot.empty) {
-        return [];
-      }
+      // Map the submissions
+      const offChainSubmissions = snapshot.docs.reduce((acc, doc) => {
+        acc[doc.data().applicantAddress] = doc.data();
+        return acc;
+      }, {} as Record<string, any>);
 
-      // Map the submissions from the database
-      return snapshot.docs.map(doc => {
-        const data = doc.data();
-        console.log(`Submission data for ${doc.id}:`, data);
+      // Combine the data
+      return onChainSubmissions.map((submission) => {
+        const offChainData = offChainSubmissions[submission.applicant] || {};
+
         return {
-          id: doc.id,
+          id: submission.applicant, // Using applicant address as ID for now
           bountyId: numericId,
-          applicant: data.applicantAddress, // This is the talent's wallet address
-          userId: data.userId || null, // Include the userId field
-          submission: data.links || '',
-          content: data.content || '',
-          details: data.content || '',
-          links: data.links || '',
-          created: data.createdAt || new Date().toISOString(),
-          status: data.status || 'PENDING',
-          ranking: data.ranking || null,
+          applicant: submission.applicant,
+          content: submission.submission,
+          details: offChainData.content || '',
+          created: offChainData.createdAt || new Date().toISOString(),
+          status: 'PENDING', // Default status
+          ranking: offChainData.ranking || null, // Add ranking property
         };
       });
     } catch (error) {
@@ -370,7 +306,6 @@ export class BountyService {
   async getBountyWinners(bountyId: number | string): Promise<
     {
       applicantAddress: string;
-      userId: string | null;
       position: number;
       percentage: number;
       content: string;
@@ -408,7 +343,6 @@ export class BountyService {
         if (!winner) {
           return {
             applicantAddress: 'No winner selected',
-            userId: null,
             position: dist.position,
             percentage: dist.percentage,
             content: '',
@@ -420,12 +354,8 @@ export class BountyService {
           };
         }
 
-        // Use the applicant address for payment
-        const paymentAddress = winner.applicant;
-
         return {
-          applicantAddress: paymentAddress, // Use the wallet address for payment
-          userId: winner.userId,
+          applicantAddress: winner.applicant,
           position: dist.position,
           percentage: dist.percentage,
           content: winner.content,
@@ -475,40 +405,20 @@ export class BountyService {
       );
 
       // Update the database with the winner selections
+      // This would store additional information about the winners
       const submissions = await this.getBountySubmissions(bountyId);
 
       // Match addresses to submissions and assign rankings
-      const updates = winnerAddresses.map(async (address, index) => {
-        // Find submission by applicant address
-        const submission = submissions.find(
-          (s) => s.applicant === address
-        );
-        
+      winnerAddresses.forEach((address, index) => {
+        const submission = submissions.find((s) => s.applicant === address);
         if (submission) {
           // Update the submission with the ranking in the database
-          const submissionRef = doc(db, 'submissions', submission.id);
-          await updateDoc(submissionRef, {
-            ranking: index + 1,
-            status: 'ACCEPTED',
-            updatedAt: new Date().toISOString()
-          });
-          console.log(`Updated submission ${submission.id} with ranking ${index + 1}`);
-        } else {
-          console.warn(`Could not find submission for address ${address}`);
+          // This is a simplification - you would need to implement the actual database update
+          console.log(
+            `Updating submission ${submission.id} with ranking ${index + 1}`
+          );
         }
       });
-
-      // Wait for all updates to complete
-      await Promise.all(updates);
-
-      // Update bounty status to COMPLETED
-      const bountyRef = doc(db, 'bounties', bountyId.toString());
-      await updateDoc(bountyRef, {
-        status: 'COMPLETED',
-        updatedAt: new Date().toISOString()
-      });
-      
-      console.log(`Updated bounty ${bountyId} status to COMPLETED`);
     } catch (error) {
       console.error(`Error selecting winners for bounty ${bountyId}:`, error);
       throw error;

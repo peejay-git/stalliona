@@ -1,60 +1,84 @@
-'use client';
+// Types from @creit.tech/stellar-wallets-kit
+export type WalletNetwork = {
+  PUBLIC: string;
+  TESTNET: string;
+};
 
-import {
-  allowAllModules,
-  StellarWalletsKit,
-  WalletNetwork,
-} from '@creit.tech/stellar-wallets-kit';
-import { TrezorModule } from '@creit.tech/stellar-wallets-kit/modules/trezor.module';
-import {
-  WalletConnectAllowedMethods,
-  WalletConnectModule,
-} from '@creit.tech/stellar-wallets-kit/modules/walletconnect.module';
+export type StellarWalletsKit = {
+  setWallet: (id: string) => void;
+  getAddress: () => Promise<{ address: string }>;
+  getNetwork: () => Promise<{ networkPassphrase: string }>;
+  signTransaction: (transaction: string) => Promise<{ signedTxXdr: string; signerAddress?: string }>;
+  disconnect: () => void;
+  openModal: (options: any) => Promise<void>;
+};
 
-// Skip initialization on server-side
-const isBrowser = typeof window !== 'undefined';
+let kit: StellarWalletsKit | null = null;
 
-// Ensure environment variables are available
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
-const stellarNetwork = process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'Testnet';
-const trezorEmail = process.env.NEXT_PUBLIC_TREZOR_CONTACT_EMAIL || '';
-
-if (isBrowser) {
-  if (!appUrl) {
-    console.error('Missing required environment variable NEXT_PUBLIC_APP_URL');
+export const initializeWallet = async () => {
+  // Only initialize in browser environment
+  if (typeof window === 'undefined') {
+    return null;
   }
 
-  if (!stellarNetwork) {
-    console.error('Missing required environment variable NEXT_PUBLIC_STELLAR_NETWORK');
+  if (!process.env.NEXT_PUBLIC_APP_URL) {
+    throw new Error('Missing required environment variable NEXT_PUBLIC_APP_URL');
   }
 
-  if (!trezorEmail) {
-    console.error('Missing required environment variable NEXT_PUBLIC_TREZOR_CONTACT_EMAIL');
+  if (!process.env.NEXT_PUBLIC_STELLAR_NETWORK) {
+    throw new Error(
+      'Missing required environment variable NEXT_PUBLIC_STELLAR_NETWORK'
+    );
   }
-}
 
-export const kit = isBrowser 
-  ? new StellarWalletsKit({
-      network:
-        stellarNetwork === 'Public'
-          ? WalletNetwork.PUBLIC
-          : WalletNetwork.TESTNET,
-      modules: [
-        ...allowAllModules(),
-        new TrezorModule({
-          appUrl,
-          email: trezorEmail,
-        }),
-        new WalletConnectModule({
-          url: appUrl,
-          projectId: appUrl,
-          method: WalletConnectAllowedMethods.SIGN,
-          description:
-            'Stallion is a decentralized bounty platform built on the Stellar network',
-          name: 'Stallion',
-          icons: ['/favicon.svg'],
-          network: WalletNetwork.PUBLIC,
-        }),
-      ],
-    })
-  : null as unknown as StellarWalletsKit; // Type assertion for server-side rendering
+  if (!process.env.NEXT_PUBLIC_TREZOR_CONTACT_EMAIL) {
+    throw new Error(
+      'Missing required environment variable NEXT_PUBLIC_TREZOR_CONTACT_EMAIL'
+    );
+  }
+
+  // Only initialize once
+  if (!kit) {
+    try {
+      const {
+        StellarWalletsKit,
+        WalletNetwork,
+        allowAllModules,
+        TrezorModule,
+        WalletConnectModule,
+        WalletConnectAllowedMethods
+      } = await import('./wallet-imports').then(m => m.importWalletKit());
+
+      kit = new StellarWalletsKit({
+        network:
+          process.env.NEXT_PUBLIC_STELLAR_NETWORK === 'Public'
+            ? WalletNetwork.PUBLIC
+            : WalletNetwork.TESTNET,
+        modules: [
+          ...allowAllModules(),
+          new TrezorModule({
+            appUrl: process.env.NEXT_PUBLIC_APP_URL,
+            email: process.env.NEXT_PUBLIC_TREZOR_CONTACT_EMAIL,
+          }),
+          new WalletConnectModule({
+            url: process.env.NEXT_PUBLIC_APP_URL,
+            projectId: process.env.NEXT_PUBLIC_APP_URL,
+            method: WalletConnectAllowedMethods.SIGN,
+            description:
+              'Stallion is a decentralized bounty platform built on the Stellar network',
+            name: 'Stallion',
+            icons: ['/favicon.svg'],
+            network: WalletNetwork.PUBLIC,
+          }),
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to initialize wallet:', error);
+      return null;
+    }
+  }
+
+  return kit;
+};
+
+export const getWalletKit = () => kit;

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
+import PasswordInput from '@/components/PasswordInput';
 
 export default function ResetSuccessPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -151,24 +152,24 @@ export default function ResetSuccessPage() {
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
             <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">New Password</label>
-            <input
-              type="password"
-              id="password"
-              className="w-full rounded-lg border border-white/20 bg-white/10 text-white px-4 py-2"
+            <PasswordInput
+              name="password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Enter new password"
+              className="w-full rounded-lg border border-white/20 bg-white/10 text-white px-4 py-2"
               required
             />
           </div>
           
           <div className="mb-6">
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">Confirm New Password</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              className="w-full rounded-lg border border-white/20 bg-white/10 text-white px-4 py-2"
+            <PasswordInput
+              name="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm new password"
+              className="w-full rounded-lg border border-white/20 bg-white/10 text-white px-4 py-2"
               required
             />
             {passwordError && (

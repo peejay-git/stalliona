@@ -34,7 +34,7 @@ if (typeof window !== 'undefined') {
 export const networks = {
   testnet: {
     networkPassphrase: "Test SDF Network ; September 2015",
-    contractId: "CBEXRYEQIZMQDPVH3L5Q6EENMGTTX5PEFTVMPMLDGTW2E4QJ5GNXTTMX",
+    contractId: "CBSPZEBFRRVY3X6M4JVXF6F7DAMSDXTM5DPBYXBRPFXNYSVJQVPGCGPC",
   }
 } as const
 
@@ -42,17 +42,18 @@ export const Errors = {
   1: {message:"OnlyOwner"},
   2: {message:"InactiveBounty"},
   3: {message:"BountyDeadlinePassed"},
-  4: {message:"JudgingDeadlinePassed"},
-  5: {message:"DistributionMustSumTo100"},
-  6: {message:"SubmissionNotFound"},
-  7: {message:"JudgingDeadlineMustBeAfterSubmissionDeadline"},
-  8: {message:"NotEnoughWinners"},
-  9: {message:"InternalError"},
-  10: {message:"NotAdmin"},
-  11: {message:"AdminCannotBeZero"},
-  12: {message:"FeeAccountCannotBeZero"},
-  13: {message:"BountyHasSubmissions"},
-  14: {message:"InvalidDeadlineUpdate"}
+  4: {message:"BountyNotFound"},
+  5: {message:"SubmissionNotFound"},
+  6: {message:"JudgingDeadlinePassed"},
+  7: {message:"DistributionMustSumTo100"},
+  8: {message:"JudgingDeadlineMustBeAfterSubmissionDeadline"},
+  9: {message:"NotEnoughWinners"},
+  10: {message:"InternalError"},
+  11: {message:"NotAdmin"},
+  12: {message:"AdminCannotBeZero"},
+  13: {message:"FeeAccountCannotBeZero"},
+  14: {message:"BountyHasSubmissions"},
+  15: {message:"InvalidDeadlineUpdate"}
 }
 
 export type Status = {tag: "Active", values: void} | {tag: "InReview", values: void} | {tag: "Completed", values: void};
@@ -351,7 +352,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<Map<string, string>>>
+  }) => Promise<AssembledTransaction<Result<Map<string, string>>>>
 
   /**
    * Construct and simulate a get_bounty_applicants transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -371,7 +372,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<Array<string>>>
+  }) => Promise<AssembledTransaction<Result<Array<string>>>>
 
   /**
    * Construct and simulate a get_bounty_winners transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -391,7 +392,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<Array<string>>>
+  }) => Promise<AssembledTransaction<Result<Array<string>>>>
 
   /**
    * Construct and simulate a get_bounty_status transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -411,7 +412,7 @@ export interface Client {
      * Whether to automatically simulate the transaction when constructing the AssembledTransaction. Default: true
      */
     simulate?: boolean;
-  }) => Promise<AssembledTransaction<Status>>
+  }) => Promise<AssembledTransaction<Result<Status>>>
 
   /**
    * Construct and simulate a update_admin transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
@@ -613,7 +614,7 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAADgAAAAAAAAAJT25seU93bmVyAAAAAAAAAQAAAAAAAAAOSW5hY3RpdmVCb3VudHkAAAAAAAIAAAAAAAAAFEJvdW50eURlYWRsaW5lUGFzc2VkAAAAAwAAAAAAAAAVSnVkZ2luZ0RlYWRsaW5lUGFzc2VkAAAAAAAABAAAAAAAAAAYRGlzdHJpYnV0aW9uTXVzdFN1bVRvMTAwAAAABQAAAAAAAAASU3VibWlzc2lvbk5vdEZvdW5kAAAAAAAGAAAAAAAAACxKdWRnaW5nRGVhZGxpbmVNdXN0QmVBZnRlclN1Ym1pc3Npb25EZWFkbGluZQAAAAcAAAAAAAAAEE5vdEVub3VnaFdpbm5lcnMAAAAIAAAAAAAAAA1JbnRlcm5hbEVycm9yAAAAAAAACQAAAAAAAAAITm90QWRtaW4AAAAKAAAAAAAAABFBZG1pbkNhbm5vdEJlWmVybwAAAAAAAAsAAAAAAAAAFkZlZUFjY291bnRDYW5ub3RCZVplcm8AAAAAAAwAAAAAAAAAFEJvdW50eUhhc1N1Ym1pc3Npb25zAAAADQAAAAAAAAAVSW52YWxpZERlYWRsaW5lVXBkYXRlAAAAAAAADg==",
+      new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAADwAAAAAAAAAJT25seU93bmVyAAAAAAAAAQAAAAAAAAAOSW5hY3RpdmVCb3VudHkAAAAAAAIAAAAAAAAAFEJvdW50eURlYWRsaW5lUGFzc2VkAAAAAwAAAAAAAAAOQm91bnR5Tm90Rm91bmQAAAAAAAQAAAAAAAAAElN1Ym1pc3Npb25Ob3RGb3VuZAAAAAAABQAAAAAAAAAVSnVkZ2luZ0RlYWRsaW5lUGFzc2VkAAAAAAAABgAAAAAAAAAYRGlzdHJpYnV0aW9uTXVzdFN1bVRvMTAwAAAABwAAAAAAAAAsSnVkZ2luZ0RlYWRsaW5lTXVzdEJlQWZ0ZXJTdWJtaXNzaW9uRGVhZGxpbmUAAAAIAAAAAAAAABBOb3RFbm91Z2hXaW5uZXJzAAAACQAAAAAAAAANSW50ZXJuYWxFcnJvcgAAAAAAAAoAAAAAAAAACE5vdEFkbWluAAAACwAAAAAAAAARQWRtaW5DYW5ub3RCZVplcm8AAAAAAAAMAAAAAAAAABZGZWVBY2NvdW50Q2Fubm90QmVaZXJvAAAAAAANAAAAAAAAABRCb3VudHlIYXNTdWJtaXNzaW9ucwAAAA4AAAAAAAAAFUludmFsaWREZWFkbGluZVVwZGF0ZQAAAAAAAA8=",
         "AAAAAgAAAAAAAAAAAAAABlN0YXR1cwAAAAAAAwAAAAAAAAAAAAAABkFjdGl2ZQAAAAAAAAAAAAAAAAAISW5SZXZpZXcAAAAAAAAAAAAAAAlDb21wbGV0ZWQAAAA=",
         "AAAAAQAAAAAAAAAAAAAABkJvdW50eQAAAAAACwAAAAAAAAAKYXBwbGljYW50cwAAAAAD6gAAABMAAAAAAAAADGRpc3RyaWJ1dGlvbgAAA+wAAAAEAAAABAAAAAAAAAAQanVkZ2luZ19kZWFkbGluZQAAAAYAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAGcmV3YXJkAAAAAAALAAAAAAAAAAZzdGF0dXMAAAAAB9AAAAAGU3RhdHVzAAAAAAAAAAAAE3N1Ym1pc3Npb25fZGVhZGxpbmUAAAAABgAAAAAAAAALc3VibWlzc2lvbnMAAAAD7AAAABMAAAAQAAAAAAAAAAV0aXRsZQAAAAAAABAAAAAAAAAABXRva2VuAAAAAAAAEwAAAAAAAAAHd2lubmVycwAAAAPqAAAAEw==",
         "AAAAAAAAAAAAAAANX19jb25zdHJ1Y3RvcgAAAAAAAAIAAAAAAAAABWFkbWluAAAAAAAAEwAAAAAAAAALZmVlX2FjY291bnQAAAAAEwAAAAA=",
@@ -630,10 +631,10 @@ export class Client extends ContractClient {
         "AAAAAAAAAAAAAAAcZ2V0X2JvdW50aWVzX2J5X3N0YXR1c19jb3VudAAAAAEAAAAAAAAABnN0YXR1cwAAAAAH0AAAAAZTdGF0dXMAAAAAAAEAAAAE",
         "AAAAAAAAAAAAAAAKZ2V0X2JvdW50eQAAAAAAAQAAAAAAAAAJYm91bnR5X2lkAAAAAAAABAAAAAEAAAPpAAAH0AAAAAZCb3VudHkAAAAAAAM=",
         "AAAAAAAAAAAAAAAOZ2V0X3N1Ym1pc3Npb24AAAAAAAIAAAAAAAAACWJvdW50eV9pZAAAAAAAAAQAAAAAAAAABHVzZXIAAAATAAAAAQAAA+kAAAAQAAAAAw==",
-        "AAAAAAAAAAAAAAAWZ2V0X2JvdW50eV9zdWJtaXNzaW9ucwAAAAAAAQAAAAAAAAAJYm91bnR5X2lkAAAAAAAABAAAAAEAAAPsAAAAEwAAABA=",
-        "AAAAAAAAAAAAAAAVZ2V0X2JvdW50eV9hcHBsaWNhbnRzAAAAAAAAAQAAAAAAAAAJYm91bnR5X2lkAAAAAAAABAAAAAEAAAPqAAAAEw==",
-        "AAAAAAAAAAAAAAASZ2V0X2JvdW50eV93aW5uZXJzAAAAAAABAAAAAAAAAAlib3VudHlfaWQAAAAAAAAEAAAAAQAAA+oAAAAT",
-        "AAAAAAAAAAAAAAARZ2V0X2JvdW50eV9zdGF0dXMAAAAAAAABAAAAAAAAAAlib3VudHlfaWQAAAAAAAAEAAAAAQAAB9AAAAAGU3RhdHVzAAA=",
+        "AAAAAAAAAAAAAAAWZ2V0X2JvdW50eV9zdWJtaXNzaW9ucwAAAAAAAQAAAAAAAAAJYm91bnR5X2lkAAAAAAAABAAAAAEAAAPpAAAD7AAAABMAAAAQAAAAAw==",
+        "AAAAAAAAAAAAAAAVZ2V0X2JvdW50eV9hcHBsaWNhbnRzAAAAAAAAAQAAAAAAAAAJYm91bnR5X2lkAAAAAAAABAAAAAEAAAPpAAAD6gAAABMAAAAD",
+        "AAAAAAAAAAAAAAASZ2V0X2JvdW50eV93aW5uZXJzAAAAAAABAAAAAAAAAAlib3VudHlfaWQAAAAAAAAEAAAAAQAAA+kAAAPqAAAAEwAAAAM=",
+        "AAAAAAAAAAAAAAARZ2V0X2JvdW50eV9zdGF0dXMAAAAAAAABAAAAAAAAAAlib3VudHlfaWQAAAAAAAAEAAAAAQAAA+kAAAfQAAAABlN0YXR1cwAAAAAAAw==",
         "AAAAAAAAAAAAAAAMdXBkYXRlX2FkbWluAAAAAQAAAAAAAAAJbmV3X2FkbWluAAAAAAAAEwAAAAEAAAPpAAAAEwAAAAM=",
         "AAAAAAAAAAAAAAASdXBkYXRlX2ZlZV9hY2NvdW50AAAAAAABAAAAAAAAAA9uZXdfZmVlX2FjY291bnQAAAAAEwAAAAEAAAPpAAAAEwAAAAM=",
         "AAAAAAAAAAAAAAANY3JlYXRlX2JvdW50eQAAAAAAAAcAAAAAAAAABW93bmVyAAAAAAAAEwAAAAAAAAAFdG9rZW4AAAAAAAATAAAAAAAAAAZyZXdhcmQAAAAAAAsAAAAAAAAADGRpc3RyaWJ1dGlvbgAAA+oAAAPtAAAAAgAAAAQAAAAEAAAAAAAAABNzdWJtaXNzaW9uX2RlYWRsaW5lAAAAAAYAAAAAAAAAEGp1ZGdpbmdfZGVhZGxpbmUAAAAGAAAAAAAAAAV0aXRsZQAAAAAAABAAAAABAAAD6QAAAAQAAAAD",
@@ -660,10 +661,10 @@ export class Client extends ContractClient {
         get_bounties_by_status_count: this.txFromJSON<u32>,
         get_bounty: this.txFromJSON<Result<Bounty>>,
         get_submission: this.txFromJSON<Result<string>>,
-        get_bounty_submissions: this.txFromJSON<Map<string, string>>,
-        get_bounty_applicants: this.txFromJSON<Array<string>>,
-        get_bounty_winners: this.txFromJSON<Array<string>>,
-        get_bounty_status: this.txFromJSON<Status>,
+        get_bounty_submissions: this.txFromJSON<Result<Map<string, string>>>,
+        get_bounty_applicants: this.txFromJSON<Result<Array<string>>>,
+        get_bounty_winners: this.txFromJSON<Result<Array<string>>>,
+        get_bounty_status: this.txFromJSON<Result<Status>>,
         update_admin: this.txFromJSON<Result<string>>,
         update_fee_account: this.txFromJSON<Result<string>>,
         create_bounty: this.txFromJSON<Result<u32>>,

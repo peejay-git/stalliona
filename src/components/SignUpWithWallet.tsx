@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { registerTalent } from '@/lib/authService';
 import { useUserStore } from '@/lib/stores/useUserStore';
 import { auth } from '@/lib/firebase';
+import PasswordInput from './PasswordInput';
 
 type Props = {
     onSuccess?: () => void;
@@ -179,8 +180,7 @@ export function SignUpWithWallet({ onSuccess, walletAddress }: Props) {
                     
                     <div>
                         <label className="block text-sm text-gray-300 mb-1">Password</label>
-                        <input
-                            type="password"
+                        <PasswordInput
                             name="password"
                             value={formData.password}
                             onChange={handleChange}
@@ -194,8 +194,7 @@ export function SignUpWithWallet({ onSuccess, walletAddress }: Props) {
                     
                     <div>
                         <label className="block text-sm text-gray-300 mb-1">Confirm Password</label>
-                        <input
-                            type="password"
+                        <PasswordInput
                             name="confirmPassword"
                             value={formData.confirmPassword}
                             onChange={handleChange}

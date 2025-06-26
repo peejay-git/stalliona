@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Stallion
 
 A Web3 platform for connecting talent with Stellar blockchain projects, powered by Soroban smart contracts.
@@ -88,6 +87,7 @@ NEXT_PUBLIC_FIREBASE_APP_ID=your_firebase_app_id
 ```
 
 4. Firebase Setup:
+
    - Create a new Firebase project at [Firebase Console](https://console.firebase.google.com/)
    - Enable Authentication with Email/Password and Google Sign-in methods
    - Create a Firestore database
@@ -111,6 +111,7 @@ The application supports multiple authentication methods:
 3. **Wallet-based Authentication**: Connect Stellar wallet via Freighter
 
 The authentication flow is designed to ensure users connect their wallets:
+
 - After email/Google registration, users are prompted to connect their wallet
 - Users who connect their wallet first are prompted to either link to an existing account or create a new one
 
@@ -202,8 +203,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [Soroban Documentation](https://soroban.stellar.org)
 - [Next.js](https://nextjs.org)
 - [TailwindCSS](https://tailwindcss.com)
-- [Freighter Wallet](https://www.freighter.app) 
+- [Freighter Wallet](https://www.freighter.app)
 - [Firebase](https://firebase.google.com)
-=======
-# stalliona
->>>>>>> f58443301d57b923f145f3e3944289cd9593aaab
