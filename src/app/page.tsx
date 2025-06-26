@@ -6,7 +6,6 @@ import ParticleBackground from '@/components/ParticlesBackground';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { FaAngleRight } from "react-icons/fa6";
-import WalletLoginButton from '@/components/WalletLoginButton';
 
 
 
@@ -304,7 +303,6 @@ export default function Home() {
             <Link href="/bounties" className="backdrop-blur-xl bg-white/10 text-white font-medium py-2 px-6 rounded-lg border border-white/20 hover:bg-white/20 transition-colors">
               Browse Bounties
             </Link>
-            <WalletLoginButton className="backdrop-blur-xl bg-white/10 text-white font-medium py-2 px-6 rounded-lg border border-white/20 hover:bg-white/20 transition-colors flex items-center justify-center gap-2" />
           </div>
         </div>
       </section>

@@ -14,7 +14,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiAward, FiUser } from 'react-icons/fi';
+import { FiAward, FiUser, FiClock, FiBriefcase } from 'react-icons/fi';
+import { useUserStore } from '@/lib/stores/useUserStore';
 
 export default function BountyDetailPage({
   params,
@@ -26,18 +27,26 @@ export default function BountyDetailPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [isSponsor, setIsSponsor] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [checkingEditStatus, setCheckingEditStatus] = useState(true);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [rankingsApproved, setRankingsApproved] = useState(false);
-  const { isConnected } = useWallet();
+  const { isConnected, publicKey } = useWallet();
   const [winners, setWinners] = useState<any[]>([]);
   const [loadingWinners, setLoadingWinners] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSponsor, setIsSponsor] = useState(false);
-  const [userWalletConnected, setUserWalletConnected] = useState(false);
+  const [countdown, setCountdown] = useState({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    expired: false
+  });
+  const user = useUserStore((state) => state.user);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -60,6 +69,52 @@ export default function BountyDetailPage({
     fetchData();
   }, [params.id]);
 
+  // Update countdown timer
+  useEffect(() => {
+    if (!bounty || !bounty.deadline) return;
+
+    const calculateCountdown = () => {
+      const deadline = new Date(bounty.deadline).getTime();
+      const now = new Date().getTime();
+      const timeLeft = deadline - now;
+
+      if (timeLeft <= 0) {
+        // Deadline has passed
+        setCountdown({
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          expired: true
+        });
+        return;
+      }
+
+      // Calculate time units
+      const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+      setCountdown({
+        days,
+        hours,
+        minutes,
+        seconds,
+        expired: false
+      });
+    };
+
+    // Calculate initial countdown
+    calculateCountdown();
+
+    // Update countdown every second
+    const timer = setInterval(calculateCountdown, 1000);
+
+    // Clean up timer on unmount
+    return () => clearInterval(timer);
+  }, [bounty]);
+
   const fetchWinners = async (bountyId: number) => {
     try {
       setLoadingWinners(true);
@@ -75,61 +130,78 @@ export default function BountyDetailPage({
     }
   };
 
-  // Fetch submissions when bounty and userId are available
-  useEffect(() => {
-    const fetchSubmissions = async () => {
-      if (!bounty || !userId) return;
-
-      // Only fetch submissions if user is the bounty owner or has sponsor role
-      const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      
-      if (!userSnap.exists()) {
-        console.log('User document not found when fetching submissions');
-        return;
-      }
-      
-      const userData = userSnap.data();
-      const isSponsorRole = userData.role === 'sponsor';
-      const isOwnerRole = bounty.owner === userId;
-      
-      console.log('Submission access check:', {
+  // Fetch submissions for this bounty
+  const fetchSubmissions = async () => {
+    try {
+      setLoadingSubmissions(true);
+      console.log('Fetching submissions with headers:', {
         userId,
-        bountyOwner: bounty.owner,
-        isOwner: isOwnerRole,
-        isSponsor: isSponsorRole,
-        userRole: userData.role
+        userRole,
+        isSponsor
       });
       
-      if (!isOwnerRole && !isSponsorRole) {
-        console.log('User is neither owner nor sponsor, not fetching submissions');
-        return;
+      const response = await fetch(`/api/bounties/${params.id}/submissions`, {
+        headers: {
+          'Authorization': `Bearer ${userId}`,
+          'x-user-role': userRole || '',
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('API error response:', errorData);
+        throw new Error(errorData.error || 'Failed to fetch submissions');
       }
 
-      setLoadingSubmissions(true);
-      try {
-        console.log(`Fetching submissions for bounty ${params.id}`);
-        const response = await fetch(`/api/bounties/${params.id}/submissions`);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API error response:', errorText);
-          throw new Error('Failed to fetch submissions');
+      const data = await response.json();
+      console.log('DEBUG: Submissions data from API:', JSON.stringify(data, null, 2));
+      
+      // Validate each submission has an applicant address
+      const validatedData = data.map((submission: any) => {
+        if (!submission.applicant && !submission.walletAddress) {
+          console.error('ERROR: Missing applicant address in submission:', submission.id);
+          // Provide a fallback
+          return {
+            ...submission,
+            applicant: 'Unknown',
+            walletAddress: 'Unknown'
+          };
         }
+        return submission;
+      });
+      
+      setSubmissions(validatedData);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      toast.error(`Failed to load submissions: ${(error as Error).message}`);
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
 
-        const data = await response.json();
-        console.log('Submissions data received:', data);
-        setSubmissions(data || []);
-      } catch (err: any) {
-        console.error('Error fetching submissions:', err);
-        toast.error('Failed to load submissions');
-      } finally {
-        setLoadingSubmissions(false);
-      }
-    };
+  // Fetch submissions when bounty and userId are available
+  useEffect(() => {
+    if (!bounty || !userId) return;
+
+    // Allow both bounty owners and sponsors to view submissions
+    const isOwnerByWallet = bounty.owner === publicKey;
+    
+    console.log('Submission access check:', {
+      userId,
+      publicKey,
+      bountyOwner: bounty.owner,
+      isOwnerByWallet,
+      isSponsor,
+      userRole
+    });
+    
+    if (!isOwnerByWallet && !isSponsor) {
+      console.log('User is neither owner nor sponsor, not fetching submissions');
+      return;
+    }
 
     fetchSubmissions();
-  }, [bounty, userId, params.id]);
+  }, [bounty, userId, publicKey, params.id, isSponsor, userRole]);
 
   // Detect logged-in user and get their ID
   useEffect(() => {
@@ -138,9 +210,31 @@ export default function BountyDetailPage({
       if (user) {
         // If user is logged in, set the user ID (uid)
         setUserId(user.uid);
+        
+        // Check if the user is a sponsor by getting their role from Firestore
+        const checkUserRole = async () => {
+          try {
+            const userRef = doc(db, 'users', user.uid);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              const role = userData.role || userData?.profileData?.role;
+              setUserRole(role);
+              setIsSponsor(role === 'sponsor');
+              console.log('User role check:', { uid: user.uid, role, isSponsor: role === 'sponsor' });
+            }
+          } catch (error) {
+            console.error('Error checking user role:', error);
+          }
+        };
+        
+        checkUserRole();
       } else {
         // User is not logged in
         setUserId(null);
+        setUserRole(null);
+        setIsSponsor(false);
       }
     });
 
@@ -150,13 +244,13 @@ export default function BountyDetailPage({
   // Check if user can edit this bounty (is owner and no submissions)
   useEffect(() => {
     const checkEditPermission = async () => {
-      if (!bounty || !userId) {
+      if (!bounty || !publicKey) {
         setCanEdit(false);
         setCheckingEditStatus(false);
         return;
       }
 
-      if (bounty.owner !== userId) {
+      if (bounty.owner !== publicKey) {
         setCanEdit(false);
         setCheckingEditStatus(false);
         return;
@@ -174,63 +268,10 @@ export default function BountyDetailPage({
       }
     };
 
-    if (bounty && userId) {
+    if (bounty && publicKey) {
       checkEditPermission();
     }
-  }, [bounty, userId, params.id]);
-
-  // Check if user is a sponsor
-  useEffect(() => {
-    const checkSponsorStatus = async () => {
-      if (!userId) return;
-      
-      try {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setIsSponsor(userData.role === 'sponsor');
-        }
-      } catch (err) {
-        console.error('Error checking sponsor status:', err);
-      }
-    };
-    
-    checkSponsorStatus();
-  }, [userId]);
-
-  // Check if user has a wallet connected or stored in their profile
-  useEffect(() => {
-    const checkUserWallet = async () => {
-      if (!userId) {
-        setUserWalletConnected(false);
-        return;
-      }
-      
-      try {
-        // First check if wallet is connected in the current session
-        if (isConnected) {
-          setUserWalletConnected(true);
-          return;
-        }
-        
-        // If not connected in session, check if user has a wallet in their profile
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await getDoc(userRef);
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          setUserWalletConnected(!!userData.wallet?.publicKey);
-        }
-      } catch (err) {
-        console.error('Error checking user wallet:', err);
-        setUserWalletConnected(false);
-      }
-    };
-    
-    checkUserWallet();
-  }, [userId, isConnected]);
+  }, [bounty, publicKey, params.id]);
 
   console.log('User ID:', userId); // Log the user ID to the console
   const formatDate = (dateString: string) => {
@@ -241,9 +282,58 @@ export default function BountyDetailPage({
     });
   };
 
+  // Check if bounty is expired
+  const isBountyExpired = () => {
+    if (!bounty) return false;
+    
+    const deadline = new Date(bounty.deadline);
+    const now = new Date();
+    return now > deadline;
+  };
+
+  // Update bounty status to COMPLETED if deadline has passed
+  useEffect(() => {
+    const updateExpiredBountyStatus = async () => {
+      if (!bounty || !isBountyExpired() || bounty.status === BountyStatus.COMPLETED) {
+        return; // No need to update if not expired or already completed
+      }
+
+      try {
+        console.log('Updating expired bounty to COMPLETED status');
+        
+        // Update the status in the database
+        const response = await fetch(`/api/bounties/${params.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${userId}`,
+          },
+          body: JSON.stringify({
+            status: BountyStatus.COMPLETED,
+          }),
+        });
+
+        if (response.ok) {
+          console.log('Successfully updated bounty status to COMPLETED');
+          // Update local state
+          setBounty({
+            ...bounty,
+            status: BountyStatus.COMPLETED,
+          });
+        } else {
+          console.error('Failed to update bounty status:', await response.text());
+        }
+      } catch (error) {
+        console.error('Error updating bounty status:', error);
+      }
+    };
+
+    updateExpiredBountyStatus();
+  }, [bounty, params.id, userId]);
+
   // Handle accept submission
   const handleAcceptSubmission = async (submissionId: string) => {
-    if (!bounty || !userId) return;
+    if (!bounty || !publicKey) return;
 
     try {
       const response = await fetch(
@@ -255,7 +345,7 @@ export default function BountyDetailPage({
           },
           body: JSON.stringify({
             action: 'accept',
-            senderPublicKey: userId, // This should be the wallet public key in production
+            senderPublicKey: publicKey, // Use wallet public key
           }),
         }
       );
@@ -296,7 +386,7 @@ export default function BountyDetailPage({
     submissionId: string,
     ranking: 1 | 2 | 3 | null
   ) => {
-    if (!bounty || !userId) return;
+    if (!bounty || !publicKey) return;
 
     try {
       const response = await fetch(
@@ -308,7 +398,7 @@ export default function BountyDetailPage({
           },
           body: JSON.stringify({
             action: 'rank',
-            senderPublicKey: userId,
+            senderPublicKey: publicKey, // Use wallet public key
             ranking,
           }),
         }
@@ -399,29 +489,72 @@ export default function BountyDetailPage({
 
   // Handle approve rankings function
   const handleApproveRankings = async () => {
-    if (!bounty || !userId) return;
+    if (!bounty || !publicKey) {
+      console.log('Cannot approve rankings - missing bounty or publicKey:', { bounty, publicKey });
+      return;
+    }
 
     // Check if all places (1st, 2nd, 3rd) have been assigned
     const hasFirstPlace = submissions.some((sub) => sub.ranking === 1);
-    const hasSecondPlace = submissions.some((sub) => sub.ranking === 2);
-    const hasThirdPlace = submissions.some((sub) => sub.ranking === 3);
 
     if (!hasFirstPlace) {
       toast.error('Please select a 1st place winner before approving');
       return;
     }
 
-    // Optional: require all three places to be filled
-    // if (!hasFirstPlace || !hasSecondPlace || !hasThirdPlace) {
-    //   toast.error('Please select 1st, 2nd, and 3rd place winners before approving');
-    //   return;
-    // }
+    // Get the distribution count from the bounty
+    const distributionCount = bounty.distribution.length;
+    
+    // Check if we have enough ranked submissions for the distribution
+    const rankedSubmissions = submissions
+      .filter(sub => sub.ranking !== null)
+      .sort((a, b) => (a.ranking || 0) - (b.ranking || 0));
+    
+    console.log('Ranked submissions:', rankedSubmissions);
+    
+    if (rankedSubmissions.length < distributionCount) {
+      toast.error(`Please rank at least ${distributionCount} submission(s) before approving`);
+      return;
+    }
 
     try {
-      // In a production application, we would call an API to store this state
-      // For now, we'll just update local state
+      toast.loading('Finalizing winners and sending payments...', { id: 'approve-rankings' });
+      
+      // Get the wallet addresses of the winners in order of their ranking
+      const winnerAddresses = rankedSubmissions
+        .slice(0, distributionCount)
+        .map(sub => sub.walletAddress || sub.applicant);
+      
+      console.log('Sending request to select winners:', {
+        bountyId: params.id,
+        winnerAddresses,
+        userPublicKey: publicKey
+      });
+
+      // Call the API to select winners and process payments on the blockchain
+      const response = await fetch(`/api/bounties/${params.id}/winners`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          winnerAddresses,
+          userPublicKey: publicKey, // Use wallet public key
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('API error response:', error);
+        throw new Error(error.error || 'Failed to select winners');
+      }
+
+      const result = await response.json();
+      console.log('API success response:', result);
+
+      // Update local state
       setRankingsApproved(true);
-      toast.success('Rankings have been approved and are now final!');
+      toast.success('Winners have been selected and payments are being processed!', { id: 'approve-rankings' });
 
       // Update bounty status to COMPLETED
       if (bounty) {
@@ -430,9 +563,13 @@ export default function BountyDetailPage({
           status: BountyStatus.COMPLETED,
         });
       }
+      
+      // Fetch the updated winners
+      fetchWinners(bounty.id);
+      
     } catch (err: any) {
       console.error('Error approving rankings:', err);
-      toast.error(err.message || 'Failed to approve rankings');
+      toast.error(err.message || 'Failed to approve rankings', { id: 'approve-rankings' });
     }
   };
 
@@ -458,14 +595,17 @@ export default function BountyDetailPage({
   if (loading) return <BountyDetailSkeleton />;
   if (!bounty) return <div className="text-center py-12">Bounty not found</div>;
 
-  const isOwner = userId === bounty.owner;
+  const isOwner = publicKey === bounty.owner;
+  const canViewSubmissions = isOwner || isSponsor;
   
   // Debug log for render values
   console.log('Render values:', {
     userId,
+    publicKey,
     bountyOwner: bounty.owner,
     isOwner,
     isSponsor,
+    userRole,
     submissions: submissions.length
   });
 
@@ -505,20 +645,29 @@ export default function BountyDetailPage({
 
         {/* Bounty header */}
         <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
-          <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
-            <div>
+          <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-6">
+            <div className="flex-1">
               <h1 className="text-2xl md:text-3xl font-bold mb-2">
                 {bounty.title}
               </h1>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 mb-2">
                 {getStatusBadge(bounty.status as BountyStatus)}
-                <span className="text-gray-300 text-sm">
-                  Posted on {formatDate(bounty.created)}
-                </span>
+                {isBountyExpired() && (
+                  <span className="px-3 py-1 bg-red-900/40 text-red-300 border border-red-700/30 rounded-full text-sm font-medium">
+                    Expired
+                  </span>
+                )}
+              </div>
+              <div className="text-gray-300 text-sm mb-2">
+                Posted on {formatDate(bounty.created)}
+              </div>
+              <div className="flex items-center gap-2 text-gray-300">
+                <FiBriefcase className="flex-shrink-0" />
+                <span>Sponsored by {bounty.sponsorName || 'Anonymous'}</span>
               </div>
             </div>
-            <div className="flex gap-2 items-center">
-              <div className="bg-white text-black py-3 px-6 rounded-lg text-center">
+            <div className="flex flex-col items-end">
+              <div className="bg-white text-black py-3 px-6 rounded-lg text-center mb-3 w-full md:w-auto">
                 <div className="text-sm opacity-90">Reward</div>
                 <div className="text-xl font-bold">
                   {assetSymbols[bounty.reward.asset] || ''}
@@ -529,7 +678,7 @@ export default function BountyDetailPage({
               {canEdit && (
                 <button
                   onClick={handleEditBounty}
-                  className="bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-3 px-4 rounded-lg hover:bg-white/20 transition-colors"
+                  className="bg-white/10 backdrop-blur-xl border border-white/20 text-white font-medium py-2 px-4 rounded-lg hover:bg-white/20 transition-colors w-full md:w-auto"
                 >
                   Edit Bounty
                 </button>
@@ -556,6 +705,32 @@ export default function BountyDetailPage({
                 </p>
               </div>
             </div>
+
+            {bounty.status === BountyStatus.OPEN && (
+              <div className="mb-6">
+                <h3 className="text-sm text-gray-300 mb-2 flex items-center gap-1">
+                  <FiClock /> Time Remaining:
+                </h3>
+                <div className="flex gap-2">
+                  <div className="bg-white/10 rounded-lg px-3 py-2 text-center w-16">
+                    <div className="text-xl font-mono">{countdown.days}</div>
+                    <div className="text-xs text-gray-400">Days</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg px-3 py-2 text-center w-16">
+                    <div className="text-xl font-mono">{countdown.hours.toString().padStart(2, '0')}</div>
+                    <div className="text-xs text-gray-400">Hours</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg px-3 py-2 text-center w-16">
+                    <div className="text-xl font-mono">{countdown.minutes.toString().padStart(2, '0')}</div>
+                    <div className="text-xs text-gray-400">Min</div>
+                  </div>
+                  <div className="bg-white/10 rounded-lg px-3 py-2 text-center w-16">
+                    <div className="text-xl font-mono">{countdown.seconds.toString().padStart(2, '0')}</div>
+                    <div className="text-xs text-gray-400">Sec</div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mb-6">
               <h3 className="text-sm text-gray-300 mb-1">Skills</h3>
@@ -648,25 +823,42 @@ export default function BountyDetailPage({
           </div>
         )}
 
-        {/* Submissions section (only visible to bounty owner or sponsor) */}
-        {(isOwner || isSponsor) && (
+        {/* Submissions section (visible to bounty owner and sponsors) */}
+        {canViewSubmissions && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 mb-8 text-white">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Submissions</h2>
+              <div>
+                <h2 className="text-xl font-semibold flex items-center gap-2">
+                  <FiUser className="text-blue-400" /> Submissions
+                  {submissions.length > 0 && (
+                    <span className="bg-blue-500/30 text-blue-200 border border-blue-500/50 rounded-full px-2 py-0.5 text-xs font-medium">
+                      {submissions.length}
+                    </span>
+                  )}
+                </h2>
+                <p className="text-gray-400 text-sm mt-1">
+                  {submissions.length === 0 
+                    ? "No submissions yet. Check back later!" 
+                    : isOwner 
+                      ? "Rank the best submissions to select winners and distribute rewards."
+                      : "View submissions for this bounty."}
+                </p>
+              </div>
+              
               {submissions.length > 0 &&
-                isOwner && 
+                isOwner &&
                 submissions.some((sub) => sub.ranking) &&
                 !rankingsApproved && (
                   <button
                     onClick={handleApproveRankings}
-                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                    className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
                   >
-                    Approve Rankings
+                    <FiAward /> Finalize Winners & Send Payments
                   </button>
                 )}
               {rankingsApproved && (
-                <div className="bg-green-900/40 text-green-300 border border-green-700/30 rounded-lg px-4 py-2">
-                  Rankings Finalized ✓
+                <div className="bg-green-900/40 text-green-300 border border-green-700/30 rounded-lg px-4 py-2 flex items-center gap-2">
+                  <FiAward /> Winners Finalized ✓
                 </div>
               )}
             </div>
@@ -677,7 +869,13 @@ export default function BountyDetailPage({
                 <p className="text-gray-300">Loading submissions...</p>
               </div>
             ) : submissions.length === 0 ? (
-              <p className="text-gray-300">No submissions yet.</p>
+              <div className="bg-white/5 rounded-lg p-8 text-center">
+                <div className="text-5xl mb-4">📭</div>
+                <p className="text-gray-300">No submissions yet.</p>
+                <p className="text-gray-400 text-sm mt-2">
+                  Check back later or share your bounty to get more visibility.
+                </p>
+              </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-600">
@@ -693,7 +891,7 @@ export default function BountyDetailPage({
                         Status
                       </th>
                       <th className="px-4 py-3 bg-black/20 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        Ranking
+                        {isOwner ? "Ranking" : "Position"}
                       </th>
                       <th className="px-4 py-3 bg-black/20 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Actions
@@ -704,8 +902,19 @@ export default function BountyDetailPage({
                     {submissions.map((submission) => (
                       <tr key={submission.id}>
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">
-                          {submission.applicant.slice(0, 6)}...
-                          {submission.applicant.slice(-4)}
+                          {(() => {
+                            // Get the applicant address
+                            const address = submission.walletAddress || submission.applicant;
+                            if (!address || address === 'Unknown') {
+                              return <span>Unknown applicant</span>;
+                            }
+                            return (
+                              <>
+                                {address.slice(0, 6)}...{address.slice(-4)}
+                                <div className="text-xs text-gray-400">Talent</div>
+                              </>
+                            );
+                          })()}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-300">
                           {formatDate(submission.created)}
@@ -778,9 +987,9 @@ export default function BountyDetailPage({
                         <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => openSubmissionModal(submission)}
-                            className="text-gray-300 hover:text-white mr-4"
+                            className="text-blue-400 hover:text-blue-300 mr-4"
                           >
-                            View
+                            View Details
                           </button>
 
                           {isOwner && submission.status.toString() === 'PENDING' && (
@@ -819,9 +1028,10 @@ export default function BountyDetailPage({
         )}
 
         {/* Submit Work section - Show form if open bounty, otherwise show message */}
-        {!isOwner && !isSponsor && bounty && (
+        {!canViewSubmissions && bounty && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl mb-8">
-            {bounty.status.toUpperCase() === BountyStatus.OPEN ? (
+            {bounty.status.toUpperCase() === BountyStatus.OPEN &&
+            isConnected ? (
               <SubmitWorkForm bountyId={Number(bounty.id)} />
             ) : (
               <div className="p-8">
@@ -829,7 +1039,9 @@ export default function BountyDetailPage({
                   Submit Work
                 </h2>
                 <p className="text-gray-300">
-                  This bounty is {bounty.status.toLowerCase()} and is not accepting submissions at this time.
+                  {!isConnected
+                    ? 'To submit work, please connect your Stellar wallet first.'
+                    : `This bounty is ${bounty.status.toLowerCase()} and is not accepting submissions at this time.`}
                 </p>
               </div>
             )}

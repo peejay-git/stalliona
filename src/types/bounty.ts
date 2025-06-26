@@ -36,19 +36,22 @@ export interface Bounty {
   };
   distribution: Distribution[];
   submissionDeadline: number;
-  judgingDeadline: number;
+  judgingDeadline?: number;
   status: BountyStatus;
   category: BountyCategory;
   skills: string[];
   created: string;
   updatedAt: string;
   deadline: string;
+  sponsorName?: string;
 }
 
 export interface Submission {
   id: string;
   bountyId: number;
   applicant: string;
+  walletAddress?: string;
+  userId?: string | null;
   content: string;
   created: string;
   status: BountyStatus;

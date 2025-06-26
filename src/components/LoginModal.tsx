@@ -5,7 +5,6 @@ import {
   forgotPassword,
   signInWithGoogle,
   walletToAccount,
-  findUserByWalletAddress,
 } from '@/lib/authService';
 import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/lib/stores/useUserStore';
@@ -182,53 +181,11 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
 
   const handleWalletConnect = async () => {
     if (isConnected) {
-      // First try to find user by wallet address
-      if (publicKey) {
-        try {
-          setIsWalletSubmitting(true);
-          const result = await findUserByWalletAddress(publicKey);
-          
-          if (result.success) {
-            toast.success('Login successful!');
-            onClose();
-            router.push('/dashboard');
-            return;
-          }
-          
-          // If no user found with this wallet, proceed to ask for email
-          setCurrentView('wallet-email');
-        } catch (error) {
-          console.error('Error with wallet login:', error);
-          setCurrentView('wallet-email');
-        } finally {
-          setIsWalletSubmitting(false);
-        }
-      } else {
       setCurrentView('wallet-email');
-      }
     } else {
       await connect({
         onWalletSelected: async (address: string) => {
-          try {
-            // Try to find user by wallet address first
-            setIsWalletSubmitting(true);
-            const result = await findUserByWalletAddress(address);
-            
-            if (result.success) {
-              toast.success('Login successful!');
-              onClose();
-              router.push('/dashboard');
-              return;
-            }
-            
-            // If no user found, proceed to ask for email
-            handleWalletSelected(address);
-          } catch (error) {
-            console.error('Error with wallet login:', error);
           handleWalletSelected(address);
-          } finally {
-            setIsWalletSubmitting(false);
-          }
         },
       });
     }
@@ -379,10 +336,14 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
       // Check if wallet needs to be connected
       // Use a small timeout to ensure the modal is closed before redirecting
       setTimeout(() => {
-        if (!userData.wallet) {
+        // For talents, check if they have a wallet address stored
+        const hasWalletAddress = userData.wallet && userData.wallet.address;
+        
+        if (!hasWalletAddress && userData.role === 'sponsor') {
+          // Only sponsors need to connect wallet if they don't have one
           router.push('/connect-wallet');
         } else {
-          // Always redirect to /dashboard regardless of role
+          // Talents with stored wallet addresses or sponsors with wallets go to dashboard
           router.push('/dashboard');
         }
       }, 100);

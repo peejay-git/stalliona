@@ -1,5 +1,3 @@
-'use client';
-
 import { Distribution } from '@/types/bounty';
 import { BlockchainError } from '@/utils/error-handler';
 import { WalletNetwork } from '@creit.tech/stellar-wallets-kit';
@@ -10,9 +8,6 @@ import {
   Client as SorobanClient,
 } from '../../packages/stallion/src/index';
 import { kit } from './wallet';
-
-// Check if we're in a browser environment
-const isBrowser = typeof window !== 'undefined';
 
 // Environment variables with defaults
 const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || '';
@@ -27,7 +22,6 @@ const SOROBAN_RPC_URL =
 
 // Only throw in development environment, in production we'll show appropriate UI
 if (
-  isBrowser &&
   process.env.NODE_ENV === 'development' &&
   (!CONTRACT_ID || !NETWORK || !SOROBAN_RPC_URL)
 ) {
@@ -139,7 +133,6 @@ export class SorobanService {
     reward,
     distribution,
     submissionDeadline,
-    judgingDeadline,
   }: {
     title: string;
     owner: string;
@@ -147,12 +140,15 @@ export class SorobanService {
     reward: { amount: string; asset: string };
     distribution: Distribution[];
     submissionDeadline: number;
-    judgingDeadline: number;
   }): Promise<number> {
     try {
       if (!this.publicKey) {
         throw new Error('Wallet not connected');
       }
+
+      // Set judging deadline to 365 days after submission deadline
+      // This effectively means "no deadline" as owners can select winners anytime
+      const calculatedJudgingDeadline = submissionDeadline + (365 * 24 * 60 * 60 * 1000);
 
       console.log(`=== CREATE BOUNTY DETAILS ===`);
       console.log(`Owner: ${owner}`);
@@ -166,8 +162,8 @@ export class SorobanService {
       );
       console.log(
         `Judging Deadline: ${new Date(
-          judgingDeadline
-        ).toISOString()} (${judgingDeadline})`
+          calculatedJudgingDeadline
+        ).toISOString()} (${calculatedJudgingDeadline})`
       );
       console.log(`Title: ${title}`);
       console.log(`Contract ID: ${this.contractId}`);
@@ -199,7 +195,7 @@ export class SorobanService {
         throw new Error('Submission deadline must be in the future');
       }
 
-      if (judgingDeadline <= submissionDeadline) {
+      if (calculatedJudgingDeadline <= submissionDeadline) {
         throw new Error('Judging deadline must be after submission deadline');
       }
 
@@ -216,7 +212,7 @@ export class SorobanService {
             dist.percentage,
           ]),
           submission_deadline: BigInt(submissionDeadline),
-          judging_deadline: BigInt(judgingDeadline),
+          judging_deadline: BigInt(calculatedJudgingDeadline),
           title: title,
         });
 
@@ -620,6 +616,13 @@ export class SorobanService {
         throw new Error('Wallet not connected');
       }
 
+      console.log('Selecting winners:', {
+        bountyId,
+        owner,
+        winners,
+        publicKey: this.publicKey
+      });
+
       // Create the transaction for selecting winners
       const tx = await this.sorobanClient.select_winners({
         owner,
@@ -627,19 +630,46 @@ export class SorobanService {
         winners,
       });
 
+      // Simulate the transaction first
       const result = await tx.simulate();
-      const sentTx = await result.signAndSend();
+      console.log('Simulation result:', result);
 
-      // await confirmation
+      // Check for simulation errors
+      const resultAny = result as any;
+      if (resultAny.simulationError || resultAny.error) {
+        const errorDetails = resultAny.simulationError || resultAny.error;
+        console.error('Simulation failed:', errorDetails);
+        throw new Error(`Simulation error: ${JSON.stringify(errorDetails)}`);
+      }
+
+      // Sign and send the transaction
+      console.log('Sending transaction to wallet for approval...');
+      const sentTx = await result.signAndSend({
+        signTransaction: (transaction) => {
+          return kit.signTransaction(transaction);
+        },
+      });
+      console.log('Transaction sent, waiting for result...');
+
+      // Check the result
       if (sentTx.result.isOk()) {
+        console.log('Winners selected successfully');
         return;
       }
 
-      throw new BlockchainError('Failed to select winners', 'CONTRACT_ERROR');
+      // If we get here, there was a problem
+      const errorMsg = sentTx.result.isErr()
+        ? sentTx.result.unwrapErr()
+        : 'Unknown error';
+      console.error('Transaction failed:', errorMsg);
+      throw new BlockchainError(
+        `Transaction failed: ${JSON.stringify(errorMsg)}`,
+        'CONTRACT_ERROR'
+      );
     } catch (error) {
       console.error('Error selecting winners:', error);
       throw new BlockchainError(
-        'Failed to select winners',
+        error instanceof Error ? error.message : 'Failed to select winners',
         'TRANSACTION_ERROR'
       );
     }

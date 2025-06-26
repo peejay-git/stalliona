@@ -11,6 +11,8 @@ import { registerSponsor } from '@/lib/authService';
 import { useUserStore } from '@/lib/stores/useUserStore';
 import { FirebaseError } from 'firebase/app';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
+import PasswordInput from '@/components/PasswordInput';
 
 export default function SponsorRegisterPage() {
   const router = useRouter();
@@ -246,8 +248,7 @@ export default function SponsorRegisterPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <input
-                  type="password"
+                <PasswordInput
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
@@ -257,8 +258,7 @@ export default function SponsorRegisterPage() {
                 {fieldErrors.password && <p className="text-sm text-red-500 mt-1">{fieldErrors.password}</p>}
               </div>
               <div>
-                <input
-                  type="password"
+                <PasswordInput
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { BlockchainError } from '@/utils/error-handler';
 import { BountyService } from '@/lib/bountyService';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,10 +70,57 @@ export async function PUT(
       category,
       skills,
       extraRequirements,
+      owner,
+      title,
+      reward,
+      deadline,
+      submissionDeadline,
+      judgingDeadline,
+      status,
     } = await request.json();
 
-    // Create bounty service and update the database
+    // Create bounty service
     const bountyService = new BountyService();
+    
+    // Special handling for status updates due to expired deadline
+    if (status === 'COMPLETED') {
+      console.log('Updating bounty status to COMPLETED due to expired deadline');
+      
+      // Get current bounty data to verify deadline has passed
+      try {
+        const bountyRef = doc(db, 'bounties', id);
+        const bountySnap = await getDoc(bountyRef);
+        
+        if (bountySnap.exists()) {
+          const bountyData = bountySnap.data();
+          const deadline = bountyData.deadline || bountyData.submissionDeadline;
+          
+          if (deadline) {
+            const deadlineDate = new Date(deadline);
+            const now = new Date();
+            
+            // Allow the status update if deadline has passed or if user is admin
+            if (now > deadlineDate) {
+              console.log('Deadline has passed, allowing status update to COMPLETED');
+              
+              // Update the status in Firestore directly
+              await updateDoc(bountyRef, {
+                status: 'COMPLETED',
+                updatedAt: new Date().toISOString()
+              });
+              
+              return NextResponse.json({
+                success: true,
+                message: 'Bounty marked as COMPLETED due to expired deadline',
+                id,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error checking deadline for status update:', error);
+      }
+    }
     
     // Update off-chain data
     await bountyService.saveBountyToDatabase(
@@ -80,7 +129,15 @@ export async function PUT(
         description: description || '',
         category: category || '',
         skills: skills || [],
-        extraRequirements,
+        extraRequirements: extraRequirements || '',
+        owner: owner || '',
+        title: title || '',
+        reward: reward || '',
+        deadline: deadline || '',
+        submissionDeadline: submissionDeadline || '',
+        judgingDeadline: judgingDeadline || '',
+        status: status || 'OPEN',
+        updatedAt: new Date().toISOString()
       }
     );
 

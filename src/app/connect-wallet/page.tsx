@@ -5,65 +5,72 @@ import { useProtectedRoute } from '@/hooks/useProtectedRoute';
 import { useWallet } from '@/hooks/useWallet';
 import { connectWallet } from '@/lib/authService';
 import { useUserStore } from '@/lib/stores/useUserStore';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { motion } from 'framer-motion';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '@/lib/firebase';
 
 export default function ConnectWalletPage() {
   useProtectedRoute();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/dashboard';
-  
   const { connect, isConnected, publicKey, networkPassphrase } = useWallet();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingWallet, setIsCheckingWallet] = useState(true);
-  const [existingWalletAddress, setExistingWalletAddress] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [hasStoredWallet, setHasStoredWallet] = useState(false);
   const user = useUserStore((state) => state.user);
 
-  // Check if user already has a wallet in their profile
+  // Check user's wallet status from Firestore
   useEffect(() => {
-    const checkExistingWallet = async () => {
-      if (!user?.uid) {
-        setIsCheckingWallet(false);
-        return;
-      }
-
+    const checkUserWallet = async () => {
+      if (!auth.currentUser) return;
+      
       try {
-        // Check if user has a wallet in their profile
-        const userRef = doc(db, 'users', user.uid);
-        const userDoc = await getDoc(userRef);
+        const userRef = doc(db, 'users', auth.currentUser.uid);
+        const userSnap = await getDoc(userRef);
         
-        if (userDoc.exists()) {
-          // Check different possible wallet storage locations
-          if (userDoc.data().wallet?.publicKey) {
-            setExistingWalletAddress(userDoc.data().wallet.publicKey);
-          } else if (userDoc.data().walletAddress) {
-            setExistingWalletAddress(userDoc.data().walletAddress);
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+          setUserRole(userData.role);
+          
+          const hasWalletAddress = userData.wallet && userData.wallet.address;
+          setHasStoredWallet(hasWalletAddress);
+          
+          // If talent has a wallet address stored, redirect to dashboard
+          if (userData.role === 'talent' && hasWalletAddress) {
+            toast('You already have a wallet connected to your account.');
+            router.push('/dashboard');
           }
         }
       } catch (error) {
-        console.error('Error checking existing wallet:', error);
-      } finally {
-        setIsCheckingWallet(false);
+        console.error('Error checking user wallet:', error);
       }
     };
-
-    checkExistingWallet();
-  }, [user?.uid]);
-
-  // Redirect if user already has a wallet connected and we're not forcing reconnection
-  useEffect(() => {
-    const shouldRedirect = searchParams.get('force') !== 'true' && 
-                          (user?.walletConnected || existingWalletAddress);
     
-    if (!isCheckingWallet && shouldRedirect) {
-      router.push(returnUrl);
+    checkUserWallet();
+  }, [router]);
+
+  // Redirect if user already has a wallet connected (legacy check)
+  useEffect(() => {
+    if (user?.walletConnected) {
+      router.push('/dashboard');
     }
-  }, [user?.walletConnected, existingWalletAddress, isCheckingWallet, router, returnUrl, searchParams]);
+  }, [user?.walletConnected, router]);
+
+  // Don't render the page for talents with stored wallets
+  if (userRole === 'talent' && hasStoredWallet) {
+    return (
+      <Layout>
+        <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
+          <div className="max-w-md mx-auto w-full text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
+            <p className="text-white mt-4">Redirecting to dashboard...</p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   const handleConnectWallet = async () => {
     try {
@@ -82,21 +89,26 @@ export default function ConnectWalletPage() {
       await connectWallet({
         address: publicKey,
         publicKey: publicKey,
-        network: networkPassphrase || 'TESTNET',
+        network: networkPassphrase!,
       });
 
       toast.success('Wallet connected successfully!');
-      router.push(returnUrl);
-    } catch (error) {
+      router.push('/dashboard');
+    } catch (error: any) {
       console.error('Error connecting wallet:', error);
+      if (error.message?.includes('Talents cannot change their wallet address')) {
+        toast.error('You already have a wallet address linked to your account.');
+        router.push('/dashboard');
+      } else {
       toast.error('Failed to connect wallet. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleSkip = () => {
-    router.push(returnUrl);
+    router.push('/dashboard');
   };
 
   const containerVariants = {
@@ -113,20 +125,6 @@ export default function ConnectWalletPage() {
     hidden: { y: 20, opacity: 0 },
     visible: { y: 0, opacity: 1 },
   };
-
-  // Show loading state while checking for existing wallet
-  if (isCheckingWallet) {
-    return (
-      <Layout>
-        <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 flex flex-col justify-center">
-          <div className="max-w-md mx-auto w-full text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
-            <p className="text-white mt-4">Checking wallet status...</p>
-          </div>
-        </div>
-      </Layout>
-    );
-  }
 
   return (
     <Layout>
@@ -155,21 +153,6 @@ export default function ConnectWalletPage() {
               >
                 Connect your Stellar wallet to complete your profile setup
               </motion.p>
-
-              {existingWalletAddress && (
-                <motion.div
-                  className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4 mb-6"
-                  variants={itemVariants}
-                >
-                  <p className="text-white font-medium">Existing Wallet Found</p>
-                  <p className="text-sm text-gray-300 break-all mt-1">
-                    {existingWalletAddress}
-                  </p>
-                  <p className="text-xs text-blue-300 mt-2">
-                    You already have a wallet connected to your account. You can continue using this wallet or connect a different one.
-                  </p>
-                </motion.div>
-              )}
 
               {isConnected ? (
                 <motion.div
@@ -209,9 +192,7 @@ export default function ConnectWalletPage() {
                       <span className="w-2 h-2 rounded-full bg-black animate-bounce"></span>
                     </span>
                   ) : isConnected ? (
-                    'Save Wallet Connection'
-                  ) : existingWalletAddress ? (
-                    'Connect Different Wallet'
+                    'connect with wallet'
                   ) : (
                     'Connect Wallet'
                   )}
@@ -223,7 +204,7 @@ export default function ConnectWalletPage() {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  {existingWalletAddress ? 'Continue with Existing Wallet' : 'Skip for Now'}
+                  Skip for Now
                 </motion.button>
               </motion.div>
 

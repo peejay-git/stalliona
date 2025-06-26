@@ -13,6 +13,7 @@ import toast from 'react-hot-toast';
 import { FaGithub, FaLinkedin, FaXTwitter } from 'react-icons/fa6';
 import { FcGoogle } from 'react-icons/fc';
 import { IoClose } from 'react-icons/io5';
+import PasswordInput from './PasswordInput';
 
 const defaultSkills = [
   'Frontend',
@@ -558,8 +559,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                 <div>
-                  <input
-                    type="password"
+                  <PasswordInput
                     name="password"
                     placeholder="Password"
                     className="input"
@@ -573,8 +573,7 @@ export default function RegisterModal({ isOpen, onClose }: Props) {
                   )}
                 </div>
                 <div>
-                  <input
-                    type="password"
+                  <PasswordInput
                     name="confirmPassword"
                     placeholder="Confirm Password"
                     className="input"

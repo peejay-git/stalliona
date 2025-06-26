@@ -31,10 +31,23 @@ export async function saveBounty(bounty: any) {
 export async function getAllBounties() {
     const q = query(collection(db, 'bounties'), orderBy('createdAt', 'desc'));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({
+    return snapshot.docs.map((doc) => {
+        const data = doc.data();
+        return {
         id: doc.id,
-        ...doc.data(),
-    }));
+            title: data.title || 'Untitled Bounty',
+            description: data.description || '',
+            category: data.category || 'OTHER',
+            skills: data.skills || [],
+            reward: data.reward || { amount: '0', asset: 'USDC' },
+            status: data.status || 'OPEN',
+            deadline: data.deadline || new Date().toISOString(),
+            owner: data.owner || '',
+            createdAt: data.createdAt || { seconds: Date.now() / 1000, nanoseconds: 0 },
+            updatedAt: data.updatedAt || { seconds: Date.now() / 1000, nanoseconds: 0 },
+            ...data
+        };
+    });
 }
 
 
@@ -63,18 +76,24 @@ export async function getBountyById(id: string): Promise<Bounty | null> {
 }
 
 export async function getBountiesByOwner(ownerId: string): Promise<Bounty[]> {
+    console.log(`Fetching bounties for owner: ${ownerId}`);
+    
     const q = query(
         collection(db, 'bounties'),
         where('owner', '==', ownerId)
     );
 
     const snapshot = await getDocs(q);
+    console.log(`Found ${snapshot.docs.length} bounties for owner ${ownerId}`);
+    
     return snapshot.docs.map(doc => {
         const data = doc.data();
+        console.log(`Bounty data for ID ${doc.id}:`, data);
+        
         return {
             id: parseInt(doc.id), // Convert string ID to number
             owner: data.owner || '',
-            title: data.title || '',
+            title: data.title || 'Untitled Bounty',
             description: data.description || '',
             reward: data.reward || { amount: '0', asset: 'XLM' },
             distribution: data.distribution || [],
@@ -83,7 +102,7 @@ export async function getBountiesByOwner(ownerId: string): Promise<Bounty[]> {
             status: data.status || BountyStatus.OPEN,
             category: data.category || BountyCategory.OTHER,
             skills: data.skills || [],
-            created: data.created || new Date().toISOString(),
+            created: data.createdAt || new Date().toISOString(),
             updatedAt: data.updatedAt || new Date().toISOString(),
             deadline: data.deadline || new Date().toISOString()
         };

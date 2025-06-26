@@ -1,13 +1,11 @@
-'use client';
-
 import { useState } from 'react';
 import { FiEye, FiEyeOff } from 'react-icons/fi';
 
 interface PasswordInputProps {
   name: string;
+  placeholder?: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  placeholder?: string;
   className?: string;
   required?: boolean;
   icon?: React.ReactNode;
@@ -15,10 +13,10 @@ interface PasswordInputProps {
 
 export default function PasswordInput({
   name,
+  placeholder = "Password",
   value,
   onChange,
-  placeholder = 'Password',
-  className = '',
+  className = "input w-full",
   required = false,
   icon,
 }: PasswordInputProps) {
@@ -32,20 +30,21 @@ export default function PasswordInput({
         </div>
       )}
       <input
-        type={showPassword ? 'text' : 'password'}
+        type={showPassword ? "text" : "password"}
         name={name}
+        placeholder={placeholder}
         value={value}
         onChange={onChange}
-        placeholder={placeholder}
-        className={`${className} ${icon ? 'pl-10' : ''}`}
+        className={`${className} ${icon ? "pl-10" : ""}`}
         required={required}
       />
-      <button
+      <button 
         type="button"
-        onClick={() => setShowPassword(!showPassword)}
+        onClick={() => setShowPassword(prev => !prev)}
         className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-300 hover:text-white focus:outline-none"
+        aria-label={showPassword ? "Hide password" : "Show password"}
       >
-        {showPassword ? <FiEyeOff /> : <FiEye />}
+        {showPassword ? <FiEyeOff size={18} /> : <FiEye size={18} />}
       </button>
     </div>
   );

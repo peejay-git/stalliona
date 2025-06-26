@@ -4,7 +4,7 @@ import { BountyCard } from '@/components/BountyCard';
 import { BountyFilter } from '@/components/BountyFilter';
 // import { mockBounties } from '@/utils/mock-data';
 import Layout from '@/components/Layout';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { getAllBounties, getFilteredBounties } from '@/lib/bounties';
 import { BountyCardSkeleton } from '@/components/BountyCardSkeleton';
 import { BountyCategory, BountyStatus, Bounty } from '@/types/bounty';
@@ -40,7 +40,6 @@ const adaptBounty = (apiBounty: ApiBounty): Bounty => {
     reward: apiBounty.reward || { amount: '0', asset: 'USDC' },
     distribution: [],
     submissionDeadline: 0,
-    judgingDeadline: 0,
     status: (apiBounty.status as BountyStatus) || BountyStatus.OPEN,
     category: (apiBounty.category as BountyCategory) || BountyCategory.OTHER,
     skills: apiBounty.skills || [],
@@ -59,7 +58,6 @@ export default function BountiesPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilters, setStatusFilters] = useState<BountyStatus[]>([
     BountyStatus.OPEN,
-    BountyStatus.IN_PROGRESS,
   ]);
   const [categoryFilters, setCategoryFilters] = useState<BountyCategory[]>([]);
   const [rewardRange, setRewardRange] = useState<{ min: number; max: number | null }>({ min: 0, max: null });
@@ -69,6 +67,10 @@ export default function BountiesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [filter, setFilter] = useState<string | null>(null);
+  const [showCompleted, setShowCompleted] = useState(false);
+  const itemsPerPage = 10; // Show 10 bounties per page
 
   // Handle window resize and initial client-side mounted state
   useEffect(() => {
@@ -118,14 +120,10 @@ export default function BountiesPage() {
   }, []);
 
   const filteredAndSorted = [...bounties]
-    .filter((bounty) => {
-      const title = bounty.title || '';
-      const description = bounty.description || '';
-      const term = searchTerm.toLowerCase();
-      
-      return title.toLowerCase().includes(term) || 
-             description.toLowerCase().includes(term);
-    })
+    .filter((bounty) =>
+      (bounty.title?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (bounty.description?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+    )
     .sort((a, b) => {
       switch (sortBy) {
         case 'reward-high':
@@ -149,16 +147,61 @@ export default function BountiesPage() {
       }
     });
 
+  // Filter bounties based on selected filter and completed status
+  const filteredBounties = useMemo(() => {
+    let filtered = bounties;
+    
+    // Apply category filter if selected
+    if (filter) {
+      filtered = filtered.filter(bounty => bounty.category === filter);
+    }
+    
+    // Check if bounties are completed (either by status or by passed deadline)
+    const isCompleted = (bounty: any) => {
+      // Completed by status
+      if (bounty.status === 'COMPLETED') return true;
+      
+      // Completed by passed deadline
+      if (bounty.deadline && typeof bounty.deadline === 'string') {
+        const deadline = new Date(bounty.deadline);
+        const now = new Date();
+        return now > deadline;
+      }
+      
+      return false;
+    };
+    
+    // Filter based on status filters
+    if (statusFilters.includes(BountyStatus.OPEN) && !statusFilters.includes(BountyStatus.COMPLETED)) {
+      filtered = filtered.filter(bounty => !isCompleted(bounty));
+    } else if (!statusFilters.includes(BountyStatus.OPEN) && statusFilters.includes(BountyStatus.COMPLETED)) {
+      filtered = filtered.filter(bounty => isCompleted(bounty));
+      }
+    
+    return filtered;
+  }, [bounties, filter, statusFilters]);
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredBounties.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedBounties = filteredBounties.slice(startIndex, endIndex);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of bounty list
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <Layout>
       <div className="min-h-screen pb-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-8 pb-16">
           {/* Header section */}
-          <div className="mb-8">
-            <h1 className="text-3xl md:text-4xl font-bold mb-4 text-white">Explore Bounties</h1>
-            <p className="text-gray-300 max-w-3xl">
-              Find and apply for bounties that match your skills. Projects are looking for developers, designers, and content creators to help build on the Stellar ecosystem.
-            </p>
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-white mb-2">Browse Bounties</h1>
+            <p className="text-gray-300">Find and apply for bounties that match your skills</p>
           </div>
 
           {/* Mobile filter toggle */}
@@ -206,17 +249,17 @@ export default function BountiesPage() {
               <div className="lg:sticky lg:top-8">
                 <BountyFilter 
                   statusFilters={statusFilters}
-                  categoryFilters={categoryFilters}
-                  rewardRange={rewardRange}
-                  skills={skills}
-                  setStatusFilters={setStatusFilters}
-                  setCategoryFilters={setCategoryFilters}
-                  setRewardRange={setRewardRange}
-                  setSkills={setSkills}
-                  onApply={() => {
-                    applyFilters();
-                    if (isMounted && windowWidth < 1024) setShowFilters(false);
-                  }} 
+                categoryFilters={categoryFilters}
+                rewardRange={rewardRange}
+                skills={skills}
+                setStatusFilters={setStatusFilters}
+                setCategoryFilters={setCategoryFilters}
+                setRewardRange={setRewardRange}
+                setSkills={setSkills}
+                onApply={() => {
+                  applyFilters();
+                  if (isMounted && windowWidth < 1024) setShowFilters(false);
+                }} 
                   onReset={onReset} 
                 />
               </div>
@@ -268,7 +311,7 @@ export default function BountiesPage() {
               {/* Bounty count */}
               <div className="mb-6">
                 <p className="text-gray-300">
-                  Showing <span className="font-medium text-white">{filteredAndSorted.length}</span> bounties
+                  Showing <span className="font-medium text-white">{filteredBounties.length}</span> bounties
                 </p>
               </div>
 
@@ -276,26 +319,48 @@ export default function BountiesPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {loading
                   ? Array.from({ length: 3 }).map((_, i) => <BountyCardSkeleton key={i} />)
-                  : bounties.length === 0 ? (
-                    <p className="text-center text-white">No bounties found</p>
-                  ) : filteredAndSorted.map((bounty) => (
+                  : filteredBounties.length === 0 ? (
+                    <p className="text-center text-white col-span-2">No bounties found</p>
+                  ) : paginatedBounties.map((bounty) => (
                     <BountyCard key={bounty.id} bounty={adaptBounty(bounty)} />
                   ))
                 }
               </div>
 
-              {/* Create bounty CTA */}
-              <div className="mt-12 pt-8 border-t border-gray-600">
-                <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-8 text-center text-white">
-                  <h3 className="text-xl font-bold mb-3">Have a project that needs talent?</h3>
-                  <p className="mb-6 opacity-90">
-                    Create a bounty to find the perfect contributor for your Stellar project.
-                  </p>
-                  <Link href="/create" className="bg-white text-black font-medium py-2 px-6 rounded-lg hover:bg-white/90 transition-colors">
-                    Create a Bounty
-                  </Link>
+              {/* Pagination */}
+              {filteredBounties.length > itemsPerPage && (
+                <div className="mt-8 flex justify-center">
+                  <nav className="inline-flex rounded-md shadow-sm">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 rounded-l-md bg-white/10 text-white border border-white/20 disabled:opacity-50"
+                    >
+                      Previous
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                      <button
+                        key={page}
+                        onClick={() => handlePageChange(page)}
+                        className={`px-3 py-1 border border-white/20 ${
+                          currentPage === page
+                        ? 'bg-white text-black'
+                            : 'bg-white/10 text-white'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1 rounded-r-md bg-white/10 text-white border border-white/20 disabled:opacity-50"
+                    >
+                      Next
+                    </button>
+                  </nav>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
