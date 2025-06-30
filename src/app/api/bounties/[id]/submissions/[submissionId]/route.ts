@@ -93,7 +93,50 @@ export async function PATCH(
     const body = await request.json();
 
     // Validate the request
-    const { action, senderPublicKey, signedXdr, ranking } = body;
+    const { action, userId, ranking } = body;
+    
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Get the bounty to verify ownership
+    const bountyRef = doc(db, 'bounties', id);
+    const bountySnap = await getDoc(bountyRef);
+    
+    if (!bountySnap.exists()) {
+      return NextResponse.json(
+        { error: 'Bounty not found' },
+        { status: 404 }
+      );
+    }
+    
+    const bountyData = bountySnap.data();
+    
+    // Get user data to check if they're a sponsor
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
+    
+    if (!userSnap.exists()) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+    
+    const userData = userSnap.data();
+    const isSponsor = userData.role === 'sponsor';
+    const isOwner = bountyData.owner === userId;
+    
+    // Only allow owners or sponsors to rank submissions
+    if (!isOwner && !isSponsor) {
+      return NextResponse.json(
+        { error: 'Only bounty owners or sponsors can rank submissions' },
+        { status: 403 }
+      );
+    }
 
     // Check if it's a ranking update
     if (action === 'rank' && ranking !== undefined) {
@@ -110,6 +153,15 @@ export async function PATCH(
         );
       }
       
+      // Verify the submission belongs to this bounty
+      const submissionData = submissionSnap.data();
+      if (submissionData.bountyId !== id) {
+        return NextResponse.json(
+          { error: 'Submission does not belong to this bounty' },
+          { status: 400 }
+        );
+      }
+      
       // Update the ranking in the database
       await updateDoc(submissionRef, { 
         ranking: ranking,
@@ -117,13 +169,6 @@ export async function PATCH(
       });
       
       console.log(`Updated submission ${submissionId} ranking to ${ranking}`);
-      
-      // In a production app, we would also call the blockchain here
-      // await sorobanService.selectWinners(
-      //   Number(id),
-      //   senderPublicKey,
-      //   [submissionId]
-      // );
       
       return NextResponse.json({
         success: true,
@@ -136,6 +181,14 @@ export async function PATCH(
 
     // Handle accept action
     if (action === 'accept') {
+      // Only bounty owners can accept submissions
+      if (!isOwner) {
+        return NextResponse.json(
+          { error: 'Only bounty owners can accept submissions' },
+          { status: 403 }
+        );
+      }
+      
       console.log(`Accepting submission ${submissionId}`);
       
       // Update the status in the database
@@ -146,9 +199,24 @@ export async function PATCH(
       return NextResponse.json(
           { error: 'Submission not found' },
           { status: 404 }
+<<<<<<< Updated upstream
       );
     }
 
+=======
+        );
+      }
+      
+      // Verify the submission belongs to this bounty
+      const submissionData = submissionSnap.data();
+      if (submissionData.bountyId !== id) {
+        return NextResponse.json(
+          { error: 'Submission does not belong to this bounty' },
+          { status: 400 }
+        );
+      }
+      
+>>>>>>> Stashed changes
       // Update the status in the database
       await updateDoc(submissionRef, { 
         status: 'ACCEPTED',
@@ -175,12 +243,6 @@ export async function PATCH(
       `Error processing submission ${params.submissionId} for bounty ${params.id}:`,
       error
     );
-    if (error instanceof BlockchainError) {
-      return NextResponse.json(
-        { error: error.message, code: error.code },
-        { status: 400 }
-      );
-    }
     return NextResponse.json(
       { error: 'Failed to process submission' },
       { status: 500 }

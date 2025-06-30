@@ -9,6 +9,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './firebase';
+<<<<<<< Updated upstream
 import { SorobanService } from './soroban';
 
 // For now we're using Firestore instead of Prisma since that seems to be what's currently set up
@@ -38,11 +39,14 @@ function convertChainStatus(status: any): BountyStatus {
   // Fallback to string status if not an object
   return status as BountyStatus;
 }
+=======
+>>>>>>> Stashed changes
 
 /**
- * BountyService class that coordinates blockchain and database operations
+ * BountyService class that handles database operations
  */
 export class BountyService {
+<<<<<<< Updated upstream
   private sorobanService: SorobanService;
 
   constructor(publicKey?: string) {
@@ -120,23 +124,32 @@ export class BountyService {
 
   /**
    * Get a complete bounty by combining blockchain and database data
+=======
+  /**
+   * Get bounty details from database
+>>>>>>> Stashed changes
    */
   async getBountyById(id: string | number): Promise<Bounty> {
     try {
-      // Convert to number for blockchain call
+      // Convert to number for consistency
       const numericId = typeof id === 'string' ? parseInt(id) : id;
 
+<<<<<<< Updated upstream
       // Get on-chain data
       const onChainBounty = await this.sorobanService.getBounty(numericId);
 
       // Get off-chain data from Firestore
+=======
+      // Get data from Firestore
+>>>>>>> Stashed changes
       const docRef = doc(db, 'bounties', id.toString());
       const docSnap = await getDoc(docRef);
 
       if (!docSnap.exists()) {
-        throw new Error('Bounty off-chain data not found');
+        throw new Error('Bounty not found');
       }
 
+<<<<<<< Updated upstream
       const offChainData = docSnap.data();
 
       // Get creation date either from blockchain or database
@@ -171,20 +184,46 @@ export class BountyService {
       };
 
       return combinedBounty;
+=======
+      const data = docSnap.data();
+      
+      // Return the bounty data
+      return {
+        id: numericId,
+        owner: data.owner || '',
+        title: data.title || '',
+        description: data.description || '',
+        reward: data.reward || { amount: '0', asset: 'USDC' },
+        distribution: data.distribution || [],
+        submissionDeadline: data.submissionDeadline || 0,
+        judgingDeadline: data.judgingDeadline || 0,
+        status: data.status || BountyStatus.OPEN,
+        category: data.category || '',
+        skills: data.skills || [],
+        created: data.createdAt || new Date().toISOString(),
+        updatedAt: data.updatedAt || new Date().toISOString(),
+        deadline: data.deadline || new Date().toISOString(),
+      };
+>>>>>>> Stashed changes
     } catch (error) {
-      console.error(`Error fetching complete bounty ${id}:`, error);
+      console.error(`Error fetching bounty ${id}:`, error);
       throw error;
     }
   }
 
   /**
-   * Get all bounties with combined data
+   * Get all bounties from database
    */
   async getAllBounties(filters?: any): Promise<Bounty[]> {
     try {
-      // Get all bounty IDs from blockchain
-      const onChainBounties = await this.sorobanService.getBounties();
+      const bountiesRef = collection(db, 'bounties');
+      const snapshot = await getDocs(bountiesRef);
+      
+      if (snapshot.empty) {
+        return [];
+      }
 
+<<<<<<< Updated upstream
       // Map over each bounty ID and get the complete data
       const bounties = await Promise.all(
         onChainBounties.map(async (bounty: any) => {
@@ -212,6 +251,27 @@ export class BountyService {
 
       // Filter out any nulls (failed fetches)
       return bounties.filter((bounty): bounty is Bounty => bounty !== null);
+=======
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: Number(doc.id),
+          owner: data.owner || '',
+          title: data.title || '',
+          description: data.description || '',
+          reward: data.reward || { amount: '', asset: '' },
+          distribution: data.distribution || [],
+          submissionDeadline: data.submissionDeadline || 0,
+          judgingDeadline: data.judgingDeadline || 0,
+          status: data.status || BountyStatus.OPEN,
+          category: data.category || '',
+          skills: data.skills || [],
+          created: data.createdAt || new Date().toISOString(),
+          updatedAt: data.updatedAt || new Date().toISOString(),
+          deadline: data.deadline || new Date().toISOString(),
+        } as Bounty;
+      });
+>>>>>>> Stashed changes
     } catch (error) {
       console.error('Error fetching all bounties:', error);
       throw error;
@@ -219,10 +279,10 @@ export class BountyService {
   }
 
   /**
-   * Submit work for a bounty - this should be called after blockchain submission
+   * Save submission to database
    */
   async saveSubmissionToDatabase(
-    blockchainBountyId: number,
+    bountyId: number,
     applicantAddress: string,
     content: string,
     submissionId: string,
@@ -232,13 +292,14 @@ export class BountyService {
     try {
       // Save to Firestore
       await setDoc(doc(db, 'submissions', submissionId), {
-        bountyId: blockchainBountyId.toString(),
+        bountyId: bountyId.toString(),
         applicantAddress,
         content,
         links: links || '',
         userId: userId || null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        status: 'PENDING',
       });
 
       return submissionId;
@@ -257,12 +318,16 @@ export class BountyService {
       const numericId =
         typeof bountyId === 'string' ? parseInt(bountyId) : bountyId;
 
+<<<<<<< Updated upstream
       // Get on-chain submissions
       const onChainSubmissions = await this.sorobanService.getBountySubmissions(
         numericId
       );
 
       // Get off-chain submission data
+=======
+      // Get submission data from the database
+>>>>>>> Stashed changes
       const submissionsRef = collection(db, 'submissions');
       const q = query(
         submissionsRef,
@@ -270,6 +335,7 @@ export class BountyService {
       );
       const snapshot = await getDocs(q);
 
+<<<<<<< Updated upstream
       // Map the submissions
       const offChainSubmissions = snapshot.docs.reduce((acc, doc) => {
         acc[doc.data().applicantAddress] = doc.data();
@@ -280,15 +346,35 @@ export class BountyService {
       return onChainSubmissions.map((submission) => {
         const offChainData = offChainSubmissions[submission.applicant] || {};
 
+=======
+      if (snapshot.empty) {
+        return [];
+      }
+
+      return snapshot.docs.map(doc => {
+        const data = doc.data();
+>>>>>>> Stashed changes
         return {
           id: submission.applicant, // Using applicant address as ID for now
           bountyId: numericId,
+<<<<<<< Updated upstream
           applicant: submission.applicant,
           content: submission.submission,
           details: offChainData.content || '',
           created: offChainData.createdAt || new Date().toISOString(),
           status: 'PENDING', // Default status
           ranking: offChainData.ranking || null, // Add ranking property
+=======
+          applicant: data.applicantAddress,
+          userId: data.userId || null,
+          submission: data.links || '',
+          content: data.content || '',
+          details: data.content || '',
+          links: data.links || '',
+          created: data.createdAt || new Date().toISOString(),
+          status: data.status || 'PENDING',
+          ranking: data.ranking || null,
+>>>>>>> Stashed changes
         };
       });
     } catch (error) {
@@ -299,6 +385,7 @@ export class BountyService {
       throw error;
     }
   }
+<<<<<<< Updated upstream
 
   /**
    * Get winners for a bounty
@@ -435,4 +522,6 @@ export class BountyService {
     const total = parseFloat(totalAmount);
     return ((total * percentage) / 100).toFixed(2);
   }
+=======
+>>>>>>> Stashed changes
 }

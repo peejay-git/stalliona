@@ -57,6 +57,7 @@ export async function GET(
     // Create bounty service
     const bountyService = new BountyService();
     
+<<<<<<< Updated upstream
     // First get the bounty to check ownership
     let bounty;
     try {
@@ -157,6 +158,10 @@ export async function GET(
           ranking: data.ranking || null,
         };
       });
+=======
+    // Get all submissions for the bounty
+    const submissions = await bountyService.getBountySubmissions(id);
+>>>>>>> Stashed changes
 
     return NextResponse.json(submissions);
     } catch (error) {
@@ -168,12 +173,6 @@ export async function GET(
     }
   } catch (error) {
     console.error(`Error fetching submissions for bounty ${params.id}:`, error);
-    if (error instanceof BlockchainError) {
-      return NextResponse.json(
-        { error: error.message, code: error.code },
-        { status: 400 }
-      );
-    }
     return NextResponse.json(
       { error: 'Failed to fetch submissions' },
       { status: 500 }
@@ -183,7 +182,11 @@ export async function GET(
 
 /**
  * POST /api/bounties/[id]/submissions
+<<<<<<< Updated upstream
  * Save submission data to the database (no blockchain interaction)
+=======
+ * Save the submission data to the database
+>>>>>>> Stashed changes
  */
 export async function POST(
   request: NextRequest,
@@ -203,12 +206,22 @@ export async function POST(
       applicantAddress, 
       userId,
       content, 
+<<<<<<< Updated upstream
       links,
       blockchainSubmissionId 
     } = await request.json();
 
     // Validate required fields
     if (!applicantAddress || !content) {
+=======
+      submissionId,
+      userId,
+      links 
+    } = await request.json();
+
+    // Validate required fields
+    if (!applicantAddress || !content || !submissionId || !userId) {
+>>>>>>> Stashed changes
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -236,6 +249,7 @@ export async function POST(
 
     // Create bounty service
     const bountyService = new BountyService();
+<<<<<<< Updated upstream
     
     // Check if the bounty has expired
     try {
@@ -301,22 +315,60 @@ export async function POST(
       links,
       userId
     );
+=======
+>>>>>>> Stashed changes
 
-    return NextResponse.json({
-      success: true,
-      message: 'Submission saved successfully',
-      id: blockchainSubmissionId,
-    });
-  } catch (error) {
-    console.error(`Error submitting to bounty ${params.id}:`, error);
-    if (error instanceof BlockchainError) {
+    try {
+      // Check if user or wallet has already submitted
+      const existingSubmissions = await bountyService.getBountySubmissions(bountyId);
+      const hasSubmitted = existingSubmissions.some(
+        submission => 
+          submission.applicant === applicantAddress || 
+          (userId && submission.userId === userId)
+      );
+
+      if (hasSubmitted) {
+        return NextResponse.json(
+          { error: 'You have already submitted work for this bounty' },
+          { status: 400 }
+        );
+      }
+
+      // Get bounty details to check deadline
+      const bounty = await bountyService.getBountyById(bountyId);
+      if (bounty.submissionDeadline < Date.now()) {
+        return NextResponse.json(
+          { error: 'Submission deadline has passed' },
+          { status: 400 }
+        );
+      }
+      
+      // Save submission to database
+      await bountyService.saveSubmissionToDatabase(
+        parseInt(bountyId),
+        applicantAddress,
+        content,
+        submissionId,
+        links,
+        userId
+      );
+
+      return NextResponse.json({
+        success: true,
+        message: 'Submission saved successfully',
+        id: submissionId,
+      });
+    } catch (serviceError: any) {
+      console.error('Service error:', serviceError);
       return NextResponse.json(
-        { error: error.message, code: error.code },
+        { error: serviceError.message || 'Failed to process submission' },
         { status: 400 }
       );
     }
+  } catch (error: any) {
+    console.error(`Error submitting to bounty ${params.id}:`, error);
     return NextResponse.json(
-      { error: 'Failed to submit work' },
+      { error: 'An unexpected error occurred. Please try again.' },
       { status: 500 }
     );
   }

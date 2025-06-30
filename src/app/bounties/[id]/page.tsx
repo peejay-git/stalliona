@@ -398,7 +398,11 @@ export default function BountyDetailPage({
           },
           body: JSON.stringify({
             action: 'rank',
+<<<<<<< Updated upstream
             senderPublicKey: publicKey, // Use wallet public key
+=======
+            userId: userId,  // Send userId instead of senderPublicKey
+>>>>>>> Stashed changes
             ranking,
           }),
         }
@@ -1027,6 +1031,7 @@ export default function BountyDetailPage({
           </div>
         )}
 
+<<<<<<< Updated upstream
         {/* Submit Work section - Show form if open bounty, otherwise show message */}
         {!canViewSubmissions && bounty && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl mb-8">
@@ -1045,6 +1050,15 @@ export default function BountyDetailPage({
                 </p>
               </div>
             )}
+=======
+        {/* Submit Work Form */}
+        {bounty.status === BountyStatus.OPEN && !isOwner && !isSponsor && (
+          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl overflow-hidden mb-8">
+            <SubmitWorkForm 
+              bountyId={bounty.id} 
+              submissionDeadline={bounty.submissionDeadline}
+            />
+>>>>>>> Stashed changes
           </div>
         )}
 

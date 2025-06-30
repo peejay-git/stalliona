@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
+<<<<<<< Updated upstream
 import { submitWorkOnChain } from '@/utils/blockchain';
+=======
+import freighterApi from '@stellar/freighter-api';
+>>>>>>> Stashed changes
 import toast from 'react-hot-toast';
 import { useWallet } from '@/hooks/useWallet';
 import { useUserStore } from '@/lib/stores/useUserStore';
@@ -126,7 +130,22 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
   
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+<<<<<<< Updated upstream
     setFormData(prev => ({ ...prev, [name]: value }));
+=======
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    
+    // Clear error when user types
+    if (errors[name]) {
+      setErrors((prev) => ({
+        ...prev,
+        [name]: '',
+      }));
+    }
+>>>>>>> Stashed changes
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -144,6 +163,7 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         throw new Error('No wallet address found. Please update your profile with a wallet address.');
       }
       
+<<<<<<< Updated upstream
       console.log('User wallet address:', userWalletAddress);
       console.log('User from store:', user);
       
@@ -180,23 +200,41 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
       setSubmissionId(blockchainSubmissionId);
       
       // Step 7: Save detailed submission data to the database
+=======
+      // Update UI state
+      setStep('submitting');
+      toast.loading('Submitting your work...', { id: 'submit-work' });
+      
+      // Generate a unique submission ID using timestamp and user info
+      const submissionId = `submission_${Date.now()}_${user.uid.slice(0, 8)}`;
+      setSubmissionId(submissionId);
+      
+      // Save submission data to the database
+>>>>>>> Stashed changes
       const response = await fetch(`/api/bounties/${bountyId}/submissions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          blockchainSubmissionId,
+          submissionId,
           applicantAddress: userWalletAddress,
           userId: user.uid,
+<<<<<<< Updated upstream
           content: formData.detailedDescription, // Store detailed content in the database
+=======
+          content: formData.detailedDescription,
+>>>>>>> Stashed changes
           links: formData.links,
         }),
       });
       
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to save submission data');
+        const data = await response.json();
+        if (response.status === 400) {
+          throw new Error(data.error || 'Failed to submit work');
+        }
+        throw new Error('Failed to save submission. Please try again.');
       }
       
       // Step 8: Complete
@@ -204,8 +242,18 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
       toast.success('Work submitted successfully!', { id: 'submit-work' });
     } catch (error) {
       console.error('Error submitting work:', error);
+<<<<<<< Updated upstream
       toast.error(`Failed to submit work: ${(error as Error).message}`, { id: 'submit-work' });
       setStep('form'); // Reset to form state on error
+=======
+      toast.error(error.message || 'Failed to submit work', { id: 'submit-work' });
+      setStep('form');
+      
+      // If it's a duplicate submission, update the state
+      if (error.message.includes('already submitted')) {
+        setHasSubmitted(true);
+      }
+>>>>>>> Stashed changes
     } finally {
       setIsLoading(false);
     }
