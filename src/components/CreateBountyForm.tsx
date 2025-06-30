@@ -235,13 +235,23 @@ Any other details that might be helpful for the talent working on this bounty.`,
         bountyId = await createBountyOnChain({
           userPublicKey,
           title: formData.title,
-          token: formData.token, // This is now the token address
+          token: formData.token,
           reward: {
             amount: formData.rewardAmount,
-            asset: formData.tokenSymbol, // Use the token symbol for display
+            asset: formData.tokenSymbol,
           },
           distribution: formData.distribution,
           submissionDeadline: new Date(formData.submissionDeadline).getTime(),
+        });
+
+        // Log the submission deadline for debugging
+        const submissionDate = new Date(formData.submissionDeadline);
+        console.log('Submission deadline details:', {
+          input: formData.submissionDeadline,
+          date: submissionDate.toLocaleString(),
+          timestamp: submissionDate.getTime(),
+          utc: submissionDate.toUTCString(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
         });
 
         // Step 5: Store blockchain bounty ID
@@ -273,6 +283,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
         title: formData.title, // Explicitly include title
         reward: {
           amount: formData.rewardAmount,
+<<<<<<< Updated upstream
           asset: formData.tokenSymbol
         }, // Explicitly include reward
         deadline: new Date(formData.submissionDeadline).toISOString(), // Add deadline
@@ -282,6 +293,24 @@ Any other details that might be helpful for the talent working on this bounty.`,
       
       const response = await fetch('/api/bounties', {
         method: 'POST',
+=======
+          asset: formData.token
+        },
+        submissionDeadline: new Date(formData.submissionDeadline).getTime(),
+        judgingDeadline: new Date(formData.judgingDeadline).getTime(),
+        status: "OPEN"
+      };
+
+      console.log("API request body with timestamps:", {
+        submissionDeadline: requestBody.submissionDeadline,
+        submissionDeadlineDate: new Date(requestBody.submissionDeadline).toLocaleString(),
+        submissionDeadlineUTC: new Date(requestBody.submissionDeadline).toUTCString(),
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+      });
+
+      const response = await fetch("/api/bounties", {
+        method: "POST",
+>>>>>>> Stashed changes
         headers: {
           'Content-Type': 'application/json',
         },
@@ -467,6 +496,43 @@ Any other details that might be helpful for the talent working on this bounty.`,
             </div>
           </div>
 
+<<<<<<< Updated upstream
+=======
+          {/* Deadlines */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-white mb-2">Submission Deadline</label>
+              <input
+                type="datetime-local"
+                name="submissionDeadline"
+                value={formData.submissionDeadline}
+                onChange={handleChange}
+                className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white"
+                required
+                min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Select when submissions should close (in your local timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
+              </p>
+            </div>
+            <div>
+              <label className="block text-white mb-2">Judging Deadline</label>
+              <input
+                type="datetime-local"
+                name="judgingDeadline"
+                value={formData.judgingDeadline}
+                onChange={handleChange}
+                className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white"
+                required
+                min={formData.submissionDeadline || new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Select when winner selection should be completed (in your local timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
+              </p>
+            </div>
+          </div>
+
+>>>>>>> Stashed changes
           {/* Winner Count and Distribution */}
           <div>
             <label className="block text-white mb-2">Number of Winners</label>
