@@ -2,20 +2,20 @@
 
 import { assetSymbols } from '@/components/BountyCard';
 import BountyDetailSkeleton from '@/components/BountyDetailSkeleton';
-import SubmitWorkForm from '@/components/SubmitWorkForm';
 import SubmissionDetailsModal from '@/components/SubmissionDetailsModal';
+import SubmitWorkForm from '@/components/SubmitWorkForm';
 import { useWallet } from '@/hooks/useWallet';
 import { bountyHasSubmissions, getBountyById } from '@/lib/bounties';
+import { db } from '@/lib/firebase';
+import { useUserStore } from '@/lib/stores/useUserStore';
 import { Bounty, BountyStatus, Submission } from '@/types/bounty';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { FiAward, FiUser, FiClock, FiBriefcase } from 'react-icons/fi';
-import { useUserStore } from '@/lib/stores/useUserStore';
+import { FiAward, FiBriefcase, FiClock, FiUser } from 'react-icons/fi';
 
 export default function BountyDetailPage({
   params,
@@ -37,14 +37,15 @@ export default function BountyDetailPage({
   const { isConnected, publicKey } = useWallet();
   const [winners, setWinners] = useState<any[]>([]);
   const [loadingWinners, setLoadingWinners] = useState(false);
-  const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [selectedSubmission, setSelectedSubmission] =
+    useState<Submission | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [countdown, setCountdown] = useState({
     days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0,
-    expired: false
+    expired: false,
   });
   const user = useUserStore((state) => state.user);
 
@@ -85,14 +86,16 @@ export default function BountyDetailPage({
           hours: 0,
           minutes: 0,
           seconds: 0,
-          expired: true
+          expired: true,
         });
         return;
       }
 
       // Calculate time units
       const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const hours = Math.floor(
+        (timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
+      );
       const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
 
@@ -101,7 +104,7 @@ export default function BountyDetailPage({
         hours,
         minutes,
         seconds,
-        expired: false
+        expired: false,
       });
     };
 
@@ -137,12 +140,12 @@ export default function BountyDetailPage({
       console.log('Fetching submissions with headers:', {
         userId,
         userRole,
-        isSponsor
+        isSponsor,
       });
-      
+
       const response = await fetch(`/api/bounties/${params.id}/submissions`, {
         headers: {
-          'Authorization': `Bearer ${userId}`,
+          Authorization: `Bearer ${userId}`,
           'x-user-role': userRole || '',
         },
       });
@@ -154,22 +157,28 @@ export default function BountyDetailPage({
       }
 
       const data = await response.json();
-      console.log('DEBUG: Submissions data from API:', JSON.stringify(data, null, 2));
-      
+      console.log(
+        'DEBUG: Submissions data from API:',
+        JSON.stringify(data, null, 2),
+      );
+
       // Validate each submission has an applicant address
       const validatedData = data.map((submission: any) => {
         if (!submission.applicant && !submission.walletAddress) {
-          console.error('ERROR: Missing applicant address in submission:', submission.id);
+          console.error(
+            'ERROR: Missing applicant address in submission:',
+            submission.id,
+          );
           // Provide a fallback
           return {
             ...submission,
             applicant: 'Unknown',
-            walletAddress: 'Unknown'
+            walletAddress: 'Unknown',
           };
         }
         return submission;
       });
-      
+
       setSubmissions(validatedData);
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -185,18 +194,20 @@ export default function BountyDetailPage({
 
     // Allow both bounty owners and sponsors to view submissions
     const isOwnerByWallet = bounty.owner === publicKey;
-    
+
     console.log('Submission access check:', {
       userId,
       publicKey,
       bountyOwner: bounty.owner,
       isOwnerByWallet,
       isSponsor,
-      userRole
+      userRole,
     });
-    
+
     if (!isOwnerByWallet && !isSponsor) {
-      console.log('User is neither owner nor sponsor, not fetching submissions');
+      console.log(
+        'User is neither owner nor sponsor, not fetching submissions',
+      );
       return;
     }
 
@@ -210,25 +221,29 @@ export default function BountyDetailPage({
       if (user) {
         // If user is logged in, set the user ID (uid)
         setUserId(user.uid);
-        
+
         // Check if the user is a sponsor by getting their role from Firestore
         const checkUserRole = async () => {
           try {
             const userRef = doc(db, 'users', user.uid);
             const userSnap = await getDoc(userRef);
-            
+
             if (userSnap.exists()) {
               const userData = userSnap.data();
               const role = userData.role || userData?.profileData?.role;
               setUserRole(role);
               setIsSponsor(role === 'sponsor');
-              console.log('User role check:', { uid: user.uid, role, isSponsor: role === 'sponsor' });
+              console.log('User role check:', {
+                uid: user.uid,
+                role,
+                isSponsor: role === 'sponsor',
+              });
             }
           } catch (error) {
             console.error('Error checking user role:', error);
           }
         };
-        
+
         checkUserRole();
       } else {
         // User is not logged in
@@ -285,7 +300,7 @@ export default function BountyDetailPage({
   // Check if bounty is expired
   const isBountyExpired = () => {
     if (!bounty) return false;
-    
+
     const deadline = new Date(bounty.deadline);
     const now = new Date();
     return now > deadline;
@@ -294,19 +309,23 @@ export default function BountyDetailPage({
   // Update bounty status to COMPLETED if deadline has passed
   useEffect(() => {
     const updateExpiredBountyStatus = async () => {
-      if (!bounty || !isBountyExpired() || bounty.status === BountyStatus.COMPLETED) {
+      if (
+        !bounty ||
+        !isBountyExpired() ||
+        bounty.status === BountyStatus.COMPLETED
+      ) {
         return; // No need to update if not expired or already completed
       }
 
       try {
         console.log('Updating expired bounty to COMPLETED status');
-        
+
         // Update the status in the database
         const response = await fetch(`/api/bounties/${params.id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${userId}`,
+            Authorization: `Bearer ${userId}`,
           },
           body: JSON.stringify({
             status: BountyStatus.COMPLETED,
@@ -321,7 +340,10 @@ export default function BountyDetailPage({
             status: BountyStatus.COMPLETED,
           });
         } else {
-          console.error('Failed to update bounty status:', await response.text());
+          console.error(
+            'Failed to update bounty status:',
+            await response.text(),
+          );
         }
       } catch (error) {
         console.error('Error updating bounty status:', error);
@@ -347,7 +369,7 @@ export default function BountyDetailPage({
             action: 'accept',
             senderPublicKey: publicKey, // Use wallet public key
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -360,12 +382,12 @@ export default function BountyDetailPage({
         prev.map((sub) =>
           sub.id === submissionId
             ? { ...sub, status: 'ACCEPTED' as unknown as BountyStatus }
-            : sub
-        )
+            : sub,
+        ),
       );
 
       toast.success(
-        'Submission accepted! The bounty reward will be transferred to the winner.'
+        'Submission accepted! The bounty reward will be transferred to the winner.',
       );
 
       // Update bounty status to completed
@@ -384,7 +406,7 @@ export default function BountyDetailPage({
   // Handle ranking submission (1st, 2nd, 3rd place)
   const handleRankSubmission = async (
     submissionId: string,
-    ranking: 1 | 2 | 3 | null
+    ranking: 1 | 2 | 3 | null,
   ) => {
     if (!bounty || !publicKey) return;
 
@@ -398,14 +420,10 @@ export default function BountyDetailPage({
           },
           body: JSON.stringify({
             action: 'rank',
-<<<<<<< Updated upstream
-            senderPublicKey: publicKey, // Use wallet public key
-=======
-            userId: userId,  // Send userId instead of senderPublicKey
->>>>>>> Stashed changes
+            userId: userId, // Send userId instead of senderPublicKey
             ranking,
           }),
-        }
+        },
       );
 
       if (!response.ok) {
@@ -415,13 +433,15 @@ export default function BountyDetailPage({
 
       // Update the local submissions list
       setSubmissions((prev) =>
-        prev.map((sub) => (sub.id === submissionId ? { ...sub, ranking } : sub))
+        prev.map((sub) =>
+          sub.id === submissionId ? { ...sub, ranking } : sub,
+        ),
       );
 
       toast.success(
         ranking
           ? `Submission ranked #${ranking} successfully`
-          : 'Ranking removed'
+          : 'Ranking removed',
       );
     } catch (err: any) {
       console.error('Error ranking submission:', err);
@@ -494,7 +514,10 @@ export default function BountyDetailPage({
   // Handle approve rankings function
   const handleApproveRankings = async () => {
     if (!bounty || !publicKey) {
-      console.log('Cannot approve rankings - missing bounty or publicKey:', { bounty, publicKey });
+      console.log('Cannot approve rankings - missing bounty or publicKey:', {
+        bounty,
+        publicKey,
+      });
       return;
     }
 
@@ -508,33 +531,37 @@ export default function BountyDetailPage({
 
     // Get the distribution count from the bounty
     const distributionCount = bounty.distribution.length;
-    
+
     // Check if we have enough ranked submissions for the distribution
     const rankedSubmissions = submissions
-      .filter(sub => sub.ranking !== null)
+      .filter((sub) => sub.ranking !== null)
       .sort((a, b) => (a.ranking || 0) - (b.ranking || 0));
-    
+
     console.log('Ranked submissions:', rankedSubmissions);
-    
+
     if (rankedSubmissions.length < distributionCount) {
-      toast.error(`Please rank at least ${distributionCount} submission(s) before approving`);
+      toast.error(
+        `Please rank at least ${distributionCount} submission(s) before approving`,
+      );
       return;
     }
 
     try {
-      toast.loading('Finalizing winners and sending payments...', { id: 'approve-rankings' });
-      
+      toast.loading('Finalizing winners and sending payments...', {
+        id: 'approve-rankings',
+      });
+
       // Get the wallet addresses of the winners in order of their ranking
       const winnerAddresses = rankedSubmissions
         .slice(0, distributionCount)
-        .map(sub => sub.walletAddress || sub.applicant);
-      
+        .map((sub) => sub.walletAddress || sub.applicant);
+
       console.log('Sending request to select winners:', {
         bountyId: params.id,
         winnerAddresses,
-        userPublicKey: publicKey
+        userPublicKey: publicKey,
       });
-      
+
       // Call the API to select winners and process payments on the blockchain
       const response = await fetch(`/api/bounties/${params.id}/winners`, {
         method: 'POST',
@@ -558,7 +585,10 @@ export default function BountyDetailPage({
 
       // Update local state
       setRankingsApproved(true);
-      toast.success('Winners have been selected and payments are being processed!', { id: 'approve-rankings' });
+      toast.success(
+        'Winners have been selected and payments are being processed!',
+        { id: 'approve-rankings' },
+      );
 
       // Update bounty status to COMPLETED
       if (bounty) {
@@ -567,13 +597,14 @@ export default function BountyDetailPage({
           status: BountyStatus.COMPLETED,
         });
       }
-      
+
       // Fetch the updated winners
       fetchWinners(bounty.id);
-      
     } catch (err: any) {
       console.error('Error approving rankings:', err);
-      toast.error(err.message || 'Failed to approve rankings', { id: 'approve-rankings' });
+      toast.error(err.message || 'Failed to approve rankings', {
+        id: 'approve-rankings',
+      });
     }
   };
 
@@ -601,7 +632,7 @@ export default function BountyDetailPage({
 
   const isOwner = publicKey === bounty.owner;
   const canViewSubmissions = isOwner || isSponsor;
-  
+
   // Debug log for render values
   console.log('Render values:', {
     userId,
@@ -610,7 +641,7 @@ export default function BountyDetailPage({
     isOwner,
     isSponsor,
     userRole,
-    submissions: submissions.length
+    submissions: submissions.length,
   });
 
   return (
@@ -721,15 +752,21 @@ export default function BountyDetailPage({
                     <div className="text-xs text-gray-400">Days</div>
                   </div>
                   <div className="bg-white/10 rounded-lg px-3 py-2 text-center w-16">
-                    <div className="text-xl font-mono">{countdown.hours.toString().padStart(2, '0')}</div>
+                    <div className="text-xl font-mono">
+                      {countdown.hours.toString().padStart(2, '0')}
+                    </div>
                     <div className="text-xs text-gray-400">Hours</div>
                   </div>
                   <div className="bg-white/10 rounded-lg px-3 py-2 text-center w-16">
-                    <div className="text-xl font-mono">{countdown.minutes.toString().padStart(2, '0')}</div>
+                    <div className="text-xl font-mono">
+                      {countdown.minutes.toString().padStart(2, '0')}
+                    </div>
                     <div className="text-xs text-gray-400">Min</div>
                   </div>
                   <div className="bg-white/10 rounded-lg px-3 py-2 text-center w-16">
-                    <div className="text-xl font-mono">{countdown.seconds.toString().padStart(2, '0')}</div>
+                    <div className="text-xl font-mono">
+                      {countdown.seconds.toString().padStart(2, '0')}
+                    </div>
                     <div className="text-xs text-gray-400">Sec</div>
                   </div>
                 </div>
@@ -790,10 +827,10 @@ export default function BountyDetailPage({
                             {winner.position === 1
                               ? '1st Place'
                               : winner.position === 2
-                              ? '2nd Place'
-                              : winner.position === 3
-                              ? '3rd Place'
-                              : `${winner.position}th Place`}
+                                ? '2nd Place'
+                                : winner.position === 3
+                                  ? '3rd Place'
+                                  : `${winner.position}th Place`}
                           </span>
                           <span className="text-gray-300 text-sm">
                             {winner.percentage}% of reward
@@ -806,9 +843,9 @@ export default function BountyDetailPage({
                               ? 'No winner selected'
                               : `${winner.applicantAddress.substring(
                                   0,
-                                  8
+                                  8,
                                 )}...${winner.applicantAddress.substring(
-                                  winner.applicantAddress.length - 8
+                                  winner.applicantAddress.length - 8,
                                 )}`}
                           </span>
                         </div>
@@ -841,14 +878,14 @@ export default function BountyDetailPage({
                   )}
                 </h2>
                 <p className="text-gray-400 text-sm mt-1">
-                  {submissions.length === 0 
-                    ? "No submissions yet. Check back later!" 
-                    : isOwner 
-                      ? "Rank the best submissions to select winners and distribute rewards."
-                      : "View submissions for this bounty."}
+                  {submissions.length === 0
+                    ? 'No submissions yet. Check back later!'
+                    : isOwner
+                      ? 'Rank the best submissions to select winners and distribute rewards.'
+                      : 'View submissions for this bounty.'}
                 </p>
               </div>
-              
+
               {submissions.length > 0 &&
                 isOwner &&
                 submissions.some((sub) => sub.ranking) &&
@@ -895,7 +932,7 @@ export default function BountyDetailPage({
                         Status
                       </th>
                       <th className="px-4 py-3 bg-black/20 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                        {isOwner ? "Ranking" : "Position"}
+                        {isOwner ? 'Ranking' : 'Position'}
                       </th>
                       <th className="px-4 py-3 bg-black/20 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
                         Actions
@@ -908,14 +945,17 @@ export default function BountyDetailPage({
                         <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-white">
                           {(() => {
                             // Get the applicant address
-                            const address = submission.walletAddress || submission.applicant;
+                            const address =
+                              submission.walletAddress || submission.applicant;
                             if (!address || address === 'Unknown') {
                               return <span>Unknown applicant</span>;
                             }
                             return (
                               <>
                                 {address.slice(0, 6)}...{address.slice(-4)}
-                                <div className="text-xs text-gray-400">Talent</div>
+                                <div className="text-xs text-gray-400">
+                                  Talent
+                                </div>
                               </>
                             );
                           })()}
@@ -925,7 +965,7 @@ export default function BountyDetailPage({
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
                           {getSubmissionStatusBadge(
-                            submission.status.toString()
+                            submission.status.toString(),
                           )}
                         </td>
                         <td className="px-4 py-4 whitespace-nowrap text-sm">
@@ -935,15 +975,15 @@ export default function BountyDetailPage({
                                 submission.ranking === 1
                                   ? 'bg-yellow-900/40 text-yellow-300 border border-yellow-700/30'
                                   : submission.ranking === 2
-                                  ? 'bg-gray-700/40 text-gray-300 border border-gray-600/30'
-                                  : 'bg-amber-900/40 text-amber-300 border border-amber-700/30'
+                                    ? 'bg-gray-700/40 text-gray-300 border border-gray-600/30'
+                                    : 'bg-amber-900/40 text-amber-300 border border-amber-700/30'
                               }`}
                             >
                               {submission.ranking === 1
                                 ? '1st Place 🥇'
                                 : submission.ranking === 2
-                                ? '2nd Place 🥈'
-                                : '3rd Place 🥉'}
+                                  ? '2nd Place 🥈'
+                                  : '3rd Place 🥉'}
                             </span>
                           ) : !rankingsApproved && isOwner ? (
                             <div className="flex space-x-2">
@@ -954,7 +994,7 @@ export default function BountyDetailPage({
                                 className="px-2 py-1 bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 rounded text-xs hover:bg-yellow-900/60"
                                 title="Set as 1st place"
                                 disabled={submissions.some(
-                                  (sub) => sub.ranking === 1
+                                  (sub) => sub.ranking === 1,
                                 )}
                               >
                                 1st
@@ -966,7 +1006,7 @@ export default function BountyDetailPage({
                                 className="px-2 py-1 bg-gray-700/40 text-gray-300 border border-gray-600/30 rounded text-xs hover:bg-gray-700/60"
                                 title="Set as 2nd place"
                                 disabled={submissions.some(
-                                  (sub) => sub.ranking === 2
+                                  (sub) => sub.ranking === 2,
                                 )}
                               >
                                 2nd
@@ -978,7 +1018,7 @@ export default function BountyDetailPage({
                                 className="px-2 py-1 bg-amber-900/40 text-amber-300 border border-amber-700/30 rounded text-xs hover:bg-amber-900/60"
                                 title="Set as 3rd place"
                                 disabled={submissions.some(
-                                  (sub) => sub.ranking === 3
+                                  (sub) => sub.ranking === 3,
                                 )}
                               >
                                 3rd
@@ -996,31 +1036,34 @@ export default function BountyDetailPage({
                             View Details
                           </button>
 
-                          {isOwner && submission.status.toString() === 'PENDING' && (
-                            <button
-                              onClick={() =>
-                                handleAcceptSubmission(submission.id)
-                              }
-                              className="text-green-300 hover:text-green-200 mr-4"
-                              disabled={
-                                bounty.status === BountyStatus.COMPLETED
-                              }
-                            >
-                              Accept
-                            </button>
-                          )}
+                          {isOwner &&
+                            submission.status.toString() === 'PENDING' && (
+                              <button
+                                onClick={() =>
+                                  handleAcceptSubmission(submission.id)
+                                }
+                                className="text-green-300 hover:text-green-200 mr-4"
+                                disabled={
+                                  bounty.status === BountyStatus.COMPLETED
+                                }
+                              >
+                                Accept
+                              </button>
+                            )}
 
-                          {isOwner && submission.ranking && !rankingsApproved && (
-                            <button
-                              onClick={() =>
-                                handleRankSubmission(submission.id, null)
-                              }
-                              className="text-red-300 hover:text-red-200 ml-4"
-                              title="Remove ranking"
-                            >
-                              Clear Rank
-                            </button>
-                          )}
+                          {isOwner &&
+                            submission.ranking &&
+                            !rankingsApproved && (
+                              <button
+                                onClick={() =>
+                                  handleRankSubmission(submission.id, null)
+                                }
+                                className="text-red-300 hover:text-red-200 ml-4"
+                                title="Remove ranking"
+                              >
+                                Clear Rank
+                              </button>
+                            )}
                         </td>
                       </tr>
                     ))}
@@ -1031,7 +1074,6 @@ export default function BountyDetailPage({
           </div>
         )}
 
-<<<<<<< Updated upstream
         {/* Submit Work section - Show form if open bounty, otherwise show message */}
         {!canViewSubmissions && bounty && (
           <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl mb-8">
@@ -1050,15 +1092,6 @@ export default function BountyDetailPage({
                 </p>
               </div>
             )}
-=======
-        {/* Submit Work Form */}
-        {bounty.status === BountyStatus.OPEN && !isOwner && !isSponsor && (
-          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl overflow-hidden mb-8">
-            <SubmitWorkForm 
-              bountyId={bounty.id} 
-              submissionDeadline={bounty.submissionDeadline}
-            />
->>>>>>> Stashed changes
           </div>
         )}
 

@@ -1,6 +1,6 @@
-import { SorobanService } from '@/lib/soroban';
 import { Distribution } from '@/types/bounty';
 import { createBountyOnChain } from '@/utils/blockchain';
+import { SUPPORTED_TOKENS } from '@/utils/tokens';
 import freighterApi from '@stellar/freighter-api';
 import { useState } from 'react';
 
@@ -10,7 +10,7 @@ export default function CreateBountyForm() {
     'form' | 'blockchain' | 'database' | 'complete'
   >('form');
   const [blockchainBountyId, setBlockchainBountyId] = useState<number | null>(
-    null
+    null,
   );
 
   // Form state
@@ -36,42 +36,14 @@ Briefly describe what this bounty is about.
 Any other details that might be helpful for the talent working on this bounty.`,
     category: 'DEVELOPMENT',
     skills: [] as string[],
-    token: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA', // Correct USDC contract address
-    tokenSymbol: 'USDC', // Track the token symbol separately for display
+    token: SUPPORTED_TOKENS[0].address, // Use first supported token (USDC) as default
+    tokenSymbol: SUPPORTED_TOKENS[0].symbol, // Track the token symbol separately for display
     rewardAmount: '',
     submissionDeadline: '',
     judgingDeadline: '',
     distribution: [{ percentage: 100, position: 1 }] as Distribution[],
     winnerCount: 1,
   });
-
-  // Available tokens with their details
-  const availableTokens = [
-    {
-      symbol: 'USDC',
-      name: 'USD Coin',
-      logo: '/images/tokens/usdc.svg',
-      address: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
-    },
-    {
-      symbol: 'NGNC',
-      name: 'NGNC',
-      logo: '/images/tokens/ngnc.svg',
-      address: 'CBYFV4W2LTMXYZ3XWFX5BK2BY255DU2DSXNAE4FJ5A5VYUWGIBJDOIGG',
-    },
-    {
-      symbol: 'KALE',
-      name: 'KALE',
-      logo: '/images/tokens/kale.svg',
-      address: 'CB23WRDQWGSP6YPMY4UV5C4OW5CBTXKYN3XEATG7KJEZCXMJBYEHOUOV',
-    },
-    {
-      symbol: 'XLM',
-      name: 'Stellar Lumens',
-      logo: '/images/tokens/xlm.svg',
-      address: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
-    },
-  ];
 
   // Available skills for skill selection
   const skillsOptions = [
@@ -90,13 +62,13 @@ Any other details that might be helpful for the talent working on this bounty.`,
     'Translation',
     'Research',
     'Rust',
-    'Stellar'
+    'Stellar',
   ];
 
   const handleChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
 
@@ -108,7 +80,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
           const position = i + 1;
           // For existing positions, keep their percentage if available
           const existingEntry = formData.distribution.find(
-            (d) => d.position === position
+            (d) => d.position === position,
           );
           return {
             position,
@@ -126,12 +98,12 @@ Any other details that might be helpful for the talent working on this bounty.`,
       }
     } else if (name === 'token') {
       // When token changes, update both token (address) and tokenSymbol
-      const selectedToken = availableTokens.find(t => t.address === value);
+      const selectedToken = SUPPORTED_TOKENS.find((t) => t.address === value);
       if (selectedToken) {
         setFormData((prev) => ({
           ...prev,
           token: value,
-          tokenSymbol: selectedToken.symbol
+          tokenSymbol: selectedToken.symbol,
         }));
       } else {
         // Fallback if token not found
@@ -158,7 +130,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
 
   const calculateDefaultPercentage = (
     totalWinners: number,
-    position: number
+    position: number,
   ): number => {
     // Default percentage distribution based on position
     switch (totalWinners) {
@@ -172,20 +144,20 @@ Any other details that might be helpful for the talent working on this bounty.`,
         return position === 1
           ? 40
           : position === 2
-          ? 30
-          : position === 3
-          ? 20
-          : 10;
+            ? 30
+            : position === 3
+              ? 20
+              : 10;
       case 5:
         return position === 1
           ? 40
           : position === 2
-          ? 25
-          : position === 3
-          ? 15
-          : position === 4
-          ? 10
-          : 10;
+            ? 25
+            : position === 3
+              ? 15
+              : position === 4
+                ? 10
+                : 10;
       default:
         return 100 / totalWinners;
     }
@@ -194,7 +166,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
   const validateDistribution = (): boolean => {
     const total = formData.distribution.reduce(
       (sum, item) => sum + item.percentage,
-      0
+      0,
     );
     return total === 100;
   };
@@ -207,7 +179,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
       alert('The sum of reward distribution percentages must equal 100%');
       return;
     }
-    
+
     // Validate skills selection
     if (formData.skills.length === 0) {
       alert('Please select at least one skill');
@@ -224,7 +196,10 @@ Any other details that might be helpful for the talent working on this bounty.`,
       }
 
       // Step 2: Get the user's public key
-      const userPublicKey = await freighterApi.getPublicKey();
+      const { address: userPublicKey, error } = await freighterApi.getAddress();
+      if (error) {
+        throw new Error('Wallet not connected');
+      }
 
       // Step 3: Update UI state
       setStep('blockchain');
@@ -251,13 +226,21 @@ Any other details that might be helpful for the talent working on this bounty.`,
           date: submissionDate.toLocaleString(),
           timestamp: submissionDate.getTime(),
           utc: submissionDate.toUTCString(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         });
 
         // Step 5: Store blockchain bounty ID
-        console.log("Blockchain bounty ID received:", bountyId, typeof bountyId);
+        console.log(
+          'Blockchain bounty ID received:',
+          bountyId,
+          typeof bountyId,
+        );
         setBlockchainBountyId(bountyId);
-        console.log("blockchainBountyId state after setting:", blockchainBountyId, typeof blockchainBountyId);
+        console.log(
+          'blockchainBountyId state after setting:',
+          blockchainBountyId,
+          typeof blockchainBountyId,
+        );
       } catch (blockchainError) {
         // If there's a blockchain error, we need to handle it appropriately
         console.error('Blockchain error:', blockchainError);
@@ -271,55 +254,45 @@ Any other details that might be helpful for the talent working on this bounty.`,
       setStep('database');
 
       // Step 7: Save off-chain data to the database
-      console.log("Before API call - blockchainBountyId:", bountyId, typeof bountyId);
-      
+      console.log(
+        'Before API call - blockchainBountyId:',
+        bountyId,
+        typeof bountyId,
+      );
+
       const requestBody = {
         blockchainBountyId: bountyId, // Use bountyId directly instead of the state variable
         description: formData.description,
         category: formData.category,
-        skills: Array.isArray(formData.skills) && formData.skills.length > 0 ? formData.skills : ['General'],
+        skills:
+          Array.isArray(formData.skills) && formData.skills.length > 0
+            ? formData.skills
+            : ['General'],
         extraRequirements: '',
         owner: userPublicKey, // Add the owner's public key explicitly
         title: formData.title, // Explicitly include title
         reward: {
           amount: formData.rewardAmount,
-<<<<<<< Updated upstream
-          asset: formData.tokenSymbol
+          asset: formData.tokenSymbol,
         }, // Explicitly include reward
         deadline: new Date(formData.submissionDeadline).toISOString(), // Add deadline
+        submissionDeadline: new Date(formData.submissionDeadline).toISOString(),
+        judgingDeadline: new Date(formData.judgingDeadline).toISOString(),
+        status: 'OPEN',
       };
-      
-      console.log("API request body:", JSON.stringify(requestBody, null, 2));
-      
+
+      console.log('API request body:', JSON.stringify(requestBody, null, 2));
+
       const response = await fetch('/api/bounties', {
         method: 'POST',
-=======
-          asset: formData.token
-        },
-        submissionDeadline: new Date(formData.submissionDeadline).getTime(),
-        judgingDeadline: new Date(formData.judgingDeadline).getTime(),
-        status: "OPEN"
-      };
-
-      console.log("API request body with timestamps:", {
-        submissionDeadline: requestBody.submissionDeadline,
-        submissionDeadlineDate: new Date(requestBody.submissionDeadline).toLocaleString(),
-        submissionDeadlineUTC: new Date(requestBody.submissionDeadline).toUTCString(),
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
-      });
-
-      const response = await fetch("/api/bounties", {
-        method: "POST",
->>>>>>> Stashed changes
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
-
       if (!response.ok) {
         const error = await response.json();
-        console.error("API error response:", error);
+        console.error('API error response:', error);
         throw new Error(error.message || 'Failed to save bounty data');
       }
 
@@ -337,14 +310,14 @@ Any other details that might be helpful for the talent working on this bounty.`,
 
   // Handle skill toggle
   const handleSkillToggle = (skill: string) => {
-    setFormData(prev => {
+    setFormData((prev) => {
       const skills = prev.skills.includes(skill)
-        ? prev.skills.filter(s => s !== skill)
+        ? prev.skills.filter((s) => s !== skill)
         : [...prev.skills, skill];
-      
+
       return {
         ...prev,
-        skills
+        skills,
       };
     });
   };
@@ -381,7 +354,8 @@ Any other details that might be helpful for the talent working on this bounty.`,
               required
             />
             <p className="text-xs text-gray-400 mt-1">
-              Edit the template above to describe your bounty requirements, deliverables, and timeline.
+              Edit the template above to describe your bounty requirements,
+              deliverables, and timeline.
             </p>
           </div>
 
@@ -441,7 +415,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
                   className="w-full bg-white/5 border border-white/20 rounded-lg pl-10 pr-4 py-2 text-white appearance-none"
                   required
                 >
-                  {availableTokens.map((token) => (
+                  {SUPPORTED_TOKENS.map((token) => (
                     <option key={token.symbol} value={token.address}>
                       {token.name} ({token.symbol})
                     </option>
@@ -450,7 +424,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
                 <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                   <img
                     src={
-                      availableTokens.find((t) => t.address === formData.token)
+                      SUPPORTED_TOKENS.find((t) => t.address === formData.token)
                         ?.logo || '/images/tokens/usdc.svg'
                     }
                     alt={formData.tokenSymbol}
@@ -496,12 +470,12 @@ Any other details that might be helpful for the talent working on this bounty.`,
             </div>
           </div>
 
-<<<<<<< Updated upstream
-=======
           {/* Deadlines */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-white mb-2">Submission Deadline</label>
+              <label className="block text-white mb-2">
+                Submission Deadline
+              </label>
               <input
                 type="datetime-local"
                 name="submissionDeadline"
@@ -512,7 +486,8 @@ Any other details that might be helpful for the talent working on this bounty.`,
                 min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
               />
               <p className="text-xs text-gray-400 mt-1">
-                Select when submissions should close (in your local timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
+                Select when submissions should close (in your local timezone:{' '}
+                {Intl.DateTimeFormat().resolvedOptions().timeZone})
               </p>
             </div>
             <div>
@@ -524,15 +499,18 @@ Any other details that might be helpful for the talent working on this bounty.`,
                 onChange={handleChange}
                 className="w-full bg-white/5 border border-white/20 rounded-lg px-4 py-2 text-white"
                 required
-                min={formData.submissionDeadline || new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                min={
+                  formData.submissionDeadline ||
+                  new Date(Date.now() + 60000).toISOString().slice(0, 16)
+                }
               />
               <p className="text-xs text-gray-400 mt-1">
-                Select when winner selection should be completed (in your local timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
+                Select when winner selection should be completed (in your local
+                timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone})
               </p>
             </div>
           </div>
 
->>>>>>> Stashed changes
           {/* Winner Count and Distribution */}
           <div>
             <label className="block text-white mb-2">Number of Winners</label>
@@ -561,10 +539,10 @@ Any other details that might be helpful for the talent working on this bounty.`,
                       {dist.position === 1
                         ? '1st Place'
                         : dist.position === 2
-                        ? '2nd Place'
-                        : dist.position === 3
-                        ? '3rd Place'
-                        : `${dist.position}th Place`}
+                          ? '2nd Place'
+                          : dist.position === 3
+                            ? '3rd Place'
+                            : `${dist.position}th Place`}
                     </span>
                   </div>
                   <input
@@ -575,7 +553,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
                     onChange={(e) =>
                       handleDistributionChange(
                         dist.position,
-                        parseInt(e.target.value)
+                        parseInt(e.target.value),
                       )
                     }
                     className="w-20 bg-white/5 border border-white/20 rounded-lg px-2 py-1 text-white text-center"
@@ -593,7 +571,7 @@ Any other details that might be helpful for the talent working on this bounty.`,
                 >
                   {formData.distribution.reduce(
                     (sum, item) => sum + item.percentage,
-                    0
+                    0,
                   )}
                   %{!validateDistribution() && ' (Must equal 100%)'}
                 </span>
@@ -654,24 +632,25 @@ Any other details that might be helpful for the talent working on this bounty.`,
                       return;
                     }
 
-                    const userPublicKey = await freighterApi.getPublicKey();
+                    const { address: userPublicKey, error } =
+                      await freighterApi.getAddress();
+                    if (error) {
+                      throw new Error('Wallet not connected');
+                    }
                     console.log('Checking contract configuration...');
                     console.log('Public Key:', userPublicKey);
-
-                    // Initialize Soroban service to log configuration
-                    const sorobanService = new SorobanService(userPublicKey);
 
                     // Get network
                     const network = await freighterApi.getNetwork();
                     console.log('Current network:', network);
 
                     alert(
-                      'Contract configuration checked. Check console for details.'
+                      'Contract configuration checked. Check console for details.',
                     );
                   } catch (error: any) {
                     console.error('Debug check failed:', error);
                     alert(
-                      `Debug check failed: ${error.message || 'Unknown error'}`
+                      `Debug check failed: ${error.message || 'Unknown error'}`,
                     );
                   }
                 }}

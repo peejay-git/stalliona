@@ -1,0 +1,40 @@
+diff --git a/modules/freighter.module.mjs b/modules/freighter.module.mjs
+index c975ced4f895a4496a736a509f917780901e1512..3dad51759d8b04c69789573c595958eb42735df5 100644
+--- a/modules/freighter.module.mjs
++++ b/modules/freighter.module.mjs
+@@ -1,7 +1,8 @@
+-import { isConnected, requestAccess, getAddress, signTransaction, signAuthEntry, signMessage, getNetwork } from '@stellar/freighter-api';
++import pkg from '@stellar/freighter-api';
++import { Buffer } from 'buffer';
+ import { ModuleType } from '../types.mjs';
+ import { parseError } from '../utils.mjs';
+-import { Buffer } from 'buffer';
++const { isConnected, requestAccess, getAddress, signTransaction, signAuthEntry, signMessage, getNetwork } = pkg;
+ 
+ const FREIGHTER_ID = "freighter";
+ class FreighterModule {
+diff --git a/modules/hotwallet.module.mjs b/modules/hotwallet.module.mjs
+index e9c831d488a8fcd272d49638f1991b6098f0c942..eae23293e47d64e8de392412f56d75ed185cc2e1 100644
+--- a/modules/hotwallet.module.mjs
++++ b/modules/hotwallet.module.mjs
+@@ -1,5 +1,6 @@
+-import { HOT } from '@hot-wallet/sdk';
++import pkg from '@hot-wallet/sdk';
+ import { ModuleType, WalletNetwork } from '../types.mjs';
++const { HOT } = pkg;
+ 
+ const HOTWALLET_ID = "hot-wallet";
+ class HotWalletModule {
+diff --git a/modules/lobstr.module.mjs b/modules/lobstr.module.mjs
+index c8b853b86fdd5c85ba6a5a9800d65fe275144838..1f6151e3e8ce6045825ca54570606179807e241d 100644
+--- a/modules/lobstr.module.mjs
++++ b/modules/lobstr.module.mjs
+@@ -1,6 +1,7 @@
+-import { isConnected, getPublicKey, signTransaction } from '@lobstrco/signer-extension-api';
++import pkg from '@lobstrco/signer-extension-api';
+ import { ModuleType } from '../types.mjs';
+ import { parseError } from '../utils.mjs';
++const { isConnected, getPublicKey, signTransaction } = pkg;
+ 
+ const LOBSTR_ID = "lobstr";
+ class LobstrModule {

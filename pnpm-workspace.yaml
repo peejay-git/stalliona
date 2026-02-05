@@ -1,0 +1,2 @@
+patchedDependencies:
+  '@creit.tech/stellar-wallets-kit@1.9.5': patches/@creit.tech__stellar-wallets-kit@1.9.5.patch

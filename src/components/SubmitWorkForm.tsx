@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
-<<<<<<< Updated upstream
-import { submitWorkOnChain } from '@/utils/blockchain';
-=======
-import freighterApi from '@stellar/freighter-api';
->>>>>>> Stashed changes
-import toast from 'react-hot-toast';
 import { useWallet } from '@/hooks/useWallet';
-import { useUserStore } from '@/lib/stores/useUserStore';
-import { collection, query, where, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useUserStore } from '@/lib/stores/useUserStore';
+import { submitWorkOnChain } from '@/utils/blockchain';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  updateDoc,
+  where,
+} from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 
 interface SubmitWorkFormProps {
   bountyId: number;
@@ -16,28 +20,37 @@ interface SubmitWorkFormProps {
 
 export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState<'checking' | 'form' | 'submitting' | 'complete' | 'already-submitted' | 'expired'>('checking');
+  const [step, setStep] = useState<
+    | 'checking'
+    | 'form'
+    | 'submitting'
+    | 'complete'
+    | 'already-submitted'
+    | 'expired'
+  >('checking');
   const [submissionId, setSubmissionId] = useState<string | null>(null);
-  const [userWalletAddress, setUserWalletAddress] = useState<string | null>(null);
+  const [userWalletAddress, setUserWalletAddress] = useState<string | null>(
+    null,
+  );
   const { publicKey } = useWallet();
   const user = useUserStore((state) => state.user);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     content: '',
     detailedDescription: '',
     links: '',
   });
-  
+
   // Fetch user's wallet address from Firestore
   useEffect(() => {
     const fetchUserWalletAddress = async () => {
       if (!user?.uid) return;
-      
+
       try {
         const userRef = doc(db, 'users', user.uid);
         const userSnap = await getDoc(userRef);
-        
+
         if (userSnap.exists()) {
           const userData = userSnap.data();
           if (userData.wallet && userData.wallet.address) {
@@ -51,10 +64,10 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         console.error('Error fetching user wallet address:', error);
       }
     };
-    
+
     fetchUserWalletAddress();
   }, [user?.uid]);
-  
+
   // Check if bounty has expired and if user has already submitted work
   useEffect(() => {
     const checkSubmissionStatus = async () => {
@@ -62,57 +75,57 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         setStep('form'); // If no user, just show form (validation will happen later)
         return;
       }
-      
+
       try {
         // First check if bounty has expired or is completed
         const bountyRef = doc(db, 'bounties', bountyId.toString());
         const bountySnap = await getDoc(bountyRef);
-        
+
         if (bountySnap.exists()) {
           const bountyData = bountySnap.data();
-          
+
           // Check if bounty is already marked as COMPLETED
           if (bountyData.status === 'COMPLETED') {
             console.log('Bounty is already marked as COMPLETED');
             setStep('expired');
             return;
           }
-          
+
           // Check if deadline has passed
           const deadline = bountyData.deadline || bountyData.submissionDeadline;
           if (deadline) {
             const deadlineDate = new Date(deadline);
             const now = new Date();
-            
+
             if (now > deadlineDate) {
               console.log('Bounty deadline has passed:', deadlineDate);
-              
+
               // Update bounty status to COMPLETED
               try {
                 await updateDoc(bountyRef, {
                   status: 'COMPLETED',
-                  updatedAt: new Date().toISOString()
+                  updatedAt: new Date().toISOString(),
                 });
                 console.log('Updated bounty status to COMPLETED');
               } catch (updateError) {
                 console.error('Error updating bounty status:', updateError);
               }
-              
+
               setStep('expired');
               return;
             }
           }
         }
-        
+
         // Then check if user already submitted
         const submissionsRef = collection(db, 'submissions');
         const q = query(
-          submissionsRef, 
+          submissionsRef,
           where('bountyId', '==', bountyId.toString()),
-          where('userId', '==', user.uid)
+          where('userId', '==', user.uid),
         );
         const snapshot = await getDocs(q);
-        
+
         if (!snapshot.empty) {
           console.log('User already submitted work for this bounty');
           setStep('already-submitted');
@@ -124,111 +137,86 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         setStep('form'); // On error, default to showing the form
       }
     };
-    
+
     checkSubmissionStatus();
   }, [bountyId, user?.uid]);
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
-<<<<<<< Updated upstream
-    setFormData(prev => ({ ...prev, [name]: value }));
-=======
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    
-    // Clear error when user types
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
->>>>>>> Stashed changes
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       // Check if user is logged in
       if (!user?.uid) {
         throw new Error('You must be logged in to submit work');
       }
-      
+
       // Check if we have the user's wallet address
       if (!userWalletAddress) {
-        throw new Error('No wallet address found. Please update your profile with a wallet address.');
+        throw new Error(
+          'No wallet address found. Please update your profile with a wallet address.',
+        );
       }
-      
-<<<<<<< Updated upstream
+
       console.log('User wallet address:', userWalletAddress);
       console.log('User from store:', user);
-      
+
       // Step 3: Double-check if bounty has expired
       const bountyRef = doc(db, 'bounties', bountyId.toString());
       const bountySnap = await getDoc(bountyRef);
-      
+
       if (bountySnap.exists()) {
         const bountyData = bountySnap.data();
         const deadline = bountyData.deadline || bountyData.submissionDeadline;
-        
+
         if (deadline) {
           const deadlineDate = new Date(deadline);
           const now = new Date();
-          
+
           if (now > deadlineDate) {
-            throw new Error('This bounty has expired and is no longer accepting submissions');
+            throw new Error(
+              'This bounty has expired and is no longer accepting submissions',
+            );
           }
         }
       }
-      
+
       // Step 4: Update UI state
       setStep('submitting');
       toast.loading('Submitting your work...', { id: 'submit-work' });
-      
+
       // Step 5: Generate a submission ID (no blockchain transaction)
       const blockchainSubmissionId = await submitWorkOnChain({
         userPublicKey: userWalletAddress,
         bountyId,
         content: formData.links, // Use links as the on-chain content (shorter)
       });
-      
+
       // Step 6: Store submission ID
       setSubmissionId(blockchainSubmissionId);
-      
+
       // Step 7: Save detailed submission data to the database
-=======
-      // Update UI state
-      setStep('submitting');
-      toast.loading('Submitting your work...', { id: 'submit-work' });
-      
-      // Generate a unique submission ID using timestamp and user info
-      const submissionId = `submission_${Date.now()}_${user.uid.slice(0, 8)}`;
-      setSubmissionId(submissionId);
-      
-      // Save submission data to the database
->>>>>>> Stashed changes
       const response = await fetch(`/api/bounties/${bountyId}/submissions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          submissionId,
+          submissionId: blockchainSubmissionId,
           applicantAddress: userWalletAddress,
           userId: user.uid,
-<<<<<<< Updated upstream
           content: formData.detailedDescription, // Store detailed content in the database
-=======
-          content: formData.detailedDescription,
->>>>>>> Stashed changes
           links: formData.links,
         }),
       });
-      
+
       if (!response.ok) {
         const data = await response.json();
         if (response.status === 400) {
@@ -236,29 +224,21 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         }
         throw new Error('Failed to save submission. Please try again.');
       }
-      
+
       // Step 8: Complete
       setStep('complete');
       toast.success('Work submitted successfully!', { id: 'submit-work' });
     } catch (error) {
       console.error('Error submitting work:', error);
-<<<<<<< Updated upstream
-      toast.error(`Failed to submit work: ${(error as Error).message}`, { id: 'submit-work' });
+      toast.error(`Failed to submit work: ${(error as Error).message}`, {
+        id: 'submit-work',
+      });
       setStep('form'); // Reset to form state on error
-=======
-      toast.error(error.message || 'Failed to submit work', { id: 'submit-work' });
-      setStep('form');
-      
-      // If it's a duplicate submission, update the state
-      if (error.message.includes('already submitted')) {
-        setHasSubmitted(true);
-      }
->>>>>>> Stashed changes
     } finally {
       setIsLoading(false);
     }
   };
-  
+
   if (step === 'checking') {
     return (
       <div className="text-center py-10 p-6">
@@ -267,7 +247,7 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
       </div>
     );
   }
-  
+
   if (step === 'already-submitted') {
     return (
       <div className="p-8">
@@ -279,19 +259,22 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
       </div>
     );
   }
-  
+
   if (step === 'expired') {
     return (
       <div className="p-8">
         <h2 className="text-xl font-semibold mb-4 text-white">Submit Work</h2>
         <div className="bg-gray-700/40 text-gray-300 border border-gray-600/30 p-4 rounded-lg">
-          <p>This bounty has been completed and is no longer accepting submissions.</p>
+          <p>
+            This bounty has been completed and is no longer accepting
+            submissions.
+          </p>
           <p className="mt-2">Please check other active bounties.</p>
         </div>
       </div>
     );
   }
-  
+
   // Show warning if no wallet address is found
   if (step === 'form' && !userWalletAddress) {
     return (
@@ -299,24 +282,32 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
         <h2 className="text-xl font-semibold mb-4 text-white">Submit Work</h2>
         <div className="bg-yellow-900/40 text-yellow-300 border border-yellow-700/30 p-4 rounded-lg">
           <p>No wallet address found in your profile.</p>
-          <p className="mt-2">Please update your profile with a wallet address to submit work.</p>
+          <p className="mt-2">
+            Please update your profile with a wallet address to submit work.
+          </p>
         </div>
       </div>
     );
   }
-  
+
   return (
     <>
-      <h2 className="text-2xl font-bold text-white p-6 pb-0 mb-4">Submit Work</h2>
-      
+      <h2 className="text-2xl font-bold text-white p-6 pb-0 mb-4">
+        Submit Work
+      </h2>
+
       {step === 'form' && (
         <form onSubmit={handleSubmit} className="space-y-6 p-6 pt-0">
           {/* Wallet Address Display */}
           <div className="bg-green-900/20 border border-green-700/30 rounded-lg p-3 text-sm">
-            <p className="text-white font-medium">Submission will be linked to your wallet</p>
-            <p className="text-gray-300 break-all text-xs mt-1">{userWalletAddress}</p>
+            <p className="text-white font-medium">
+              Submission will be linked to your wallet
+            </p>
+            <p className="text-gray-300 break-all text-xs mt-1">
+              {userWalletAddress}
+            </p>
           </div>
-          
+
           {/* Links */}
           <div>
             <label className="block text-white mb-2">Link to Work</label>
@@ -330,10 +321,12 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
               required
             />
           </div>
-          
+
           {/* Detailed Description */}
           <div>
-            <label className="block text-white mb-2">Detailed Description</label>
+            <label className="block text-white mb-2">
+              Detailed Description
+            </label>
             <textarea
               name="detailedDescription"
               value={formData.detailedDescription}
@@ -343,7 +336,7 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
               required
             />
           </div>
-          
+
           <button
             type="submit"
             disabled={isLoading}
@@ -353,26 +346,43 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
           </button>
         </form>
       )}
-      
+
       {step === 'submitting' && (
         <div className="text-center py-10 p-6">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto"></div>
           <p className="text-white mt-4">Submitting your work...</p>
-          <p className="text-gray-400 mt-2">Please wait while we save your submission</p>
+          <p className="text-gray-400 mt-2">
+            Please wait while we save your submission
+          </p>
         </div>
       )}
-      
+
       {step === 'complete' && (
         <div className="text-center py-10 p-6">
           <div className="w-12 h-12 rounded-full bg-green-500 mx-auto flex items-center justify-center">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-white"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
             </svg>
           </div>
-          <h3 className="text-white text-xl font-semibold mt-4">Work Submitted!</h3>
-          <p className="text-gray-400 mt-2">Your submission has been recorded successfully.</p>
+          <h3 className="text-white text-xl font-semibold mt-4">
+            Work Submitted!
+          </h3>
+          <p className="text-gray-400 mt-2">
+            Your submission has been recorded successfully.
+          </p>
           <button
-            onClick={() => window.location.href = `/bounties/${bountyId}`}
+            onClick={() => (window.location.href = `/bounties/${bountyId}`)}
             className="mt-6 bg-white text-black font-medium py-2 px-6 rounded-lg hover:bg-white/90 transition-colors"
           >
             View Bounty
@@ -381,4 +391,4 @@ export default function SubmitWorkForm({ bountyId }: SubmitWorkFormProps) {
       )}
     </>
   );
-} 
+}

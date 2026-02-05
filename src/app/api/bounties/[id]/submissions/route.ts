@@ -1,10 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { BlockchainError } from '@/utils/error-handler';
 import { BountyService } from '@/lib/bountyService';
-import { auth } from '@/lib/firebase';
-import { getDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { NextRequest, NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,16 +11,15 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { id } = params;
-    console.log(`API: Getting submissions for bounty ID ${id}`);
-    
+
     if (!id) {
       return NextResponse.json(
         { error: 'Bounty ID is required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -32,269 +28,203 @@ export async function GET(
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { error: 'Unauthorized - Missing or invalid authorization header' },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const token = authHeader.split('Bearer ')[1];
     if (!token) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
     // Check if the user is a sponsor
     const userRole = request.headers.get('x-user-role');
     const isSponsor = userRole === 'sponsor';
-    
-    console.log('API Authorization check:', {
-      token,
-      userRole,
-      isSponsor
-    });
 
     // Create bounty service
     const bountyService = new BountyService();
-    
-<<<<<<< Updated upstream
+
     // First get the bounty to check ownership
     let bounty;
     try {
       bounty = await bountyService.getBountyById(id);
     } catch (error) {
       console.error(`Error fetching bounty ${id}:`, error);
-      
-      // If user is a sponsor, we can bypass the blockchain check
+
+      // If user is a sponsor, we can bypass the blockchain check or try just DB
+      // But bountyService.getBountyById should handle fallback mostly.
+      // If it fails, we check DB directly as fallback (Upstream logic)
       if (isSponsor) {
-        console.log('User is a sponsor, bypassing blockchain check');
-        // Get bounty from database only
         const docRef = doc(db, 'bounties', id);
         const docSnap = await getDoc(docRef);
-        
+
         if (!docSnap.exists()) {
           return NextResponse.json(
             { error: 'Bounty not found in database' },
-            { status: 404 }
+            { status: 404 },
           );
         }
-        
+
         bounty = {
           id: parseInt(id),
           ...docSnap.data(),
           owner: docSnap.data().owner || '',
-          sponsorName: docSnap.data().sponsorName || ''
+          sponsorName: docSnap.data().sponsorName || '',
         };
       } else {
-        // If not a sponsor, return the error
         return NextResponse.json(
           { error: 'Failed to get bounty', code: 'CONTRACT_ERROR' },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
-    
+
     if (!bounty) {
-      return NextResponse.json(
-        { error: 'Bounty not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Bounty not found' }, { status: 404 });
     }
 
-    // Get the user ID from the token
+    // Get the user ID from the token (Assuming token is UID or Wallet Address depending on auth flow)
     const userId = token;
-    
-    console.log('Authorization check:', {
-      userId,
-      bountyOwner: bounty.owner,
-      isOwner: bounty.owner === userId,
-      isSponsor,
-      sponsorName: bounty.sponsorName || 'No sponsor'
-    });
-    
-    // Check if the user is the bounty owner or a sponsor
     const isOwner = bounty.owner === userId;
-    
+
     // Allow access if user is either the owner or a sponsor
     if (!isOwner && !isSponsor) {
       return NextResponse.json(
         { error: 'You are not authorized to view submissions for this bounty' },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
-    // Get all submissions for the bounty (from database only)
+    // Get all submissions for the bounty using the service (Clean Stashed logic)
     try {
-      // Get off-chain submission data from the database
-      const submissionsRef = collection(db, 'submissions');
-      const q = query(
-        submissionsRef,
-        where('bountyId', '==', id.toString())
-      );
-      const snapshot = await getDocs(q);
-
-      // If there are no submissions, return empty array
-      if (snapshot.empty) {
-        return NextResponse.json([]);
-      }
-
-      console.log(`Found ${snapshot.docs.length} submissions for bounty ${id}`);
-
-      // Map the submissions from the database
-      const submissions = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          bountyId: parseInt(id),
-          applicant: data.applicantAddress || 'Unknown',
-          walletAddress: data.applicantAddress || 'Unknown',
-          userId: data.userId || null,
-          submission: data.links || '',
-          content: data.content || '',
-          details: data.content || '',
-          links: data.links || '',
-          created: data.createdAt || new Date().toISOString(),
-          status: data.status || 'PENDING',
-          ranking: data.ranking || null,
-        };
-      });
-=======
-    // Get all submissions for the bounty
-    const submissions = await bountyService.getBountySubmissions(id);
->>>>>>> Stashed changes
-
-    return NextResponse.json(submissions);
+      const submissions = await bountyService.getBountySubmissions(id);
+      return NextResponse.json(submissions);
     } catch (error) {
       console.error(`Error fetching submissions for bounty ${id}:`, error);
       return NextResponse.json(
         { error: 'Failed to fetch submissions from database' },
-        { status: 500 }
+        { status: 500 },
       );
     }
   } catch (error) {
     console.error(`Error fetching submissions for bounty ${params.id}:`, error);
     return NextResponse.json(
       { error: 'Failed to fetch submissions' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 /**
  * POST /api/bounties/[id]/submissions
-<<<<<<< Updated upstream
- * Save submission data to the database (no blockchain interaction)
-=======
- * Save the submission data to the database
->>>>>>> Stashed changes
+ * Save submission data to the database
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const { id: bountyId } = params;
     if (!bountyId) {
       return NextResponse.json(
         { error: 'Bounty ID is required' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Parse the request body
-    const { 
-      applicantAddress, 
-      userId,
-      content, 
-<<<<<<< Updated upstream
-      links,
-      blockchainSubmissionId 
-    } = await request.json();
+    const { applicantAddress, userId, content, links, blockchainSubmissionId } =
+      await request.json();
 
     // Validate required fields
     if (!applicantAddress || !content) {
-=======
-      submissionId,
-      userId,
-      links 
-    } = await request.json();
-
-    // Validate required fields
-    if (!applicantAddress || !content || !submissionId || !userId) {
->>>>>>> Stashed changes
       return NextResponse.json(
         { error: 'Missing required fields' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    // Log the full request data for debugging
-    console.log('DEBUG: Submission data received:', {
-      bountyId,
-      applicantAddress,
-      userId,
-      content: content.substring(0, 50) + '...',
-      links,
-      blockchainSubmissionId
-    });
-
     // Additional validation for applicantAddress
-    if (typeof applicantAddress !== 'string' || applicantAddress.trim() === '') {
-      console.error('ERROR: Invalid applicantAddress format:', applicantAddress);
+    if (
+      typeof applicantAddress !== 'string' ||
+      applicantAddress.trim() === ''
+    ) {
       return NextResponse.json(
         { error: 'Invalid applicant address format' },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Create bounty service
     const bountyService = new BountyService();
-<<<<<<< Updated upstream
-    
-    // Check if the bounty has expired
+
+    // Check if the bounty has expired or duplicate submission
     try {
+      // Check for duplicates first
+      const existingSubmissions =
+        await bountyService.getBountySubmissions(bountyId);
+      const hasSubmitted = existingSubmissions.some(
+        (submission) =>
+          submission.applicant === applicantAddress ||
+          (userId && submission.userId === userId),
+      );
+
+      if (hasSubmitted) {
+        return NextResponse.json(
+          { error: 'You have already submitted work for this bounty' },
+          { status: 400 },
+        );
+      }
+
+      // Check Expiry/Status
       const bountyRef = doc(db, 'bounties', bountyId);
       const bountySnap = await getDoc(bountyRef);
-      
+
       if (!bountySnap.exists()) {
         return NextResponse.json(
           { error: 'Bounty not found' },
-          { status: 404 }
+          { status: 404 },
         );
       }
-      
+
       const bountyData = bountySnap.data();
-      
-      // Check if bounty is already marked as COMPLETED
+
       if (bountyData.status === 'COMPLETED') {
         return NextResponse.json(
-          { error: 'This bounty has been completed and is no longer accepting submissions' },
-          { status: 400 }
+          {
+            error:
+              'This bounty has been completed and is no longer accepting submissions',
+          },
+          { status: 400 },
         );
       }
-      
-      // Check if deadline has passed
+
       const deadline = bountyData.deadline || bountyData.submissionDeadline;
-      
+
       if (deadline) {
         const deadlineDate = new Date(deadline);
         const now = new Date();
-        
+
         if (now > deadlineDate) {
           // Update bounty status to COMPLETED
           try {
             await updateDoc(bountyRef, {
               status: 'COMPLETED',
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
             });
-            console.log('Updated bounty status to COMPLETED due to passed deadline');
+            console.log(
+              'Updated bounty status to COMPLETED due to passed deadline',
+            );
           } catch (updateError) {
             console.error('Error updating bounty status:', updateError);
           }
-          
+
           return NextResponse.json(
-            { error: 'This bounty has been completed and is no longer accepting submissions' },
-            { status: 400 }
+            {
+              error:
+                'This bounty has been completed and is no longer accepting submissions',
+            },
+            { status: 400 },
           );
         }
       }
@@ -302,74 +232,36 @@ export async function POST(
       console.error('Error checking bounty status:', error);
       return NextResponse.json(
         { error: 'Failed to check bounty status' },
-        { status: 500 }
+        { status: 500 },
       );
     }
-    
+
     // Save submission to database with additional userId field
+    // Use blockchainSubmissionId if available (Upstream), otherwise define one (or fallback)
+    // The SubmitWorkForm sends 'blockchainSubmissionId'.
+    const submissionId =
+      blockchainSubmissionId ||
+      `submission_${Date.now()}_${applicantAddress.slice(0, 8)}`;
+
     await bountyService.saveSubmissionToDatabase(
       parseInt(bountyId),
       applicantAddress,
       content,
-      blockchainSubmissionId,
+      submissionId,
       links,
-      userId
+      userId,
     );
-=======
->>>>>>> Stashed changes
 
-    try {
-      // Check if user or wallet has already submitted
-      const existingSubmissions = await bountyService.getBountySubmissions(bountyId);
-      const hasSubmitted = existingSubmissions.some(
-        submission => 
-          submission.applicant === applicantAddress || 
-          (userId && submission.userId === userId)
-      );
-
-      if (hasSubmitted) {
-        return NextResponse.json(
-          { error: 'You have already submitted work for this bounty' },
-          { status: 400 }
-        );
-      }
-
-      // Get bounty details to check deadline
-      const bounty = await bountyService.getBountyById(bountyId);
-      if (bounty.submissionDeadline < Date.now()) {
-        return NextResponse.json(
-          { error: 'Submission deadline has passed' },
-          { status: 400 }
-        );
-      }
-      
-      // Save submission to database
-      await bountyService.saveSubmissionToDatabase(
-        parseInt(bountyId),
-        applicantAddress,
-        content,
-        submissionId,
-        links,
-        userId
-      );
-
-      return NextResponse.json({
-        success: true,
-        message: 'Submission saved successfully',
-        id: submissionId,
-      });
-    } catch (serviceError: any) {
-      console.error('Service error:', serviceError);
-      return NextResponse.json(
-        { error: serviceError.message || 'Failed to process submission' },
-        { status: 400 }
-      );
-    }
+    return NextResponse.json({
+      success: true,
+      message: 'Submission saved successfully',
+      id: submissionId,
+    });
   } catch (error: any) {
     console.error(`Error submitting to bounty ${params.id}:`, error);
     return NextResponse.json(
       { error: 'An unexpected error occurred. Please try again.' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

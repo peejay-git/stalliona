@@ -85,7 +85,10 @@ export default function SelectWinnersForm({
       }
       
       // Get user's public key
-      const userPublicKey = await freighterApi.getPublicKey();
+      const { address: userPublicKey, error } = await freighterApi.getAddress();
+      if (error) {
+        throw new Error('Wallet not connected');
+      }
       
       // Convert selected winners to array format for API
       const winnerAddresses = distributions

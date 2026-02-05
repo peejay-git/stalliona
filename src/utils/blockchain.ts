@@ -2,20 +2,11 @@ import { SorobanService } from '@/lib/soroban';
 import { Distribution } from '@/types/bounty';
 import { getNetwork } from '@stellar/freighter-api';
 import toast from 'react-hot-toast';
+import { TOKEN_ADDRESSES } from './tokens';
 
 /**
  * Utility functions for frontend blockchain operations
  */
-
-// Token address mapping for blockchain contract integration
-// Using the actual token contract addresses on the Stellar network
-const TOKEN_ADDRESSES: Record<string, string> = {
-  // These are asset contract IDs for the Stellar testnet
-  USDC: 'CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA',
-  NGNC: 'CBYFV4W2LTMXYZ3XWFX5BK2BY255DU2DSXNAE4FJ5A5VYUWGIBJDOIGG',
-  KALE: 'CB23WRDQWGSP6YPMY4UV5C4OW5CBTXKYN3XEATG7KJEZCXMJBYEHOUOV',
-  XLM: 'CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC',
-};
 
 // Max retries for blockchain operations
 const MAX_RETRIES = 3;
@@ -26,7 +17,7 @@ const RETRY_DELAY = 1000; // ms
  */
 async function retryOperation<T>(
   operation: () => Promise<T>,
-  maxRetries: number = MAX_RETRIES
+  maxRetries: number = MAX_RETRIES,
 ): Promise<T> {
   let lastError: Error | null = null;
 
@@ -36,7 +27,7 @@ async function retryOperation<T>(
     } catch (error) {
       console.warn(
         `Operation failed (attempt ${attempt}/${maxRetries}):`,
-        error
+        error,
       );
       lastError = error instanceof Error ? error : new Error(String(error));
 
@@ -79,16 +70,22 @@ export async function createBountyOnChain({
     if (!userPublicKey) {
       toast.error(
         'Wallet public key is missing. Please reconnect your wallet.',
-        { id: 'wallet-transaction' }
+        { id: 'wallet-transaction' },
       );
       throw new Error('Wallet public key is missing');
     }
 
-    // The token parameter is now already the address,
-    // so we don't need to look it up in the mapping
-    const tokenAddress = token;
+    // Get the token address from the mapping
+    const tokenAddress = TOKEN_ADDRESSES[token];
+    if (!tokenAddress) {
+      toast.error(
+        `Token ${token} is not supported. Please select a different token.`,
+        { id: 'wallet-transaction' },
+      );
+      throw new Error(`Unsupported token: ${token}`);
+    }
 
-    console.log(`Using token address: ${tokenAddress}`);
+    console.log(`Using token address for ${token}: ${tokenAddress}`);
 
     // Get the network to confirm we're on the right one
     const network = await getNetwork().catch((error) => {
@@ -110,12 +107,12 @@ export async function createBountyOnChain({
       // Use retry logic for blockchain operations
       const bountyId = await retryOperation(async () => {
         return await sorobanService.createBounty({
-          title,
           owner: userPublicKey,
           token: tokenAddress, // Use the resolved token address
-          reward: { amount: reward.amount, asset: token }, // Use the token symbol
+          reward: { amount: reward.amount, asset: reward.asset },
           distribution,
           submissionDeadline,
+          title,
         });
       });
 
@@ -182,12 +179,12 @@ export async function createBountyOnChain({
     } else if (error.message?.includes('Unsupported address type')) {
       toast.error(
         'Token not supported on this network. Please try USDC instead.',
-        { id: 'wallet-transaction' }
+        { id: 'wallet-transaction' },
       );
     } else if (error.message?.includes('Unsupported token')) {
       toast.error(
         'The selected token is not configured properly. Please try USDC instead.',
-        { id: 'wallet-transaction' }
+        { id: 'wallet-transaction' },
       );
     } else if (error.message?.includes('token')) {
       toast.error(`Token error: ${error.message}. Please try USDC instead.`, {
@@ -199,7 +196,7 @@ export async function createBountyOnChain({
     ) {
       toast.error(
         `Transaction simulation failed. Please try again with different parameters.`,
-        { id: 'wallet-transaction' }
+        { id: 'wallet-transaction' },
       );
     } else if (
       error.message?.includes('Contract error') ||
@@ -215,10 +212,10 @@ export async function createBountyOnChain({
     } else if (error.message?.includes('Account not found')) {
       toast.error(
         `Account not found on the blockchain. Make sure you have created and funded the accounts you're using.`,
-        { id: 'wallet-transaction' }
+        { id: 'wallet-transaction' },
       );
       console.error(
-        'Account not found error. This usually means the token contract or user account does not exist on the current network.'
+        'Account not found error. This usually means the token contract or user account does not exist on the current network.',
       );
     } else {
       toast.error(`Error creating bounty: ${errorMessage}`, {
@@ -231,7 +228,7 @@ export async function createBountyOnChain({
 }
 
 /**
- * Submit work to a bounty (database only approach)
+ * Submit work to a bounty on the blockchain
  * @returns The submission ID
  */
 export async function submitWorkOnChain({
@@ -244,16 +241,19 @@ export async function submitWorkOnChain({
   content: string;
 }): Promise<string> {
   try {
-    // Generate a unique submission ID using user's address, bounty ID and timestamp
-    // This replaces the blockchain transaction
-    const timestamp = Date.now();
-    const submissionId = `${userPublicKey.substring(0, 8)}-${bountyId}-${timestamp}`;
-    
-    console.log(`Generated submission ID: ${submissionId} (database-only approach)`);
+    // Initialize Soroban service with the user's public key
+    const sorobanService = new SorobanService(userPublicKey);
+
+    // Submit work to the bounty
+    await sorobanService.applyToBounty(userPublicKey, bountyId, content);
+
+    // For now, we'll use a combination of user address and bounty ID as the submission ID
+    // In a real implementation, the blockchain would return a unique ID
+    const submissionId = `${userPublicKey}-${bountyId}`;
 
     return submissionId;
   } catch (error) {
-    console.error('Error generating submission ID:', error);
+    console.error('Error submitting work on blockchain:', error);
     throw error;
   }
 }

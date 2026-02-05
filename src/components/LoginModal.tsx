@@ -8,7 +8,6 @@ import {
 } from '@/lib/authService';
 import { auth, db } from '@/lib/firebase';
 import { useUserStore } from '@/lib/stores/useUserStore';
-import { kit } from '@/lib/wallet';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -16,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { FcGoogle } from 'react-icons/fc';
-import { FiLock, FiMail, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiLock, FiMail } from 'react-icons/fi';
 import { IoClose } from 'react-icons/io5';
 import { SiBlockchaindotcom } from 'react-icons/si';
 import PasswordInput from './PasswordInput';
@@ -130,7 +129,7 @@ export default function LoginModal({
         // Show detailed error message
         toast.error(
           err.message ||
-            `Google sign-in failed: Domain not authorized. Please contact support.`
+            `Google sign-in failed: Domain not authorized. Please contact support.`,
         );
 
         // Log detailed fix instructions
@@ -165,11 +164,11 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
         toast.error('Sign-in popup was closed. Please try again.');
       } else if (err.message?.includes('popup-blocked')) {
         toast.error(
-          'Sign-in popup was blocked by your browser. Please allow popups for this site.'
+          'Sign-in popup was blocked by your browser. Please allow popups for this site.',
         );
       } else if (err.message?.includes('network')) {
         toast.error(
-          'Network error. Please check your internet connection and try again.'
+          'Network error. Please check your internet connection and try again.',
         );
       } else {
         toast.error(`Google sign-in failed: ${err.message || 'Unknown error'}`);
@@ -221,7 +220,7 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
       } else {
         // Account not found, prompt to create one
         toast.error(
-          result.message || 'Account not found. Please register first.'
+          result.message || 'Account not found. Please register first.',
         );
         onClose();
         onSwitchToRegister?.();
@@ -263,7 +262,7 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
         userCredential = await signInWithEmailAndPassword(
           auth,
           formData.email,
-          formData.password
+          formData.password,
         );
         console.log('Direct Firebase login successful');
       } catch (authError: any) {
@@ -272,7 +271,7 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
         // If we get operation-not-allowed, it means Email/Password auth is not enabled
         if (authError.code === 'auth/operation-not-allowed') {
           toast.error(
-            'Email/Password login is not enabled in Firebase. Please enable it in Firebase Authentication settings.'
+            'Email/Password login is not enabled in Firebase. Please enable it in Firebase Authentication settings.',
           );
           clearTimeout(loginTimeout);
           setIsSubmitting(false);
@@ -338,7 +337,7 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
       setTimeout(() => {
         // For talents, check if they have a wallet address stored
         const hasWalletAddress = userData.wallet && userData.wallet.address;
-        
+
         if (!hasWalletAddress && userData.role === 'sponsor') {
           // Only sponsors need to connect wallet if they don't have one
           router.push('/connect-wallet');
@@ -356,7 +355,7 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
         switch (err.code) {
           case 'auth/user-not-found':
             toast.error(
-              'No user found with this email. Please check your email address.'
+              'No user found with this email. Please check your email address.',
             );
             break;
           case 'auth/wrong-password':
@@ -367,38 +366,38 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
             break;
           case 'auth/network-request-failed':
             toast.error(
-              'Network error. Please check your internet connection.'
+              'Network error. Please check your internet connection.',
             );
             break;
           case 'auth/invalid-email':
             toast.error(
-              'Invalid email format. Please provide a valid email address.'
+              'Invalid email format. Please provide a valid email address.',
             );
             break;
           case 'auth/operation-not-allowed':
             toast.error(
-              'Email/Password login is not enabled. Please contact support.'
+              'Email/Password login is not enabled. Please contact support.',
             );
             break;
           case 'auth/user-disabled':
             toast.error(
-              'This account has been disabled. Please contact support.'
+              'This account has been disabled. Please contact support.',
             );
             break;
           case 'auth/invalid-credential':
             toast.error(
-              'Invalid login credentials. Please check your email and password.'
+              'Invalid login credentials. Please check your email and password.',
             );
             break;
           case 'auth/invalid-login-credentials':
             toast.error(
-              'Invalid login credentials. Please check your email and password.'
+              'Invalid login credentials. Please check your email and password.',
             );
             break;
           default:
             console.error('Unhandled Firebase error:', err);
             toast.error(
-              `Login error: ${err.code}. Please try again or contact support.`
+              `Login error: ${err.code}. Please try again or contact support.`,
             );
             break;
         }
@@ -452,7 +451,7 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
           {publicKey
             ? `Connected wallet: ${publicKey.substring(
                 0,
-                6
+                6,
               )}...${publicKey.substring(publicKey.length - 6)}`
             : 'Enter your email to continue'}
         </motion.p>
@@ -770,19 +769,19 @@ FIREBASE DOMAIN FIX INSTRUCTIONS
                     {currentView === 'main'
                       ? 'Welcome Back'
                       : currentView === 'wallet-selector'
-                      ? 'Select Wallet'
-                      : currentView === 'forgot-password'
-                      ? 'Reset Password'
-                      : 'Link Your Account'}
+                        ? 'Select Wallet'
+                        : currentView === 'forgot-password'
+                          ? 'Reset Password'
+                          : 'Link Your Account'}
                   </h2>
                   <p className="text-gray-300 text-center mb-8">
                     {currentView === 'main'
                       ? 'Sign in to your account'
                       : currentView === 'wallet-selector'
-                      ? 'Choose your preferred wallet'
-                      : currentView === 'forgot-password'
-                      ? "We'll send you a reset link"
-                      : 'Enter your email to continue'}
+                        ? 'Choose your preferred wallet'
+                        : currentView === 'forgot-password'
+                          ? "We'll send you a reset link"
+                          : 'Enter your email to continue'}
                   </p>
                 </motion.div>
 
