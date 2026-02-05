@@ -1,9 +1,8 @@
 'use client';
 
-import { ISupportedWallet } from '@creit.tech/stellar-wallets-kit';
 import { createContext, useContext, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { initializeWallet, getWalletKit } from '../lib/wallet';
+import { getWalletKit } from '../lib/wallet';
 
 // Wallet context type definition
 interface WalletContextType {
@@ -39,17 +38,21 @@ const WALLET_ID_KEY = 'walletId';
 // Create the context
 const WalletContext = createContext<WalletContextType>(defaultContext);
 
+let kit = getWalletKit();
+
 // Provider component
 export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [publicKey, setPublicKey] = useState<string | null>(null);
-  const [networkPassphrase, setNetworkPassphrase] = useState<string | null>(null);
+  const [networkPassphrase, setNetworkPassphrase] = useState<string | null>(
+    null,
+  );
   const [walletId, setWalletId] = useState<string | null>(null);
 
   // Initialize wallet on mount
   useEffect(() => {
-    initializeWallet();
+    kit = getWalletKit();
   }, []);
 
   // Check if wallet is connected on initial load
@@ -58,8 +61,6 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
       try {
         // Check if browser environment is available
         if (typeof window === 'undefined') return;
-
-        const kit = getWalletKit();
         if (!kit) return;
 
         // Try to reconnect using the creit kit
@@ -92,15 +93,7 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   // Connect wallet
-  const connect = async ({
-    onWalletSelected,
-    modalTitle = 'Connect Wallet',
-    notAvailableText = 'No wallets available',
-  }: {
-    onWalletSelected?: (address: string) => void;
-    modalTitle?: string;
-    notAvailableText?: string;
-  }): Promise<string | null> => {
+  const connect = async (): Promise<string | null> => {
     if (isConnected && publicKey) return publicKey;
 
     const kit = getWalletKit();
@@ -123,27 +116,12 @@ export const WalletProvider = ({ children }: { children: React.ReactNode }) => {
         }
       }
 
-      await kit.openModal({
-        onWalletSelected: async (option: ISupportedWallet) => {
-          kit.setWallet(option.id);
-          setWalletId(option.id);
-          localStorage.setItem(WALLET_ID_KEY, option.id);
+      const { address } = await kit.authModal();
 
-          const { address } = await kit.getAddress();
-          setPublicKey(address);
-          onWalletSelected?.(address);
-        },
-        modalTitle,
-        notAvailableText,
-      });
-
-      // Get the public key
-      const pubKey = (await kit.getAddress()).address;
-
-      if (pubKey) {
-        setPublicKey(pubKey);
+      if (address) {
+        setPublicKey(address);
         setIsConnected(true);
-        return pubKey;
+        return address;
       }
 
       toast.error('No public key returned from wallet');

@@ -6,7 +6,6 @@ import {
   Bounty as ContractBounty,
   Client as SorobanClient,
 } from '../../packages/stallion/src/index';
-import { initKit } from './wallet';
 
 // Environment variables with defaults
 const CONTRACT_ID = process.env.NEXT_PUBLIC_BOUNTY_CONTRACT_ID || '';
@@ -236,16 +235,7 @@ export class SorobanService {
 
           // Sign and send the transaction to the blockchain
           console.log('Sending transaction to wallet for approval...');
-          const sentTx = await result.signAndSend({
-            signTransaction: (transaction) => {
-              const kit = initKit();
-              if (!kit) {
-                throw new Error('Wallet not connected');
-              }
-
-              return kit.signTransaction(transaction);
-            },
-          });
+          const sentTx = await result.signAndSend();
           console.log('Transaction sent, waiting for result...');
 
           // await confirmation
@@ -649,15 +639,7 @@ export class SorobanService {
 
       // Sign and send the transaction
       console.log('Sending transaction to wallet for approval...');
-      const sentTx = await result.signAndSend({
-        signTransaction: (transaction) => {
-          const kit = initKit();
-          if (!kit) {
-            throw new Error('Wallet not connected');
-          }
-          return kit.signTransaction(transaction);
-        },
-      });
+      const sentTx = await result.signAndSend();
       console.log('Transaction sent, waiting for result...');
 
       // Check the result
